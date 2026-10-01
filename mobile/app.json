@@ -1,0 +1,1 @@
+{"expo":{"name":"TransitLK","slug":"transitlk","version":"1.0.0","orientation":"portrait","userInterfaceStyle":"light","scheme":"transitlk","ios":{"supportsTablet":true,"bundleIdentifier":"lk.transit.mobile"},"android":{"package":"lk.transit.mobile"},"web":{"bundler":"metro","name":"TransitLK"},"plugins":["expo-secure-store"]}}

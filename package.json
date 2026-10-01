@@ -1,0 +1,12 @@
+{
+  "name": "transitlk", "private": true, "version": "1.0.0",
+  "packageManager": "pnpm@11.25.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @transitlk/backend --filter @transitlk/mobile dev",
+    "api": "pnpm --filter @transitlk/backend dev",
+    "mobile": "pnpm --filter @transitlk/mobile start",
+    "web": "pnpm --filter @transitlk/mobile web",
+    "test": "pnpm --filter @transitlk/backend test",
+    "typecheck": "pnpm --filter @transitlk/mobile typecheck"
+  }
+}
