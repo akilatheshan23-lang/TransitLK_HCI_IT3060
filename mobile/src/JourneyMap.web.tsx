@@ -1,0 +1,4 @@
+import React from 'react';
+import {View,Text,StyleSheet,Linking,Pressable} from 'react-native';
+import {Tracking} from './transitTypes';
+export default function JourneyMap({data}:{data:Tracking}){return <View style={[StyleSheet.absoluteFill,{backgroundColor:'#DDF6EF',alignItems:'center',justifyContent:'center',padding:25,gap:16}]}><Text style={{color:'#12304A',fontWeight:'700',fontSize:18}}>Map available on Android / iOS</Text><Text style={{color:'#607D94'}}>Open TransitLK in Expo Go to see the interactive map and vehicle marker.</Text><Pressable accessibilityRole="link" onPress={()=>void Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${data.position?.latitude||6.933},${data.position?.longitude||79.85}`)}><Text style={{color:'#008783',fontWeight:'700'}}>Open location in Google Maps ↗</Text></Pressable></View>;}

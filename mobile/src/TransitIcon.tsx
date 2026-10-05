@@ -1,0 +1,7 @@
+import React from 'react';
+import Svg,{Path,Rect,Circle} from 'react-native-svg';
+import {colors} from './theme';
+export type TransitIconName='bus'|'train'|'pin'|'clock'|'home'|'ticket'|'community'|'profile'|'swap'|'bookmark'|'refresh';
+export function TransitIcon({name,size=22,color=colors.teal}:{name:TransitIconName;size?:number;color?:string}){return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+{name==='bus'?<><Rect x="5" y="3" width="14" height="16" rx="3"/><Path d="M5 11h14M8 19v2m8-2v2M8 15h1m6 0h1M8 6h8"/></>:name==='train'?<><Rect x="5" y="2" width="14" height="16" rx="3"/><Path d="M5 10h14M12 3v7M8 14h1m6 0h1M8 18l-3 4m11-4 3 4M7 21h10"/></>:name==='pin'?<><Path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><Circle cx="12" cy="10" r="2.5"/></>:name==='clock'?<><Circle cx="12" cy="12" r="9"/><Path d="M12 6v6l4 3"/></>:name==='home'?<Path d="m3 10 9-8 9 8v11h-7v-7h-4v7H3Z"/>:name==='ticket'?<Path d="M3 5h18v5a2 2 0 0 0 0 4v5H3v-5a2 2 0 0 0 0-4ZM12 5v3m0 3v2m0 3v3"/>:name==='community'?<Path d="M3 3h18v14H9l-6 5Z"/>:name==='profile'?<><Circle cx="12" cy="6" r="4"/><Path d="M3 22v-3a9 9 0 0 1 18 0v3"/></>:name==='swap'?<Path d="M7 3v17m-4-4 4 4 4-4M17 21V4m-4 4 4-4 4 4"/>:name==='bookmark'?<Path d="M5 3h14v19l-7-5-7 5Z"/>:<Path d="M20 8a9 9 0 1 0 1 7M20 3v6h-6"/>}
+</Svg>;}

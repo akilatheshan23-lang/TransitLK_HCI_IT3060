@@ -1,6 +1,7 @@
 node_modules/
 .expo/
 dist/
+dist-android/
 coverage/
 .env
 .env.*
@@ -9,3 +10,7 @@ coverage/
 .DS_Store
 android/
 ios/
+.local/
+
+.pnpm-store/
+.idea/

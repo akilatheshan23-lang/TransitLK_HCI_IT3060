@@ -1,0 +1,96 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "TransitLK: Backend",
+      "program": "${workspaceFolder}/scripts/dev.cjs",
+      "args": [
+        "backend"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "windows": {
+        "runtimeExecutable": "${env:USERPROFILE}/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node.exe"
+      }
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "TransitLK: Frontend (browser)",
+      "program": "${workspaceFolder}/scripts/dev.cjs",
+      "args": [
+        "frontend"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "windows": {
+        "runtimeExecutable": "${env:USERPROFILE}/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node.exe"
+      }
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "TransitLK: Mobile (Expo Go)",
+      "program": "${workspaceFolder}/scripts/dev.cjs",
+      "args": [
+        "mobile"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "windows": {
+        "runtimeExecutable": "${env:USERPROFILE}/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node.exe"
+      }
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "TransitLK: Android (Pixel 7)",
+      "program": "${workspaceFolder}/scripts/dev.cjs",
+      "args": [
+        "android"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "windows": {
+        "runtimeExecutable": "${env:USERPROFILE}/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node.exe"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "TransitLK: Android + Backend",
+      "configurations": [
+        "TransitLK: Backend",
+        "TransitLK: Android (Pixel 7)"
+      ],
+      "stopAll": true
+    },
+    {
+      "name": "TransitLK: All",
+      "configurations": [
+        "TransitLK: Backend",
+        "TransitLK: Frontend (browser)",
+        "TransitLK: Mobile (Expo Go)"
+      ],
+      "stopAll": true
+    }
+  ]
+}

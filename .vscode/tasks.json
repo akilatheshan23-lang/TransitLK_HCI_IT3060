@@ -1,0 +1,116 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "TransitLK: Backend",
+      "type": "shell",
+      "command": "${workspaceFolder}\\scripts\\run.cmd",
+      "args": [
+        "backend"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "transitlk",
+        "clear": true
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      }
+    },
+    {
+      "label": "TransitLK: Frontend (browser)",
+      "type": "shell",
+      "command": "${workspaceFolder}\\scripts\\run.cmd",
+      "args": [
+        "frontend"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "transitlk",
+        "clear": true
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      }
+    },
+    {
+      "label": "TransitLK: Mobile (Expo Go)",
+      "type": "shell",
+      "command": "${workspaceFolder}\\scripts\\run.cmd",
+      "args": [
+        "mobile"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "transitlk",
+        "clear": true
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      }
+    },
+    {
+      "label": "TransitLK: Android (Pixel 7)",
+      "type": "shell",
+      "command": "${workspaceFolder}\\scripts\\run.cmd",
+      "args": [
+        "android"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "transitlk",
+        "clear": true
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      }
+    },
+    {
+      "label": "TransitLK: All",
+      "dependsOrder": "parallel",
+      "dependsOn": [
+        "TransitLK: Backend",
+        "TransitLK: Frontend (browser)",
+        "TransitLK: Mobile (Expo Go)"
+      ],
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "TransitLK: Android + Backend",
+      "dependsOrder": "parallel",
+      "dependsOn": [
+        "TransitLK: Backend",
+        "TransitLK: Android (Pixel 7)"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}
