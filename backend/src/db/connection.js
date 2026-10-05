@@ -1,4 +1,33 @@
 import { MongoClient } from 'mongodb';
+import dns from 'dns';
+
+// Set public reliable DNS servers to prevent SRV resolution drops on local ISP/router DNS
+try {
+  if (typeof dns.setDefaultResultOrder === 'function') {
+    dns.setDefaultResultOrder('ipv4first');
+  }
+  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+} catch (e) {
+  console.warn('[MongoDB DNS] Could not override default DNS servers:', e.message);
+}
+
+// Bulletproof custom lookup that queries public DNS (8.8.8.8, 1.1.1.1)
+// to prevent personal hotspot (172.20.10.1) and ISP DNS drops for MongoDB Atlas replica sets
+export const customMongoLookup = (hostname, options, callback) => {
+  if (typeof options === 'function') {
+    callback = options;
+    options = {};
+  }
+  dns.resolve4(hostname, (err, addresses) => {
+    if (!err && addresses && addresses.length > 0) {
+      if (options && options.all) {
+        return callback(null, addresses.map((addr) => ({ address: addr, family: 4 })));
+      }
+      return callback(null, addresses[0], 4);
+    }
+    dns.lookup(hostname, options, callback);
+  });
+};
 
 let client = null;
 let db = null;
@@ -15,7 +44,9 @@ export async function connectToDatabase() {
 
   client = new MongoClient(uri, {
     maxPoolSize: 10,
-    serverSelectionTimeoutMS: 8000,
+    lookup: customMongoLookup,
+    serverSelectionTimeoutMS: 10000,
+    connectTimeoutMS: 10000,
   });
 
   await client.connect();

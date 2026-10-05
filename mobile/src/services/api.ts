@@ -116,6 +116,21 @@ export const api = {
   },
 
   /**
+   * Continue with Google OAuth authentication
+   */
+  async googleLogin(payload: {
+    email: string;
+    name?: string;
+    googleId?: string;
+    avatarUrl?: string;
+  }): Promise<AuthResponse> {
+    return request('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
    * Sign in as an Authority Officer
    */
   async officerLogin(payload: {
