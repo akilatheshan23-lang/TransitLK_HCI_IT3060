@@ -47,6 +47,45 @@ export interface AuthResponse {
   token?: string;
 }
 
+export interface BusSearchResult {
+  id: string;
+  busRegNumber: string;
+  ownerName: string;
+  companyName?: string;
+  routeNumber: string;
+  routeName: string;
+  busType: string;
+  fromStop: string;
+  toStop: string;
+  stopsBetween: number;
+  totalSeats: number;
+  availableSeats: number;
+  fare: number;
+  departureTime: string;
+  arrivalTime: string;
+  duration: string;
+  rating: number;
+  features: string[];
+  travelDate: string;
+}
+
+export interface LocationsResponse {
+  success: boolean;
+  count: number;
+  locations: string[];
+  message?: string;
+}
+
+export interface BusSearchResponse {
+  success: boolean;
+  from?: string;
+  to?: string;
+  date?: string;
+  count?: number;
+  buses?: BusSearchResult[];
+  message?: string;
+}
+
 async function request(endpoint: string, options: RequestInit = {}): Promise<AuthResponse> {
   const baseUrl = getApiBaseUrl();
   const url = `${baseUrl}${endpoint}`;
@@ -270,4 +309,53 @@ export const api = {
       console.error('Failed to clear auth session:', e);
     }
   },
+
+  /**
+   * Get all available route town stops (ordered and deduplicated from active bus routes)
+   */
+  async getLocations(): Promise<LocationsResponse> {
+    const res = await request('/buses/locations', { method: 'GET' });
+    return res as unknown as LocationsResponse;
+  },
+
+  /**
+   * Search for buses from origin town to destination town
+   */
+  async searchBuses(params: {
+    from: string;
+    to: string;
+    date?: string;
+    time?: string;
+  }): Promise<BusSearchResponse> {
+    const query = new URLSearchParams({
+      from: params.from,
+      to: params.to,
+      ...(params.date ? { date: params.date } : {}),
+      ...(params.time ? { time: params.time } : {}),
+    }).toString();
+    const res = await request(`/buses/search?${query}`, { method: 'GET' });
+    return res as unknown as BusSearchResponse;
+  },
+
+  /**
+   * Register a new bus by an approved owner
+   */
+  async registerBus(payload: {
+    ownerId: string;
+    busRegNumber: string;
+    routeNumber: string;
+    busType?: string;
+    totalSeats?: number;
+    baseFare?: number;
+    departureTime?: string;
+    arrivalTime?: string;
+    customStops?: string[];
+  }): Promise<{ success: boolean; message: string; bus?: any }> {
+    const res = await request('/buses', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return res as any;
+  },
 };
+

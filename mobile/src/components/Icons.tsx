@@ -292,3 +292,93 @@ export const GoogleColorIcon: React.FC<IconProps> = ({ size = 20 }) => (
     />
   </Svg>
 );
+
+export const LocationPinIcon: React.FC<IconProps> = ({ size = 20, color = '#007A74' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Circle
+      cx={12}
+      cy={9}
+      r={2.5}
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+export const ClockIcon: React.FC<IconProps> = ({ size = 20, color = '#007A74' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx={12} cy={12} r={9} stroke={color} strokeWidth={2} />
+    <Path
+      d="M12 7v5l3 2"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+export const TrainIcon: React.FC<IconProps> = ({ size = 20, color = '#007A74' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Rect
+      x={4}
+      y={3}
+      width={16}
+      height={14}
+      rx={3}
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M4 11h16"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+    />
+    <Circle cx={8} cy={14} r={1.2} fill={color} />
+    <Circle cx={16} cy={14} r={1.2} fill={color} />
+    <Path
+      d="M7 17l-3 4M17 17l3 4M8 21h8"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+export const SearchIcon: React.FC<IconProps> = ({ size = 20, color = '#64748B' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx={11} cy={11} r={7} stroke={color} strokeWidth={2} />
+    <Path
+      d="M20 20l-4-4"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+
+export const ChevronDownIcon: React.FC<IconProps> = ({ size = 18, color = '#64748B' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M6 9l6 6 6-6"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+

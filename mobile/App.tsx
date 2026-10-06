@@ -13,6 +13,7 @@ import { RegisterScreen } from './src/screens/RegisterScreen';
 import { AuthorityLoginScreen } from './src/screens/AuthorityLoginScreen';
 import { BusOwnerLoginScreen } from './src/screens/BusOwnerLoginScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
+import { HomeScreen } from './src/screens/HomeScreen';
 import { colors } from './src/theme/colors';
 import { api, UserProfile } from './src/services/api';
 
@@ -21,7 +22,8 @@ export type ScreenType =
   | 'register'
   | 'authority-login'
   | 'bus-owner-login'
-  | 'dashboard';
+  | 'dashboard'
+  | 'home';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -32,12 +34,13 @@ export default function App() {
         hash === 'register' ||
         hash === 'authority-login' ||
         hash === 'bus-owner-login' ||
-        hash === 'dashboard'
+        hash === 'dashboard' ||
+        hash === 'home'
       ) {
         return hash as ScreenType;
       }
     }
-    return 'login';
+    return 'home';
   });
 
   // Check existing session on startup
@@ -59,7 +62,8 @@ export default function App() {
           hash === 'register' ||
           hash === 'authority-login' ||
           hash === 'bus-owner-login' ||
-          hash === 'dashboard'
+          hash === 'dashboard' ||
+          hash === 'home'
         ) {
           setCurrentScreen(hash as ScreenType);
         }
@@ -79,7 +83,7 @@ export default function App() {
 
   const handleAuthenticated = (user: UserProfile) => {
     setCurrentUser(user);
-    navigateTo('dashboard');
+    navigateTo('home');
   };
 
   const handleLogout = async () => {
@@ -91,6 +95,21 @@ export default function App() {
 
   const renderScreen = () => {
     switch (currentScreen) {
+      case 'home':
+        return (
+          <HomeScreen
+            user={
+              currentUser || {
+                id: 'demo-user',
+                email: 'kamal.perera@example.com',
+                name: 'Kamal Perera',
+                role: 'passenger',
+              }
+            }
+            onNavigateToProfile={() => navigateTo('dashboard')}
+            onNavigateBack={() => navigateTo('login')}
+          />
+        );
       case 'login':
         return (
           <LoginScreen
@@ -133,7 +152,8 @@ export default function App() {
               }
             }
             onLogout={handleLogout}
-            onNavigateBack={() => navigateTo('login')}
+            onNavigateBack={() => navigateTo('home')}
+            onNavigateToHome={() => navigateTo('home')}
           />
         );
       default:
@@ -143,6 +163,8 @@ export default function App() {
 
   const getScreenTitle = (screen: ScreenType) => {
     switch (screen) {
+      case 'home':
+        return '04 · Home';
       case 'login':
         return '02 · Login';
       case 'register':
@@ -176,6 +198,7 @@ export default function App() {
           <View style={styles.tabButtonsGroup}>
             {(
               [
+                ['home', '04 · Home / Journey'],
                 ['login', '1. User Login'],
                 ['register', '2. Create Account'],
                 ['authority-login', '3. Authority Officer'],

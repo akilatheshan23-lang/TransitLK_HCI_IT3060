@@ -62,6 +62,15 @@ export async function connectToDatabase() {
     const sessions = db.collection('sessions');
     await sessions.createIndex({ tokenHash: 1 }, { unique: true });
     await sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+    const buses = db.collection('buses');
+    await buses.createIndex({ busRegNumber: 1 });
+    await buses.createIndex({ routeNumber: 1 });
+    await buses.createIndex({ ownerId: 1 });
+
+    const routes = db.collection('routes');
+    await routes.createIndex({ routeNumber: 1 }, { unique: true });
+
     console.log('[MongoDB] Indexes verified successfully.');
   } catch (indexError) {
     console.warn('[MongoDB] Index creation warning:', indexError.message);
@@ -83,6 +92,14 @@ export function getUsersCollection() {
 
 export function getSessionsCollection() {
   return getDb().collection('sessions');
+}
+
+export function getBusesCollection() {
+  return getDb().collection('buses');
+}
+
+export function getRoutesCollection() {
+  return getDb().collection('routes');
 }
 
 export async function closeDatabase() {

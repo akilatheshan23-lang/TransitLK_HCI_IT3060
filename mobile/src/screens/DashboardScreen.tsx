@@ -31,12 +31,14 @@ interface DashboardScreenProps {
   user: UserProfile;
   onLogout: () => void;
   onNavigateBack?: () => void;
+  onNavigateToHome?: () => void;
 }
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   user,
   onLogout,
   onNavigateBack,
+  onNavigateToHome,
 }) => {
   const [selectedLanguage, setSelectedLanguage] = useState('English / Sinhala / Tamil');
   const [activeTab, setActiveTab] = useState<'home' | 'tickets' | 'community' | 'profile'>('profile');
@@ -347,7 +349,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         {/* Tab 1: Home */}
         <TouchableOpacity
           style={styles.tabItem}
-          onPress={() => setActiveTab('home')}
+          onPress={() => {
+            if (onNavigateToHome) {
+              onNavigateToHome();
+            } else {
+              setActiveTab('home');
+            }
+          }}
           activeOpacity={0.7}
         >
           <HomeIcon size={22} color={activeTab === 'home' ? colors.teal.primary : colors.neutral.placeholder} />

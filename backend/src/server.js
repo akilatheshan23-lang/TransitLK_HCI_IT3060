@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { connectToDatabase, closeDatabase } from './db/connection.js';
 import { authRouter } from './routes/auth.js';
 import { adminRouter } from './routes/admin.js';
+import { busesRouter, seedDefaultRoutesAndBuses } from './routes/buses.js';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -51,6 +52,9 @@ app.use('/api/auth', authRouter);
 // Admin Management API Routes
 app.use('/api/admin', adminRouter);
 
+// Buses & Journey API Routes
+app.use('/api/buses', busesRouter);
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ success: false, message: `Route not found: ${req.method} ${req.url}` });
@@ -66,6 +70,7 @@ app.use((err, req, res, next) => {
 async function startServer() {
   try {
     await connectToDatabase();
+    await seedDefaultRoutesAndBuses();
 
     const server = app.listen(Number(PORT), HOST, () => {
       console.log(`🚀 TransitLK API Server running on http://${HOST}:${PORT}`);
