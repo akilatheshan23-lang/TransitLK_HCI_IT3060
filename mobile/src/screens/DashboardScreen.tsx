@@ -10,7 +10,6 @@ import {
   Modal,
   Linking,
   KeyboardAvoidingView,
-  TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
 import { Header } from '../components/Header';
@@ -245,100 +244,102 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           if (!adminLoading) setShowAdminModal(false);
         }}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.modalOverlay}>
-            <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-              style={styles.modalKeyboardContainer}
-            >
-              <View style={styles.modalCard}>
-                {/* Shield / Lock Badge Header */}
-                <View style={styles.modalHeaderBadge}>
-                  <View style={styles.modalIconCircle}>
-                    <LockIcon size={24} color={colors.teal.primary} />
-                  </View>
-                  <Text style={styles.modalKicker}>RESTRICTED ACCESS</Text>
-                  <Text style={styles.modalTitle}>Admin Verification</Text>
-                  <Text style={styles.modalSubtitle}>
-                    Please confirm administrator credentials to open the TransitLK Admin Portal.
-                  </Text>
+        <View style={styles.modalOverlay}>
+          {/* Backdrop Touch Area to close modal on outside tap */}
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => {
+              if (!adminLoading) {
+                Keyboard.dismiss();
+                setShowAdminModal(false);
+              }
+            }}
+          />
+
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalKeyboardContainer}
+            pointerEvents="box-none"
+          >
+            <View style={styles.modalCard}>
+              {/* Shield / Lock Badge Header */}
+              <View style={styles.modalHeaderBadge}>
+                <View style={styles.modalIconCircle}>
+                  <LockIcon size={24} color={colors.teal.primary} />
                 </View>
-
-                {/* Error Banner */}
-                {adminError ? (
-                  <View style={styles.modalErrorBanner}>
-                    <Text style={styles.modalErrorText}>⚠️ {adminError}</Text>
-                  </View>
-                ) : null}
-
-                {/* Form fields */}
-                <View style={styles.modalForm}>
-                  <InputField
-                    label="Admin Username"
-                    placeholder="Enter username (e.g. admin)"
-                    value={adminUsername}
-                    onChangeText={(val) => {
-                      setAdminUsername(val);
-                      if (adminError) setAdminError('');
-                    }}
-                    leftIcon={<UserIcon size={18} color={colors.teal.primary} />}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    autoComplete="off"
-                    textContentType="none"
-                  />
-
-                  <InputField
-                    label="Admin Password"
-                    placeholder="Enter password (e.g. admin123)"
-                    value={adminPassword}
-                    onChangeText={(val) => {
-                      setAdminPassword(val);
-                      if (adminError) setAdminError('');
-                    }}
-                    isPassword={true}
-                    leftIcon={<LockIcon size={18} color={colors.teal.primary} />}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    autoComplete="off"
-                    textContentType="none"
-                  />
-                </View>
-
-                {/* Credentials reminder tip */}
-                <View style={styles.modalCredentialTip}>
-                  <Text style={styles.modalTipLabel}>SYSTEM DEFAULT CREDENTIALS</Text>
-                  <Text style={styles.modalTipText}>
-                    Username: <Text style={styles.modalTipCode}>admin</Text>  |  Password:{' '}
-                    <Text style={styles.modalTipCode}>admin123</Text>
-                  </Text>
-                </View>
-
-                {/* Action Buttons */}
-                <View style={styles.modalActions}>
-                  <AppButton
-                    title={adminLoading ? 'Verifying Admin...' : 'Verify & Open Dashboard'}
-                    onPress={handleAdminVerify}
-                    variant="teal"
-                    loading={adminLoading}
-                    showArrow={!adminLoading}
-                  />
-
-                  <TouchableOpacity
-                    style={styles.modalCancelButton}
-                    onPress={() => {
-                      if (!adminLoading) setShowAdminModal(false);
-                    }}
-                    disabled={adminLoading}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.modalCancelText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
+                <Text style={styles.modalKicker}>RESTRICTED ACCESS</Text>
+                <Text style={styles.modalTitle}>Admin Verification</Text>
+                <Text style={styles.modalSubtitle}>
+                  Please confirm administrator credentials to open the TransitLK Admin Portal.
+                </Text>
               </View>
-            </KeyboardAvoidingView>
-          </View>
-        </TouchableWithoutFeedback>
+
+              {/* Error Banner */}
+              {adminError ? (
+                <View style={styles.modalErrorBanner}>
+                  <Text style={styles.modalErrorText}>⚠️ {adminError}</Text>
+                </View>
+              ) : null}
+
+              {/* Form fields */}
+              <View style={styles.modalForm}>
+                <InputField
+                  label="Admin Username"
+                  placeholder="Enter username"
+                  value={adminUsername}
+                  onChangeText={(val) => {
+                    setAdminUsername(val);
+                    if (adminError) setAdminError('');
+                  }}
+                  leftIcon={<UserIcon size={18} color={colors.teal.primary} />}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="off"
+                  textContentType="none"
+                />
+
+                <InputField
+                  label="Admin Password"
+                  placeholder="Enter password"
+                  value={adminPassword}
+                  onChangeText={(val) => {
+                    setAdminPassword(val);
+                    if (adminError) setAdminError('');
+                  }}
+                  isPassword={true}
+                  leftIcon={<LockIcon size={18} color={colors.teal.primary} />}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="new-password"
+                  textContentType="none"
+                />
+              </View>
+
+              {/* Action Buttons */}
+              <View style={styles.modalActions}>
+                <AppButton
+                  title={adminLoading ? 'Verifying Admin...' : 'Verify & Open Dashboard'}
+                  onPress={handleAdminVerify}
+                  variant="teal"
+                  loading={adminLoading}
+                  showArrow={!adminLoading}
+                />
+
+                <TouchableOpacity
+                  style={styles.modalCancelButton}
+                  onPress={() => {
+                    if (!adminLoading) setShowAdminModal(false);
+                  }}
+                  disabled={adminLoading}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       {/* Bottom Navigation Bar */}
@@ -539,15 +540,23 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
   },
   modalKeyboardContainer: {
     width: '100%',
     maxWidth: 400,
     alignItems: 'center',
+    zIndex: 1,
   },
   modalCard: {
     width: '100%',
@@ -612,32 +621,6 @@ const styles = StyleSheet.create({
   },
   modalForm: {
     marginBottom: 8,
-  },
-  modalCredentialTip: {
-    backgroundColor: '#F0FDF4',
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-    borderRadius: 12,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    marginBottom: 14,
-    alignItems: 'center',
-  },
-  modalTipLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#166534',
-    letterSpacing: 0.8,
-    marginBottom: 2,
-  },
-  modalTipText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#14532D',
-  },
-  modalTipCode: {
-    fontWeight: '800',
-    color: colors.teal.primary,
   },
   modalActions: {
     gap: 8,
