@@ -199,6 +199,19 @@ export const api = {
   },
 
   /**
+   * Verify Admin Credentials & Authenticate for Admin Dashboard Website
+   */
+  async adminLogin(payload: {
+    username: string;
+    password: string;
+  }): Promise<AuthResponse & { adminDashboardUrl?: string }> {
+    return request('/admin/login', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
    * Fetch current user profile with active session token
    */
   async getMe(token: string): Promise<AuthResponse> {

@@ -7,6 +7,11 @@ import {
   TouchableOpacity,
   Platform,
   Alert,
+  Modal,
+  Linking,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { Header } from '../components/Header';
 import {
@@ -16,9 +21,12 @@ import {
   ChatBubbleIcon,
   ScannerIcon,
   HomeIcon,
+  LockIcon,
 } from '../components/Icons';
+import { InputField } from '../components/InputField';
+import { AppButton } from '../components/Buttons';
 import { colors } from '../theme/colors';
-import { UserProfile } from '../services/api';
+import { UserProfile, api } from '../services/api';
 
 interface DashboardScreenProps {
   user: UserProfile;
@@ -33,6 +41,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 }) => {
   const [selectedLanguage, setSelectedLanguage] = useState('English / Sinhala / Tamil');
   const [activeTab, setActiveTab] = useState<'home' | 'tickets' | 'community' | 'profile'>('profile');
+
+  // Admin Verification Modal State
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [adminUsername, setAdminUsername] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminLoading, setAdminLoading] = useState(false);
+  const [adminError, setAdminError] = useState('');
 
   const showAlert = (title: string, msg: string) => {
     if (Platform.OS === 'web') {
@@ -52,6 +67,76 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     const langs = ['English / Sinhala / Tamil', 'සිංහල / English / தமிழ்', 'தமிழ் / English / සිංහල'];
     const nextIdx = (langs.indexOf(selectedLanguage) + 1) % langs.length;
     setSelectedLanguage(langs[nextIdx]);
+  };
+
+  const handleOpenAdminModal = () => {
+    setAdminUsername('');
+    setAdminPassword('');
+    setAdminError('');
+    setShowAdminModal(true);
+  };
+
+  const handleAdminVerify = async () => {
+    const cleanUsername = adminUsername.trim();
+    if (!cleanUsername) {
+      setAdminError('Please enter admin username.');
+      return;
+    }
+    if (!adminPassword) {
+      setAdminError('Please enter admin password.');
+      return;
+    }
+
+    setAdminLoading(true);
+    setAdminError('');
+
+    try {
+      const res = await api.adminLogin({
+        username: cleanUsername,
+        password: adminPassword,
+      });
+
+      setAdminLoading(false);
+
+      if (res.success) {
+        setShowAdminModal(false);
+        setAdminUsername('');
+        setAdminPassword('');
+        setAdminError('');
+
+        // Resolve admin dashboard destination URL
+        let dashboardUrl = res.adminDashboardUrl || 'http://localhost:3001';
+
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          const hostname = window.location.hostname;
+          if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+            dashboardUrl = `http://${hostname}:3001`;
+          }
+          window.open(dashboardUrl, '_blank');
+        } else {
+          // Real mobile device / Expo Go on Android Pixel 7
+          if (dashboardUrl.includes('localhost')) {
+            dashboardUrl = 'http://172.20.10.3:3001';
+          }
+          const canOpen = await Linking.canOpenURL(dashboardUrl).catch(() => false);
+          if (canOpen) {
+            await Linking.openURL(dashboardUrl);
+          } else {
+            Linking.openURL(dashboardUrl).catch(() => {
+              showAlert(
+                'Open Admin Dashboard',
+                `Please open the admin portal in your browser: ${dashboardUrl}`
+              );
+            });
+          }
+        }
+      } else {
+        setAdminError(res.message || 'Invalid Admin Credentials. Access denied.');
+      }
+    } catch (err: any) {
+      setAdminLoading(false);
+      setAdminError(err.message || 'Network error while contacting admin service.');
+    }
   };
 
   return (
@@ -126,10 +211,18 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           {/* 4. Admin dashboard */}
           <TouchableOpacity
             style={styles.adminCard}
-            onPress={() => showAlert('Admin dashboard', `Accessing TransitLK portal for ${user.email} (MongoDB Atlas).`)}
+            onPress={handleOpenAdminModal}
             activeOpacity={0.75}
           >
-            <Text style={styles.adminCardText}>Admin dashboard</Text>
+            <View style={styles.adminCardRow}>
+              <View style={styles.adminTitleRow}>
+                <LockIcon size={16} color={colors.teal.primary} />
+                <Text style={styles.adminCardText}>Admin dashboard</Text>
+              </View>
+              <View style={styles.adminLockBadge}>
+                <Text style={styles.adminLockBadgeText}>Security Login</Text>
+              </View>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -142,6 +235,111 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           <Text style={styles.signOutText}>Sign out</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Administrator Security Verification Modal */}
+      <Modal
+        visible={showAdminModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          if (!adminLoading) setShowAdminModal(false);
+        }}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalOverlay}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              style={styles.modalKeyboardContainer}
+            >
+              <View style={styles.modalCard}>
+                {/* Shield / Lock Badge Header */}
+                <View style={styles.modalHeaderBadge}>
+                  <View style={styles.modalIconCircle}>
+                    <LockIcon size={24} color={colors.teal.primary} />
+                  </View>
+                  <Text style={styles.modalKicker}>RESTRICTED ACCESS</Text>
+                  <Text style={styles.modalTitle}>Admin Verification</Text>
+                  <Text style={styles.modalSubtitle}>
+                    Please confirm administrator credentials to open the TransitLK Admin Portal.
+                  </Text>
+                </View>
+
+                {/* Error Banner */}
+                {adminError ? (
+                  <View style={styles.modalErrorBanner}>
+                    <Text style={styles.modalErrorText}>⚠️ {adminError}</Text>
+                  </View>
+                ) : null}
+
+                {/* Form fields */}
+                <View style={styles.modalForm}>
+                  <InputField
+                    label="Admin Username"
+                    placeholder="Enter username (e.g. admin)"
+                    value={adminUsername}
+                    onChangeText={(val) => {
+                      setAdminUsername(val);
+                      if (adminError) setAdminError('');
+                    }}
+                    leftIcon={<UserIcon size={18} color={colors.teal.primary} />}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="off"
+                    textContentType="none"
+                  />
+
+                  <InputField
+                    label="Admin Password"
+                    placeholder="Enter password (e.g. admin123)"
+                    value={adminPassword}
+                    onChangeText={(val) => {
+                      setAdminPassword(val);
+                      if (adminError) setAdminError('');
+                    }}
+                    isPassword={true}
+                    leftIcon={<LockIcon size={18} color={colors.teal.primary} />}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="off"
+                    textContentType="none"
+                  />
+                </View>
+
+                {/* Credentials reminder tip */}
+                <View style={styles.modalCredentialTip}>
+                  <Text style={styles.modalTipLabel}>SYSTEM DEFAULT CREDENTIALS</Text>
+                  <Text style={styles.modalTipText}>
+                    Username: <Text style={styles.modalTipCode}>admin</Text>  |  Password:{' '}
+                    <Text style={styles.modalTipCode}>admin123</Text>
+                  </Text>
+                </View>
+
+                {/* Action Buttons */}
+                <View style={styles.modalActions}>
+                  <AppButton
+                    title={adminLoading ? 'Verifying Admin...' : 'Verify & Open Dashboard'}
+                    onPress={handleAdminVerify}
+                    variant="teal"
+                    loading={adminLoading}
+                    showArrow={!adminLoading}
+                  />
+
+                  <TouchableOpacity
+                    style={styles.modalCancelButton}
+                    onPress={() => {
+                      if (!adminLoading) setShowAdminModal(false);
+                    }}
+                    disabled={adminLoading}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.modalCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </KeyboardAvoidingView>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
 
       {/* Bottom Navigation Bar */}
       <View style={styles.bottomTabBar}>
@@ -293,17 +491,39 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
   },
   adminCard: {
-    height: 50,
+    height: 52,
     backgroundColor: '#DCF5EE',
     borderRadius: 14,
     justifyContent: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
+  },
+  adminCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  adminTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   adminCardText: {
     fontSize: 15,
     fontWeight: '700',
     color: colors.teal.primary,
     letterSpacing: -0.1,
+  },
+  adminLockBadge: {
+    backgroundColor: '#C5EDE0',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  adminLockBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.teal.primary,
+    letterSpacing: 0.2,
   },
   signOutContainer: {
     alignItems: 'center',
@@ -316,6 +536,121 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.teal.primary,
     letterSpacing: -0.1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalKeyboardContainer: {
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.16,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeaderBadge: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#DCF5EE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  modalKicker: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.teal.primary,
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.neutral.title,
+    letterSpacing: -0.4,
+    marginBottom: 6,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: colors.neutral.muted,
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 8,
+  },
+  modalErrorBanner: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 14,
+  },
+  modalErrorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#DC2626',
+    textAlign: 'center',
+  },
+  modalForm: {
+    marginBottom: 8,
+  },
+  modalCredentialTip: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    marginBottom: 14,
+    alignItems: 'center',
+  },
+  modalTipLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#166534',
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
+  modalTipText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#14532D',
+  },
+  modalTipCode: {
+    fontWeight: '800',
+    color: colors.teal.primary,
+  },
+  modalActions: {
+    gap: 8,
+    marginTop: 4,
+  },
+  modalCancelButton: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.neutral.muted,
   },
   bottomTabBar: {
     height: 64,

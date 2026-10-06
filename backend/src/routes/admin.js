@@ -9,15 +9,18 @@ import {
 
 export const adminRouter = Router();
 
-// Ensure default Admin user exists in MongoDB
-async function ensureAdminUser() {
+// Ensure default Admin user exists in MongoDB with username = 'admin' and password = 'admin123'
+export async function ensureAdminUser() {
   const users = getUsersCollection();
   const adminEmail = 'admin@transitlk.com';
-  let admin = await users.findOne({ email: adminEmail });
+  let admin = await users.findOne({
+    $or: [{ role: 'admin' }, { email: adminEmail }, { username: 'admin' }],
+  });
 
   if (!admin) {
     admin = {
       _id: generateId(),
+      username: 'admin',
       email: adminEmail,
       name: 'TransitLK Administrator',
       role: 'admin',
@@ -27,7 +30,23 @@ async function ensureAdminUser() {
       updatedAt: new Date().toISOString(),
     };
     await users.insertOne(admin);
-    console.log('[Admin] Seeded default administrator account: admin@transitlk.com');
+    console.log('[Admin] Seeded default administrator account: username="admin", email="admin@transitlk.com", password="admin123"');
+  } else {
+    // Ensure username field is set to 'admin'
+    if (!admin.username) {
+      await users.updateOne(
+        { _id: admin._id },
+        {
+          $set: {
+            username: 'admin',
+            role: 'admin',
+            status: 'approved',
+            updatedAt: new Date().toISOString(),
+          },
+        }
+      );
+      admin.username = 'admin';
+    }
   }
 
   return admin;
@@ -35,25 +54,37 @@ async function ensureAdminUser() {
 
 /**
  * POST /api/admin/login
- * Admin authentication
+ * Admin authentication (Accepts username="admin" and password="admin123")
  */
 adminRouter.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { username, email, password } = req.body;
+    const inputIdentifier = (username || email || '').toLowerCase().trim();
 
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Admin email and password are required' });
+    if (!inputIdentifier || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username/Email and password are required',
+      });
     }
 
-    const normalizedEmail = email.toLowerCase().trim();
     const admin = await ensureAdminUser();
 
-    if (normalizedEmail !== 'admin@transitlk.com' && normalizedEmail !== 'admin') {
-      return res.status(401).json({ success: false, message: 'Unauthorized: Invalid admin credentials' });
-    }
+    // Verify username or email
+    const isValidIdentifier =
+      inputIdentifier === 'admin' ||
+      inputIdentifier === 'admin@transitlk.com' ||
+      inputIdentifier === admin.email.toLowerCase() ||
+      inputIdentifier === (admin.username || '').toLowerCase();
 
-    if (!verifyPassword(password, admin.passwordHash) && password !== 'admin123') {
-      return res.status(401).json({ success: false, message: 'Invalid admin password' });
+    const isPasswordValid =
+      verifyPassword(password, admin.passwordHash) || password === 'admin123';
+
+    if (!isValidIdentifier || !isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid Admin Credentials. Access denied.',
+      });
     }
 
     const { token, tokenHash } = generateSessionToken();
@@ -72,11 +103,13 @@ adminRouter.post('/login', async (req, res) => {
       message: 'Admin authenticated successfully',
       user: {
         id: admin._id,
+        username: admin.username || 'admin',
         email: admin.email,
         name: admin.name,
         role: 'admin',
       },
       token,
+      adminDashboardUrl: 'http://localhost:3001',
     });
   } catch (error) {
     console.error('Admin login error:', error);
