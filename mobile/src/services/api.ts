@@ -29,13 +29,20 @@ export interface UserProfile {
   id: string;
   email: string;
   name: string;
-  role: 'passenger' | 'authority' | 'bus_owner' | string;
+  role: 'passenger' | 'authority' | 'bus_owner' | 'admin' | string;
+  status?: 'pending' | 'approved' | 'rejected' | string;
+  officerId?: string;
+  department?: string;
+  companyName?: string;
+  busRegNumbers?: string;
+  phone?: string;
   language?: string;
 }
 
 export interface AuthResponse {
   success: boolean;
   message?: string;
+  status?: string;
   user?: UserProfile;
   token?: string;
 }
@@ -63,6 +70,7 @@ async function request(endpoint: string, options: RequestInit = {}): Promise<Aut
     if (!response.ok) {
       return {
         success: false,
+        status: data.status,
         message: data.message || `Request failed with status ${response.status}`,
       };
     }
@@ -125,6 +133,40 @@ export const api = {
     avatarUrl?: string;
   }): Promise<AuthResponse> {
     return request('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * Register a new Authority Officer account (Requires Admin Approval)
+   */
+  async registerOfficer(payload: {
+    name: string;
+    email: string;
+    officerId: string;
+    department: string;
+    phone?: string;
+    password: string;
+  }): Promise<AuthResponse> {
+    return request('/auth/register-officer', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * Register a new Bus Fleet Owner account (Requires Admin Approval)
+   */
+  async registerBusOwner(payload: {
+    name: string;
+    email: string;
+    companyName: string;
+    busRegNumbers?: string;
+    phone?: string;
+    password: string;
+  }): Promise<AuthResponse> {
+    return request('/auth/register-owner', {
       method: 'POST',
       body: JSON.stringify(payload),
     });

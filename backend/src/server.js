@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { connectToDatabase, closeDatabase } from './db/connection.js';
 import { authRouter } from './routes/auth.js';
+import { adminRouter } from './routes/admin.js';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -46,6 +47,9 @@ app.get('/api/health', (req, res) => {
 
 // Auth API Routes
 app.use('/api/auth', authRouter);
+
+// Admin Management API Routes
+app.use('/api/admin', adminRouter);
 
 // 404 handler
 app.use((req, res) => {

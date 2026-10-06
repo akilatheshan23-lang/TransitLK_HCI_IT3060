@@ -25,8 +25,8 @@ async function createSession(userId) {
   return token;
 }
 
-// Ensure demo accounts for Authority Officer & Bus Owner exist
-async function ensureSeedAccount({ email, name, role, defaultPassword }) {
+// Ensure demo accounts for Authority Officer, Bus Owner, and Admin exist
+async function ensureSeedAccount({ email, name, role, defaultPassword, extra = {} }) {
   const users = getUsersCollection();
   let user = await users.findOne({ email: email.toLowerCase().trim() });
   if (!user) {
@@ -37,6 +37,8 @@ async function ensureSeedAccount({ email, name, role, defaultPassword }) {
       language: 'en',
       passwordHash: hashPassword(defaultPassword),
       role,
+      status: 'approved',
+      ...extra,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -228,6 +230,154 @@ authRouter.post('/google', async (req, res) => {
 });
 
 /**
+ * POST /api/auth/register-officer
+ * Authority Officer Registration (Requires Admin Approval)
+ */
+authRouter.post('/register-officer', async (req, res) => {
+  try {
+    const { name, email, officerId, department, phone, password } = req.body;
+
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ success: false, message: 'Full name is required' });
+    }
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      return res.status(400).json({ success: false, message: 'Valid official email address is required' });
+    }
+    if (!officerId || typeof officerId !== 'string' || !officerId.trim()) {
+      return res.status(400).json({ success: false, message: 'Officer ID / Badge number is required' });
+    }
+    if (!department || typeof department !== 'string' || !department.trim()) {
+      return res.status(400).json({ success: false, message: 'Department or Authority Division is required' });
+    }
+    if (!password || typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedOfficerId = officerId.trim();
+    const users = getUsersCollection();
+
+    const existing = await users.findOne({
+      $or: [{ email: normalizedEmail }, { officerId: normalizedOfficerId }],
+    });
+
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message:
+          existing.email === normalizedEmail
+            ? 'An account with this official email already exists'
+            : 'An officer with this Officer ID is already registered',
+      });
+    }
+
+    const newOfficer = {
+      _id: generateId(),
+      email: normalizedEmail,
+      name: name.trim(),
+      officerId: normalizedOfficerId,
+      department: department.trim(),
+      phone: (phone && phone.trim()) || null,
+      passwordHash: hashPassword(password),
+      role: 'authority',
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await users.insertOne(newOfficer);
+    console.log(`[Officer Register] Registered pending officer: ${newOfficer.email} (${newOfficer.officerId})`);
+
+    return res.status(201).json({
+      success: true,
+      status: 'pending',
+      message: 'Officer registration submitted successfully! Your account is pending administrator approval.',
+      user: {
+        id: newOfficer._id,
+        email: newOfficer.email,
+        name: newOfficer.name,
+        officerId: newOfficer.officerId,
+        department: newOfficer.department,
+        role: 'authority',
+        status: 'pending',
+      },
+    });
+  } catch (error) {
+    console.error('Officer registration error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error during officer registration' });
+  }
+});
+
+/**
+ * POST /api/auth/register-owner
+ * Bus Owner Registration (Requires Admin Approval)
+ */
+authRouter.post('/register-owner', async (req, res) => {
+  try {
+    const { name, email, companyName, busRegNumbers, phone, password } = req.body;
+
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ success: false, message: 'Owner full name is required' });
+    }
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      return res.status(400).json({ success: false, message: 'Valid email address is required' });
+    }
+    if (!companyName || typeof companyName !== 'string' || !companyName.trim()) {
+      return res.status(400).json({ success: false, message: 'Fleet / Company name is required' });
+    }
+    if (!password || typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const users = getUsersCollection();
+
+    const existing = await users.findOne({ email: normalizedEmail });
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: 'An account with this email address already exists',
+      });
+    }
+
+    const newOwner = {
+      _id: generateId(),
+      email: normalizedEmail,
+      name: name.trim(),
+      companyName: companyName.trim(),
+      busRegNumbers: (busRegNumbers && busRegNumbers.trim()) || null,
+      phone: (phone && phone.trim()) || null,
+      passwordHash: hashPassword(password),
+      role: 'bus_owner',
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await users.insertOne(newOwner);
+    console.log(`[Bus Owner Register] Registered pending bus owner: ${newOwner.email} (${newOwner.companyName})`);
+
+    return res.status(201).json({
+      success: true,
+      status: 'pending',
+      message: 'Bus owner registration submitted successfully! Your account is pending administrator approval.',
+      user: {
+        id: newOwner._id,
+        email: newOwner.email,
+        name: newOwner.name,
+        companyName: newOwner.companyName,
+        busRegNumbers: newOwner.busRegNumbers,
+        role: 'bus_owner',
+        status: 'pending',
+      },
+    });
+  } catch (error) {
+    console.error('Bus owner registration error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error during bus owner registration' });
+  }
+});
+
+/**
  * POST /api/auth/officer-login
  * Authority Officer Login
  */
@@ -255,6 +405,11 @@ authRouter.post('/officer-login', async (req, res) => {
         name: 'Officer Wickramasinghe',
         role: 'authority',
         defaultPassword: 'password123',
+        extra: {
+          officerId: 'NTC-001',
+          department: 'Western Province Transport Authority',
+          status: 'approved',
+        },
       });
     }
 
@@ -272,6 +427,23 @@ authRouter.post('/officer-login', async (req, res) => {
       });
     }
 
+    // Verify admin approval status
+    if (user.status === 'pending') {
+      return res.status(403).json({
+        success: false,
+        status: 'pending',
+        message: 'Your account is pending administrator approval. Please wait until your credentials are verified.',
+      });
+    }
+
+    if (user.status === 'rejected') {
+      return res.status(403).json({
+        success: false,
+        status: 'rejected',
+        message: `Your registration request was rejected by the administrator.${user.rejectionReason ? ` Reason: ${user.rejectionReason}` : ''}`,
+      });
+    }
+
     const token = await createSession(user._id);
 
     return res.json({
@@ -281,7 +453,10 @@ authRouter.post('/officer-login', async (req, res) => {
         id: user._id,
         email: user.email,
         name: user.name,
+        officerId: user.officerId,
+        department: user.department,
         role: 'authority',
+        status: user.status || 'approved',
       },
       token,
     });
@@ -319,6 +494,11 @@ authRouter.post('/owner-login', async (req, res) => {
         name: 'Fleet Owner Silva',
         role: 'bus_owner',
         defaultPassword: 'password123',
+        extra: {
+          companyName: 'Silva Express Transport Ltd',
+          busRegNumbers: 'ND-3204, ND-4521',
+          status: 'approved',
+        },
       });
     }
 
@@ -336,6 +516,23 @@ authRouter.post('/owner-login', async (req, res) => {
       });
     }
 
+    // Verify admin approval status
+    if (user.status === 'pending') {
+      return res.status(403).json({
+        success: false,
+        status: 'pending',
+        message: 'Your account is pending administrator approval. Please wait until your fleet credentials are verified.',
+      });
+    }
+
+    if (user.status === 'rejected') {
+      return res.status(403).json({
+        success: false,
+        status: 'rejected',
+        message: `Your registration request was rejected by the administrator.${user.rejectionReason ? ` Reason: ${user.rejectionReason}` : ''}`,
+      });
+    }
+
     const token = await createSession(user._id);
 
     return res.json({
@@ -345,7 +542,10 @@ authRouter.post('/owner-login', async (req, res) => {
         id: user._id,
         email: user.email,
         name: user.name,
+        companyName: user.companyName,
+        busRegNumbers: user.busRegNumbers,
         role: 'bus_owner',
+        status: user.status || 'approved',
       },
       token,
     });
