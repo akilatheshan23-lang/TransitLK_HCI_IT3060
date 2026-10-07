@@ -17,6 +17,7 @@ export default function CardPayment() {
   const [cvv, setCvv] = useState('');
   const [cardName, setCardName] = useState('');
   const [totalFare, setTotalFare] = useState<number>(0);
+  const [isTopUpMode, setIsTopUpMode] = useState(false);
 
   const isFormValid = cardNumber.trim().length > 0 && 
                       expiry.trim().length > 0 && 
@@ -24,8 +25,15 @@ export default function CardPayment() {
                       cardName.trim().length > 0;
 
   useEffect(() => {
-    const loadTicketData = async () => {
+    const loadData = async () => {
       try {
+        const topupStr = await AsyncStorage.getItem('@pending_topup');
+        if (topupStr) {
+          setIsTopUpMode(true);
+          setTotalFare(parseFloat(topupStr));
+          return;
+        }
+
         const stored = await AsyncStorage.getItem('@pending_ticket');
         if (stored) {
           const parsed = JSON.parse(stored);
@@ -33,7 +41,7 @@ export default function CardPayment() {
         }
       } catch (e) {}
     };
-    loadTicketData();
+    loadData();
   }, []);
 
   const handlePayment = async () => {
@@ -48,16 +56,31 @@ export default function CardPayment() {
       return;
     }
 
-    // Pure mock for Presentation (No backend hit to avoid ERR_CONNECTION_REFUSED)
-    setTimeout(() => {
+    // Process payment based on mode
+    setTimeout(async () => {
       setIsLoading(false);
-      navigation.navigate('TicketSummary');
+      
+      if (isTopUpMode) {
+        try {
+          const balanceStr = await AsyncStorage.getItem('@wallet_balance');
+          const currentBalance = balanceStr ? parseFloat(balanceStr) : 1250.00;
+          await AsyncStorage.setItem('@wallet_balance', (currentBalance + totalFare).toString());
+          await AsyncStorage.removeItem('@pending_topup');
+          
+          // Direct navigation without Alert
+          navigation.navigate('EWalletPayment');
+        } catch (e) {
+          Alert.alert('Error', 'Something went wrong. Please try again.');
+        }
+      } else {
+        navigation.navigate('TicketSummary');
+      }
     }, 1500);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Card payment" />
+      <Header title={isTopUpMode ? "Wallet top-up" : "Card payment"} />
       
       <View style={styles.content}>
         <View style={styles.cardPreview}>

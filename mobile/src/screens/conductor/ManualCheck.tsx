@@ -27,13 +27,13 @@ export default function ManualCheck() {
       <View style={styles.content}>
         <Ionicons name="keypad-outline" size={64} color="#cbd5e1" style={{ alignSelf: 'center', marginBottom: 24 }} />
         
-        <Text style={styles.title}>Enter Ticket Number</Text>
-        <Text style={styles.subtitle}>Use this when the QR code cannot be scanned.</Text>
+        <Text style={styles.title}>Enter Ticket or Code</Text>
+        <Text style={styles.subtitle}>Use this when the QR code cannot be scanned. Enter Ticket ID or 5-Digit Verification Code.</Text>
         
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
-            placeholder="e.g., TKT001"
+            placeholder="e.g., TKT001 or 12345"
             value={ticketId}
             onChangeText={setTicketId}
             autoCapitalize="characters"

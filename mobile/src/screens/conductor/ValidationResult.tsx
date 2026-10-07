@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../../components/Header';
@@ -10,13 +10,16 @@ export default function ValidationResult() {
   const route = useRoute<any>();
   const ticketData = route.params?.ticketData || 'Unknown';
 
-  const isValid = ticketData.includes('TKT001') || ticketData.includes('"isValid":true');
+  const [isValid, setIsValid] = useState<boolean | null>(null);
+  const [isChecking, setIsChecking] = useState(true);
 
   let ticketId = ticketData;
   let fromLoc = 'Horana';
   let toLoc = 'Colombo';
-  let dateStr = '12 Sep 2026';
-  let timeStr = '08:30 AM';
+  
+  const now = new Date();
+  let dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  let timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   let priceStr = 'Rs. 250';
 
   // Try to parse dynamic data if the QR code contains JSON (e.g., from Passenger flow)
@@ -33,36 +36,81 @@ export default function ValidationResult() {
   }
 
   useEffect(() => {
-    const updateStatsAndHistory = async () => {
+    const validateTicket = async () => {
       try {
-        const statsJson = await AsyncStorage.getItem('@conductor_stats');
-        let stats = statsJson ? JSON.parse(statsJson) : { valid: 35, remaining: 12 };
+        const scannedJson = await AsyncStorage.getItem('@scanned_tickets_v3');
+        const scannedTickets = scannedJson ? JSON.parse(scannedJson) : [];
         
-        if (isValid) {
-          stats.valid = (stats.valid || 0) + 1;
-          stats.remaining = Math.max(0, (stats.remaining || 1) - 1);
+        let validStatus = false;
+        if (scannedTickets.includes(ticketId)) {
+          validStatus = false; // Already scanned
+        } else {
+          validStatus = true; // New ticket
+          scannedTickets.push(ticketId);
+          await AsyncStorage.setItem('@scanned_tickets_v3', JSON.stringify(scannedTickets));
         }
         
-        await AsyncStorage.setItem('@conductor_stats', JSON.stringify(stats));
+        setIsValid(validStatus);
+
+        const activeTrip = await AsyncStorage.getItem('@active_trip_v3') || 'trip1';
+        const statsJson = await AsyncStorage.getItem('@conductor_stats_v3');
+        let stats = statsJson ? JSON.parse(statsJson) : { trip1: { valid: 0, revenue: 0 }, trip2: { valid: 0, revenue: 0 }, invalid: 0 };
+        
+        if (typeof stats.valid === 'number' && !stats.trip1) {
+          stats = {
+            trip1: { valid: stats.valid, revenue: stats.revenue || (stats.valid * 250) },
+            trip2: { valid: 0, revenue: 0 },
+            invalid: stats.invalid || 0
+          };
+        }
+        
+        const fare = parseFloat(priceStr.replace(/[^0-9.]/g, '')) || 250;
+        const numberOfTickets = Math.max(1, Math.round(fare / 250));
+
+        if (validStatus) {
+          if (!stats[activeTrip]) stats[activeTrip] = { valid: 0, revenue: 0 };
+          stats[activeTrip].valid = (stats[activeTrip].valid || 0) + numberOfTickets;
+          stats[activeTrip].revenue = (stats[activeTrip].revenue || 0) + fare;
+        } else {
+          stats.invalid = (stats.invalid || 0) + 1;
+        }
+        
+        await AsyncStorage.setItem('@conductor_stats_v3', JSON.stringify(stats));
 
         // Save to History
-        const historyJson = await AsyncStorage.getItem('@conductor_history');
+        const historyJson = await AsyncStorage.getItem('@conductor_history_v3');
         const history = historyJson ? JSON.parse(historyJson) : [];
         const now = new Date();
         const formattedTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
         
         history.push({
           ticketId,
-          isValid,
+          isValid: validStatus,
           time: formattedTime,
           date: now.toLocaleDateString()
         });
         
-        await AsyncStorage.setItem('@conductor_history', JSON.stringify(history));
-      } catch (e) {}
+        await AsyncStorage.setItem('@conductor_history_v3', JSON.stringify(history));
+      } catch (e) {
+        setIsValid(false);
+      } finally {
+        setIsChecking(false);
+      }
     };
-    updateStatsAndHistory();
-  }, [isValid]);
+    validateTicket();
+  }, [ticketId]);
+
+  if (isChecking || isValid === null) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Header title="Ticket check" />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#0f766e" />
+          <Text style={{ marginTop: 16, color: '#64748b' }}>Verifying ticket...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>

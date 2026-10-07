@@ -21,6 +21,7 @@ export default function TicketSummary() {
           const route = JSON.parse(pendingStr);
           const finalTicket = {
             id: `TKT${Math.floor(Math.random() * 10000)}`,
+            verificationCode: Math.floor(10000 + Math.random() * 90000).toString(),
             from: route.from,
             to: route.to,
             date: route.date,

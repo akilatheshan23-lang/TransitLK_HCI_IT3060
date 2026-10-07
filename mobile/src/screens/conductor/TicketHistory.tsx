@@ -13,7 +13,7 @@ export default function TicketHistory() {
   useEffect(() => {
     const loadHistory = async () => {
       try {
-        const historyJson = await AsyncStorage.getItem('@conductor_history');
+        const historyJson = await AsyncStorage.getItem('@conductor_history_v3');
         if (historyJson) {
           const allData = JSON.parse(historyJson);
           if (filterType === 'all') {
@@ -33,9 +33,9 @@ export default function TicketHistory() {
   }, [filterType]);
 
   const clearHistory = async () => {
-    await AsyncStorage.removeItem('@conductor_history');
+    await AsyncStorage.removeItem('@conductor_history_v3');
     // Also reset stats
-    await AsyncStorage.setItem('@conductor_stats', JSON.stringify({ scanned: 0, valid: 0, invalid: 0 }));
+    await AsyncStorage.setItem('@conductor_stats_v3', JSON.stringify({ trip1: { valid: 0, revenue: 0 }, trip2: { valid: 0, revenue: 0 }, invalid: 0 }));
     setHistory([]);
   };
 
@@ -56,8 +56,15 @@ export default function TicketHistory() {
             <Text style={styles.emptyText}>No tickets found.</Text>
           </View>
         ) : (
-          <FlatList
-            data={history}
+          <>
+            <View style={styles.summaryBanner}>
+              <Text style={styles.summaryText}>Total Tickets: {history.length}</Text>
+              {filterType === 'valid' && (
+                <Text style={styles.summaryTotal}>Revenue: Rs. {history.length * 250}</Text>
+              )}
+            </View>
+            <FlatList
+              data={history}
             keyExtractor={(item, index) => index.toString()}
             renderItem={({ item }) => (
               <View style={styles.historyCard}>
@@ -76,6 +83,7 @@ export default function TicketHistory() {
               </View>
             )}
           />
+          </>
         )}
         
         {history.length > 0 && (
@@ -93,6 +101,9 @@ const styles = StyleSheet.create({
   content: { padding: 20, flex: 1 },
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyText: { marginTop: 16, fontSize: 16, color: '#64748b' },
+  summaryBanner: { backgroundColor: '#e0f2fe', padding: 16, borderRadius: 12, marginBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  summaryText: { fontSize: 16, fontWeight: '700', color: '#0369a1' },
+  summaryTotal: { fontSize: 16, fontWeight: '800', color: '#0284c7' },
   historyCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 16, borderRadius: 12, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   iconBox: { width: 40, height: 40, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
   details: { flex: 1 },

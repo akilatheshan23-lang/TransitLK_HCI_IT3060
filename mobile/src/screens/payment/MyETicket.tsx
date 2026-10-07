@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Platform, ActivityIndicator, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import QRCode from 'react-native-qrcode-svg';
@@ -48,7 +48,7 @@ export default function MyETicket() {
     <SafeAreaView style={styles.container}>
       <Header title="My E-Ticket" />
       
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.ticketContainer}>
           
           <View style={styles.offlineBadge}>
@@ -66,7 +66,15 @@ export default function MyETicket() {
               />
             </View>
             <Text style={styles.ticketIdText}>{ticketData.id}</Text>
-            <Text style={styles.scanInstruction}>Show this code to your conductor</Text>
+            
+            {ticketData.verificationCode ? (
+              <View style={styles.verificationCodeBox}>
+                <Text style={styles.verificationCodeLabel}>Verification Code</Text>
+                <Text style={styles.verificationCodeText}>{ticketData.verificationCode}</Text>
+              </View>
+            ) : null}
+
+            <Text style={styles.scanInstruction}>Show this QR or code to your conductor</Text>
           </View>
 
           <View style={styles.divider}>
@@ -100,14 +108,14 @@ export default function MyETicket() {
 
         </View>
 
-          <TouchableOpacity 
-            style={styles.saveBtn}
-            onPress={() => navigation.navigate('SavedTickets')}
-          >
-            <Text style={styles.saveBtnText}>Save ticket</Text>
-            <Ionicons name="download-outline" size={20} color="#fff" />
-          </TouchableOpacity>
-      </View>
+        <TouchableOpacity 
+          style={styles.saveBtn}
+          onPress={() => navigation.navigate('SavedTickets')}
+        >
+          <Text style={styles.saveBtnText}>Save ticket</Text>
+          <Ionicons name="download-outline" size={20} color="#fff" />
+        </TouchableOpacity>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -122,7 +130,10 @@ const styles = StyleSheet.create({
   scanText: { color: '#0f766e', fontSize: 13, fontWeight: '800', letterSpacing: 1, marginBottom: 16 },
   qrCodeWrapper: { padding: 16, backgroundColor: '#fff', borderRadius: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 },
   ticketIdText: { marginTop: 20, fontSize: 20, fontWeight: '800', color: '#0f172a' },
-  scanInstruction: { marginTop: 4, fontSize: 13, color: '#64748b' },
+  verificationCodeBox: { marginTop: 12, paddingVertical: 8, paddingHorizontal: 16, backgroundColor: '#f1f5f9', borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#cbd5e1' },
+  verificationCodeLabel: { fontSize: 11, color: '#64748b', fontWeight: '700', letterSpacing: 0.5, marginBottom: 2 },
+  verificationCodeText: { fontSize: 24, fontWeight: '800', color: '#0f766e', letterSpacing: 4 },
+  scanInstruction: { marginTop: 12, fontSize: 13, color: '#64748b' },
   divider: { flexDirection: 'row', alignItems: 'center', marginVertical: 24 },
   notchLeft: { width: 16, height: 32, backgroundColor: '#f1f5f9', borderTopRightRadius: 16, borderBottomRightRadius: 16 },
   notchRight: { width: 16, height: 32, backgroundColor: '#f1f5f9', borderTopLeftRadius: 16, borderBottomLeftRadius: 16 },
