@@ -64,8 +64,12 @@ export const BusOwnerLoginScreen: React.FC<BusOwnerLoginScreenProps> = ({
         await api.saveSession(res.token, res.user);
         showAlert(
           'Bus Owner Access Granted',
-          `Authenticated as ${res.user.name} (${res.user.email})`
+          `Authenticated as ${res.user.name} (${res.user.email}). Opening Bus Owner Web Dashboard...`
         );
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          const webUrl = `http://localhost:3001/?role=bus_owner&token=${encodeURIComponent(res.token)}`;
+          window.open(webUrl, '_blank');
+        }
         onLoginSuccess?.(res.user);
       } else {
         const msg = res.message || 'Authentication failed. Please verify owner credentials.';
@@ -299,6 +303,22 @@ export const BusOwnerLoginScreen: React.FC<BusOwnerLoginScreenProps> = ({
                   activeOpacity={0.8}
                 >
                   <Text style={styles.returnToSignInText}>Proceed to Sign In</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.returnToSignInBtn, { backgroundColor: colors.teal.primary, marginTop: 10 }]}
+                  onPress={() => {
+                    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                      window.open('http://localhost:3001/?role=bus_owner', '_blank');
+                    } else {
+                      showAlert('Web Dashboard', 'Access your fleet dashboard at http://localhost:3001/?role=bus_owner');
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.returnToSignInText, { color: '#FFFFFF' }]}>
+                    Open Bus Owner Web Dashboard ↗
+                  </Text>
                 </TouchableOpacity>
               </View>
             ) : (

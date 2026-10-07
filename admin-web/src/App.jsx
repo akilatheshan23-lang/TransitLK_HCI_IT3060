@@ -1,19 +1,97 @@
 import React, { useState, useEffect } from 'react';
+import { BusOwnerDashboard } from './components/BusOwnerDashboard.jsx';
+import { AuthorityDashboard } from './components/AuthorityDashboard.jsx';
 
 const API_BASE = 'http://localhost:4000/api';
 
 export default function App() {
-  const [adminUser, setAdminUser] = useState({
-    name: 'TransitLK Administrator',
-    email: 'admin@transitlk.com',
-    role: 'admin',
+  // Current authenticated user: { id, email, name, role, ... } or null
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('transitlk_portal_session');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return parsed.user || null;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return null;
   });
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [loginEmail, setLoginEmail] = useState('admin@transitlk.com');
+
+  // Login form states
+  const [loginRole, setLoginRole] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const role = params.get('role');
+      if (role === 'bus_owner' || role === 'owner') return 'bus_owner';
+      if (role === 'authority' || role === 'officer') return 'authority';
+      if (role === 'admin') return 'admin';
+      const hash = window.location.hash.replace('#', '');
+      if (hash === 'bus-owner' || hash === 'owner') return 'bus_owner';
+      if (hash === 'authority' || hash === 'officer') return 'authority';
+    }
+    return 'admin';
+  });
+
+  const [loginIdentifier, setLoginIdentifier] = useState('admin');
   const [loginPassword, setLoginPassword] = useState('admin123');
   const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
+  const [loginPending, setLoginPending] = useState('');
 
-  // Data states
+  // Switch login role tab
+  const handleSelectRoleTab = (role) => {
+    setLoginRole(role);
+    setLoginError('');
+    setLoginPending('');
+    if (role === 'bus_owner') {
+      setLoginIdentifier('owner@transitlk.com');
+      setLoginPassword('password123');
+    } else if (role === 'authority') {
+      setLoginIdentifier('officer@transport.lk');
+      setLoginPassword('password123');
+    } else {
+      setLoginIdentifier('admin');
+      setLoginPassword('admin123');
+    }
+  };
+
+  // Verify URL token on load (e.g. redirected from mobile app login)
+  useEffect(() => {
+    const verifyTokenParam = async () => {
+      if (typeof window === 'undefined') return;
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+
+      if (token) {
+        try {
+          const res = await fetch(`${API_BASE}/auth/me`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }).then((r) => r.json());
+
+          if (res && res.success && res.user) {
+            localStorage.setItem(
+              'transitlk_portal_session',
+              JSON.stringify({ token, user: res.user })
+            );
+            setCurrentUser(res.user);
+            // Clean token from address bar
+            const roleParam = res.user.role ? `?role=${res.user.role}` : '';
+            window.history.replaceState({}, document.title, window.location.pathname + roleParam);
+          }
+        } catch (err) {
+          console.error('Failed to authenticate token:', err);
+        }
+      }
+    };
+
+    verifyTokenParam();
+  }, []);
+
+  // Admin Data states
   const [stats, setStats] = useState({
     totalPending: 0,
     pendingOfficers: 0,
@@ -37,41 +115,36 @@ export default function App() {
 
   // Feedback Toast
   const [toastMessage, setToastMessage] = useState('');
-
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(''), 4500);
   };
 
-  // Fetch all admin data
-  const fetchData = async () => {
+  // Fetch all admin data (ONLY if authenticated as admin)
+  const fetchAdminData = async () => {
+    if (!currentUser || currentUser.role !== 'admin') return;
     setLoading(true);
     try {
-      // 1. Fetch stats
       const statsRes = await fetch(`${API_BASE}/admin/stats`).then((r) => r.json()).catch(() => null);
       if (statsRes && statsRes.stats) {
         setStats(statsRes.stats);
       }
 
-      // 2. Fetch pending queue
       const pendingRes = await fetch(`${API_BASE}/admin/pending`).then((r) => r.json()).catch(() => null);
       if (pendingRes && pendingRes.users) {
         setPendingList(pendingRes.users);
       }
 
-      // 3. Fetch officers
       const officersRes = await fetch(`${API_BASE}/admin/users?role=authority`).then((r) => r.json()).catch(() => null);
       if (officersRes && officersRes.users) {
         setOfficersList(officersRes.users);
       }
 
-      // 4. Fetch bus owners
       const ownersRes = await fetch(`${API_BASE}/admin/users?role=bus_owner`).then((r) => r.json()).catch(() => null);
       if (ownersRes && ownersRes.users) {
         setOwnersList(ownersRes.users);
       }
 
-      // 5. Fetch all users
       const allRes = await fetch(`${API_BASE}/admin/users`).then((r) => r.json()).catch(() => null);
       if (allRes && allRes.users) {
         setAllUsersList(allRes.users);
@@ -84,38 +157,100 @@ export default function App() {
   };
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 8000); // Live poll every 8 seconds
-    return () => clearInterval(interval);
-  }, []);
+    if (currentUser?.role === 'admin') {
+      fetchAdminData();
+      const interval = setInterval(fetchAdminData, 8000);
+      return () => clearInterval(interval);
+    }
+  }, [currentUser?.role]);
 
-  // Admin login handler
-  const handleLogin = async (e) => {
+  // Handle Login submission
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setLoginLoading(true);
-    try {
-      const res = await fetch(`${API_BASE}/admin/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: loginEmail, password: loginPassword }),
-      }).then((r) => r.json());
+    setLoginError('');
+    setLoginPending('');
 
-      setLoginLoading(false);
-      if (res.success && res.user) {
-        setAdminUser(res.user);
-        setIsAuthenticated(true);
-        showToast('Logged in as Administrator successfully!');
-        fetchData();
+    try {
+      if (loginRole === 'bus_owner') {
+        const res = await fetch(`${API_BASE}/auth/owner-login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ownerId: loginIdentifier, password: loginPassword }),
+        }).then((r) => r.json());
+
+        setLoginLoading(false);
+        if (res.success && res.user) {
+          const userObj = { ...res.user, role: 'bus_owner' };
+          localStorage.setItem(
+            'transitlk_portal_session',
+            JSON.stringify({ token: res.token, user: userObj })
+          );
+          setCurrentUser(userObj);
+          showToast(`Welcome back, ${res.user.name}!`);
+        } else if (res.status === 'pending') {
+          setLoginPending(res.message || 'Your bus fleet registration is pending administrator approval.');
+        } else {
+          setLoginError(res.message || 'Invalid bus owner credentials.');
+        }
+      } else if (loginRole === 'authority') {
+        const res = await fetch(`${API_BASE}/auth/officer-login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ officerId: loginIdentifier, password: loginPassword }),
+        }).then((r) => r.json());
+
+        setLoginLoading(false);
+        if (res.success && res.user) {
+          const userObj = { ...res.user, role: 'authority' };
+          localStorage.setItem(
+            'transitlk_portal_session',
+            JSON.stringify({ token: res.token, user: userObj })
+          );
+          setCurrentUser(userObj);
+          showToast(`Welcome on duty, Officer ${res.user.name}!`);
+        } else if (res.status === 'pending') {
+          setLoginPending(res.message || 'Your authority officer account is pending administrator approval.');
+        } else {
+          setLoginError(res.message || 'Invalid official credentials.');
+        }
       } else {
-        alert(res.message || 'Invalid admin credentials');
+        // Admin login
+        const res = await fetch(`${API_BASE}/admin/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: loginIdentifier, password: loginPassword }),
+        }).then((r) => r.json());
+
+        setLoginLoading(false);
+        if (res.success && res.user) {
+          const userObj = { ...res.user, role: 'admin' };
+          localStorage.setItem(
+            'transitlk_portal_session',
+            JSON.stringify({ token: res.token || 'admin-session', user: userObj })
+          );
+          setCurrentUser(userObj);
+          showToast('Logged in as Administrator successfully!');
+        } else {
+          setLoginError(res.message || 'Invalid administrator credentials');
+        }
       }
     } catch (err) {
       setLoginLoading(false);
-      alert('Could not connect to backend API server on http://localhost:4000');
+      setLoginError('Could not connect to backend server on http://localhost:4000');
     }
   };
 
-  // Approve a user
+  // Sign out handler
+  const handleLogout = () => {
+    localStorage.removeItem('transitlk_portal_session');
+    setCurrentUser(null);
+    if (typeof window !== 'undefined') {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  };
+
+  // Admin Approve a user
   const handleApprove = async (userId, userName, role) => {
     try {
       const res = await fetch(`${API_BASE}/admin/approve/${userId}`, {
@@ -124,16 +259,16 @@ export default function App() {
 
       if (res.success) {
         showToast(`Approved ${userName} (${role === 'authority' ? 'Authority Officer' : 'Bus Fleet Owner'}) successfully!`);
-        fetchData();
+        fetchAdminData();
       } else {
         alert(res.message || 'Failed to approve user');
       }
-    } catch (err) {
+    } catch {
       alert('Network error while approving user');
     }
   };
 
-  // Reject a user
+  // Admin Reject a user
   const handleReject = async (userId, userName) => {
     const reason = window.prompt(`Please provide a reason for rejecting ${userName}:`, 'Official credentials could not be verified');
     if (!reason) return;
@@ -147,16 +282,16 @@ export default function App() {
 
       if (res.success) {
         showToast(`Application for ${userName} has been marked as rejected.`);
-        fetchData();
+        fetchAdminData();
       } else {
         alert(res.message || 'Failed to reject user');
       }
-    } catch (err) {
+    } catch {
       alert('Network error while rejecting user');
     }
   };
 
-  // Seed test pending users
+  // Admin Seed test pending users
   const handleSeedPending = async () => {
     try {
       const res = await fetch(`${API_BASE}/admin/seed-demo-pending`, {
@@ -166,36 +301,103 @@ export default function App() {
       if (res.success) {
         showToast('Seeded 2 sample pending applicants into MongoDB! Check the queue.');
         setActiveTab('pending');
-        fetchData();
+        fetchAdminData();
       }
     } catch {
       alert('Could not seed pending users');
     }
   };
 
-  if (!isAuthenticated) {
+  // ========================================================
+  // RENDER LOGIN SCREEN IF NOT AUTHENTICATED
+  // ========================================================
+  if (!currentUser) {
     return (
       <div className="admin-login-overlay">
         <div className="login-card">
-          <div className="login-brand-logo">🚌</div>
-          <h2>TransitLK Admin Portal</h2>
-          <p>Please enter administrative credentials to access registration approvals.</p>
+          <div className="login-brand-logo">
+            {loginRole === 'bus_owner' ? '🚌' : loginRole === 'authority' ? '🛡️' : '👑'}
+          </div>
+          <h2>
+            {loginRole === 'bus_owner'
+              ? 'Bus Owner Operations Portal'
+              : loginRole === 'authority'
+              ? 'Authority Officer Portal'
+              : 'TransitLK Admin Portal'}
+          </h2>
+          <p>
+            {loginRole === 'bus_owner'
+              ? 'Sign in to access your registered fleet details, live routes, and daily revenue metrics.'
+              : loginRole === 'authority'
+              ? 'Sign in with your official ID for network corridor surveillance, inspections, and ticket validation.'
+              : 'Sign in to review and approve registrations for Bus Owners and Authority Officers.'}
+          </p>
 
-          <form className="login-form" onSubmit={handleLogin}>
+          {/* Role Selector Tabs */}
+          <div className="login-role-tabs">
+            <button
+              id="login-tab-bus-owner"
+              type="button"
+              className={`login-role-tab-btn ${loginRole === 'bus_owner' ? 'login-role-tab-active' : ''}`}
+              onClick={() => handleSelectRoleTab('bus_owner')}
+            >
+              <span>🚌</span> Bus Owner
+            </button>
+            <button
+              id="login-tab-authority"
+              type="button"
+              className={`login-role-tab-btn ${loginRole === 'authority' ? 'login-role-tab-active' : ''}`}
+              onClick={() => handleSelectRoleTab('authority')}
+            >
+              <span>🛡️</span> Officer
+            </button>
+            <button
+              id="login-tab-admin"
+              type="button"
+              className={`login-role-tab-btn ${loginRole === 'admin' ? 'login-role-tab-active' : ''}`}
+              onClick={() => handleSelectRoleTab('admin')}
+            >
+              <span>👑</span> Admin
+            </button>
+          </div>
+
+          {/* Error & Pending Banners */}
+          {loginError && <div className="login-error-banner">⚠️ {loginError}</div>}
+          {loginPending && (
+            <div className="login-pending-banner">
+              ⏳ <strong>Pending Approval:</strong> {loginPending}
+            </div>
+          )}
+
+          <form className="login-form" onSubmit={handleLoginSubmit}>
             <div className="form-group">
-              <label>Administrator Email</label>
+              <label htmlFor="login-input-identifier">
+                {loginRole === 'bus_owner'
+                  ? 'Registered Fleet Email / Owner ID'
+                  : loginRole === 'authority'
+                  ? 'Official Email / Officer Badge ID'
+                  : 'Administrator Username or Email'}
+              </label>
               <input
-                type="email"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder="admin@transitlk.com"
+                id="login-input-identifier"
+                type="text"
+                value={loginIdentifier}
+                onChange={(e) => setLoginIdentifier(e.target.value)}
+                placeholder={
+                  loginRole === 'bus_owner'
+                    ? 'owner@transitlk.com'
+                    : loginRole === 'authority'
+                    ? 'officer@transport.lk'
+                    : 'admin'
+                }
                 required
               />
             </div>
 
             <div className="form-group">
-              <label>Password</label>
+              <label htmlFor="login-input-password">Password</label>
               <input
+                id="login-input-password"
                 type="password"
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
@@ -204,22 +406,46 @@ export default function App() {
               />
             </div>
 
-            <button type="submit" className="btn-primary-login" disabled={loginLoading}>
-              {loginLoading ? 'Authenticating...' : 'Sign In to Admin Dashboard'}
+            <button id="login-btn-submit" type="submit" className="btn-primary-login" disabled={loginLoading}>
+              {loginLoading
+                ? 'Authenticating...'
+                : loginRole === 'bus_owner'
+                ? 'Sign In to Bus Owner Dashboard'
+                : loginRole === 'authority'
+                ? 'Sign In to Officer Portal'
+                : 'Sign In to Admin Dashboard'}
             </button>
           </form>
 
           <div className="quick-credentials-hint">
-            <strong>Default Demo Credentials:</strong>
+            <strong>Evaluation Credentials:</strong>
             <br />
-            Email: <code>admin@transitlk.com</code> | Password: <code>admin123</code>
+            {loginRole === 'bus_owner' ? (
+              <span>
+                Owner: <code>owner@transitlk.com</code> (pw: <code>password123</code>) or{' '}
+                <code>paboda@transitlk.com</code> (pw: <code>paboda123</code>)
+              </span>
+            ) : loginRole === 'authority' ? (
+              <span>
+                Officer: <code>officer@transport.lk</code> (pw: <code>password123</code>) or{' '}
+                <code>gamage@transport.gov.lk</code> (pw: <code>gamage123</code>)
+              </span>
+            ) : (
+              <span>
+                Username: <code>admin</code> | Password: <code>admin123</code>
+              </span>
+            )}
           </div>
         </div>
       </div>
     );
   }
 
-  // Filter items for "All Users" tab
+  // ========================================================
+  // RENDER STRICT ROLE-ISOLATED DASHBOARDS
+  // ========================================================
+
+  // Filter items for Admin "All Users" tab
   const filteredAllUsers = allUsersList.filter((u) => {
     const matchesSearch =
       !searchQuery ||
@@ -236,28 +462,47 @@ export default function App() {
 
   return (
     <div className="admin-app">
-      {/* Header */}
+      {/* Role-Specific Header */}
       <header className="admin-header">
         <div className="brand-section">
           <div className="brand-logo-box">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M8 6v6"/>
-              <path d="M15 6v6"/>
-              <path d="M2 12h19.6"/>
-              <path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.6-.4-1-1-1H3c-.6 0-1 .4-1 1 0 .4.1.8.2 1.2.3 1.1.8 2.8.8 2.8h3"/>
-              <circle cx="7" cy="18" r="2"/>
-              <circle cx="17" cy="18" r="2"/>
-            </svg>
+            {currentUser.role === 'bus_owner' ? (
+              <span style={{ fontSize: '1.4rem' }}>🚌</span>
+            ) : currentUser.role === 'authority' ? (
+              <span style={{ fontSize: '1.4rem' }}>🛡️</span>
+            ) : (
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 6v6"/>
+                <path d="M15 6v6"/>
+                <path d="M2 12h19.6"/>
+                <path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.6-.4-1-1-1H3c-.6 0-1 .4-1 1 0 .4.1.8.2 1.2.3 1.1.8 2.8.8 2.8h3"/>
+                <circle cx="7" cy="18" r="2"/>
+                <circle cx="17" cy="18" r="2"/>
+              </svg>
+            )}
           </div>
           <div className="brand-text-col">
             <div className="brand-title">
               TransitLK
-              <span className="portal-tag">Admin Portal</span>
+              <span className="portal-tag">
+                {currentUser.role === 'bus_owner'
+                  ? 'Bus Fleet Owner Portal'
+                  : currentUser.role === 'authority'
+                  ? 'Authority Officer Portal'
+                  : 'Administrator Portal'}
+              </span>
             </div>
-            <div className="brand-sub">Authority Officer & Bus Owner Verification System</div>
+            <div className="brand-sub">
+              {currentUser.role === 'bus_owner'
+                ? 'Fleet Operations, Route Scheduling & Real-time Revenue'
+                : currentUser.role === 'authority'
+                ? 'National Transport Commission Corridor Surveillance & Validator'
+                : 'National Transport Commission & Fleet Web Operations'}
+            </div>
           </div>
         </div>
 
+        {/* Header Right Actions */}
         <div className="header-actions">
           <div className="live-badge">
             <span className="live-dot"></span>
@@ -265,237 +510,271 @@ export default function App() {
           </div>
 
           <div className="admin-profile-chip">
-            <div className="admin-avatar">A</div>
+            <div className="admin-avatar">
+              {currentUser.role === 'bus_owner' ? '🚌' : currentUser.role === 'authority' ? '👮' : '👑'}
+            </div>
             <div className="admin-meta">
-              <span className="admin-name">{adminUser.name}</span>
-              <span className="admin-role">System Administrator</span>
+              <span className="admin-name">{currentUser.name || 'Verified User'}</span>
+              <span className="admin-role">
+                {currentUser.role === 'bus_owner'
+                  ? currentUser.companyName || 'Verified Bus Fleet Owner'
+                  : currentUser.role === 'authority'
+                  ? currentUser.officerId ? `ID: ${currentUser.officerId}` : 'Authority Officer'
+                  : 'System Administrator'}
+              </span>
             </div>
           </div>
 
-          <button className="btn-logout" onClick={() => setIsAuthenticated(false)}>
+          <button id="btn-logout-portal" className="btn-logout" onClick={handleLogout} title="Sign Out of Portal">
             Sign Out
           </button>
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="dashboard-main">
-        {/* Hero Title Bar */}
-        <section className="hero-header">
-          <div className="hero-title-group">
-            <h1>Account Approvals & System Management</h1>
-            <p>
-              Review and approve registration requests for National Transport Authority Officers and Bus Fleet Operators.
-            </p>
-          </div>
+      {/* ========================================================
+          ISOLATED DASHBOARD BODY BASED STRICTLY ON USER ROLE
+          ======================================================== */}
 
-          <div className="hero-action-buttons">
-            <button className="btn-refresh" onClick={fetchData} title="Refresh Live Data">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                <path d="M3 3v5h5"/>
-                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
-                <path d="M16 21h5v-5"/>
-              </svg>
-              {loading ? 'Refreshing...' : 'Live Sync'}
-            </button>
-          </div>
-        </section>
+      {/* 1. BUS OWNER ONLY VIEW */}
+      {currentUser.role === 'bus_owner' && (
+        <BusOwnerDashboard currentUser={currentUser} onLogout={handleLogout} />
+      )}
 
-        {/* Metrics Grid */}
-        <section className="metrics-grid">
-          {/* Card 1: Pending Approvals */}
-          <div className={`metric-card ${stats.totalPending > 0 ? 'alert-card' : ''}`}>
-            <div className="metric-top">
-              <div className="metric-icon-wrap">⏳</div>
-              <span className="metric-badge badge-amber">
-                {stats.totalPending > 0 ? 'Action Required' : 'Up to Date'}
-              </span>
-            </div>
-            <div className="metric-value">{stats.totalPending}</div>
-            <div className="metric-label">Pending Approval Requests</div>
-          </div>
+      {/* 2. AUTHORITY OFFICER ONLY VIEW */}
+      {currentUser.role === 'authority' && (
+        <AuthorityDashboard currentUser={currentUser} onLogout={handleLogout} />
+      )}
 
-          {/* Card 2: Authority Officers */}
-          <div className="metric-card officers-card">
-            <div className="metric-top">
-              <div className="metric-icon-wrap">👮</div>
-              <span className="metric-badge badge-blue">
-                {stats.pendingOfficers > 0 ? `${stats.pendingOfficers} Pending` : 'Verified'}
-              </span>
-            </div>
-            <div className="metric-value">{stats.approvedOfficers}</div>
-            <div className="metric-label">Approved Authority Officers</div>
-          </div>
-
-          {/* Card 3: Bus Fleet Owners */}
-          <div className="metric-card owners-card">
-            <div className="metric-top">
-              <div className="metric-icon-wrap">🚌</div>
-              <span className="metric-badge badge-teal">
-                {stats.pendingOwners > 0 ? `${stats.pendingOwners} Pending` : 'Verified'}
-              </span>
-            </div>
-            <div className="metric-value">{stats.approvedOwners}</div>
-            <div className="metric-label">Approved Bus Fleet Owners</div>
-          </div>
-
-          {/* Card 4: Total Passengers */}
-          <div className="metric-card passengers-card">
-            <div className="metric-top">
-              <div className="metric-icon-wrap">👥</div>
-              <span className="metric-badge badge-slate">Active</span>
-            </div>
-            <div className="metric-value">{stats.totalPassengers}</div>
-            <div className="metric-label">Registered Passenger Users</div>
-          </div>
-        </section>
-
-        {/* Quick Testing Assistant Widget */}
-        <section className="demo-assistant-box">
-          <div className="demo-assistant-info">
-            <span className="demo-bulb">💡</span>
-            <div>
-              <h4>Evaluation & Demonstration Helper</h4>
+      {/* 3. SYSTEM ADMINISTRATOR ONLY VIEW */}
+      {currentUser.role === 'admin' && (
+        <main className="dashboard-main">
+          {/* Hero Title Bar */}
+          <section className="hero-header">
+            <div className="hero-title-group">
+              <h1>Account Approvals & System Management</h1>
               <p>
-                Click below to auto-generate sample pending registration requests to demonstrate the live approval workflow.
+                Review and approve registration requests for National Transport Authority Officers and Bus Fleet Operators.
               </p>
             </div>
-          </div>
 
-          <div className="demo-buttons">
-            <button className="btn-demo" onClick={handleSeedPending}>
-              + Generate 2 Sample Pending Registrations
+            <div className="hero-action-buttons">
+              <button className="btn-refresh" onClick={fetchAdminData} title="Refresh Live Data">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                  <path d="M3 3v5h5"/>
+                  <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                  <path d="M16 21h5v-5"/>
+                </svg>
+                {loading ? 'Refreshing...' : 'Live Sync'}
+              </button>
+            </div>
+          </section>
+
+          {/* Metrics Grid */}
+          <section className="metrics-grid">
+            {/* Card 1: Pending Approvals */}
+            <div className={`metric-card ${stats.totalPending > 0 ? 'alert-card' : ''}`}>
+              <div className="metric-top">
+                <div className="metric-icon-wrap">⏳</div>
+                <span className="metric-badge badge-amber">
+                  {stats.totalPending > 0 ? 'Action Required' : 'Up to Date'}
+                </span>
+              </div>
+              <div className="metric-value">{stats.totalPending}</div>
+              <div className="metric-label">Pending Approval Requests</div>
+            </div>
+
+            {/* Card 2: Authority Officers */}
+            <div className="metric-card officers-card">
+              <div className="metric-top">
+                <div className="metric-icon-wrap">👮</div>
+                <span className="metric-badge badge-blue">
+                  {stats.pendingOfficers > 0 ? `${stats.pendingOfficers} Pending` : 'Verified'}
+                </span>
+              </div>
+              <div className="metric-value">{stats.approvedOfficers}</div>
+              <div className="metric-label">Approved Authority Officers</div>
+            </div>
+
+            {/* Card 3: Bus Fleet Owners */}
+            <div className="metric-card owners-card">
+              <div className="metric-top">
+                <div className="metric-icon-wrap">🚌</div>
+                <span className="metric-badge badge-teal">
+                  {stats.pendingOwners > 0 ? `${stats.pendingOwners} Pending` : 'Verified'}
+                </span>
+              </div>
+              <div className="metric-value">{stats.approvedOwners}</div>
+              <div className="metric-label">Approved Bus Fleet Owners</div>
+            </div>
+
+            {/* Card 4: Total Passengers */}
+            <div className="metric-card passengers-card">
+              <div className="metric-top">
+                <div className="metric-icon-wrap">👥</div>
+                <span className="metric-badge badge-slate">Active</span>
+              </div>
+              <div className="metric-value">{stats.totalPassengers}</div>
+              <div className="metric-label">Registered Passenger Users</div>
+            </div>
+          </section>
+
+          {/* Evaluation Assistant Widget */}
+          <section className="demo-assistant-box">
+            <div className="demo-assistant-info">
+              <span className="demo-bulb">💡</span>
+              <div>
+                <h4>Evaluation & Demonstration Helper</h4>
+                <p>
+                  Click below to auto-generate sample pending registration requests to demonstrate the live approval workflow.
+                </p>
+              </div>
+            </div>
+            <button className="btn-seed" onClick={handleSeedPending}>
+              <span>+</span> Seed 2 Demo Applicants
             </button>
-          </div>
-        </section>
+          </section>
 
-        {/* Content Panel with Tabs */}
-        <section className="content-panel">
-          <div className="panel-tabs-header">
+          {/* Navigation Tabs */}
+          <nav className="tab-navigation">
             <button
-              className={`tab-btn ${activeTab === 'pending' ? 'active' : ''}`}
+              className={`tab-btn ${activeTab === 'pending' ? 'tab-btn-active' : ''}`}
               onClick={() => setActiveTab('pending')}
             >
-              Pending Approvals Queue
-              <span className={`tab-counter ${stats.totalPending > 0 ? 'alert-pill' : 'default-pill'}`}>
-                {stats.totalPending}
-              </span>
+              <span>⏳ Pending Approvals</span>
+              {stats.totalPending > 0 && <span className="tab-count-badge badge-amber">{stats.totalPending}</span>}
             </button>
 
             <button
-              className={`tab-btn ${activeTab === 'officers' ? 'active' : ''}`}
+              className={`tab-btn ${activeTab === 'officers' ? 'tab-btn-active' : ''}`}
               onClick={() => setActiveTab('officers')}
             >
-              Authority Officers
-              <span className="tab-counter default-pill">{officersList.length}</span>
+              <span>👮 Authority Officers</span>
+              <span className="tab-count-badge">{stats.approvedOfficers}</span>
             </button>
 
             <button
-              className={`tab-btn ${activeTab === 'owners' ? 'active' : ''}`}
+              className={`tab-btn ${activeTab === 'owners' ? 'tab-btn-active' : ''}`}
               onClick={() => setActiveTab('owners')}
             >
-              Bus Fleet Owners
-              <span className="tab-counter default-pill">{ownersList.length}</span>
+              <span>🚌 Bus Fleet Owners</span>
+              <span className="tab-count-badge">{stats.approvedOwners}</span>
             </button>
 
             <button
-              className={`tab-btn ${activeTab === 'all' ? 'active' : ''}`}
+              className={`tab-btn ${activeTab === 'all' ? 'tab-btn-active' : ''}`}
               onClick={() => setActiveTab('all')}
             >
-              All Registered Accounts
-              <span className="tab-counter default-pill">{allUsersList.length}</span>
+              <span>👥 All Platform Users</span>
+              <span className="tab-count-badge">{allUsersList.length}</span>
             </button>
-          </div>
+          </nav>
 
-          {/* TAB 1: PENDING QUEUE */}
+          {/* Tab 1: Pending Approvals Queue */}
           {activeTab === 'pending' && (
-            <div>
+            <section className="tab-content-panel">
+              <div className="panel-header">
+                <h3>Pending Approval Queue ({pendingList.length})</h3>
+                <span className="panel-sub">
+                  Review submitted government badges or bus operator fleets before granting platform credentials.
+                </span>
+              </div>
+
               {pendingList.length === 0 ? (
-                <div className="empty-queue-box">
-                  <div className="empty-queue-icon">✓</div>
-                  <h3>All Caught Up!</h3>
-                  <p>
-                    There are no pending registrations requiring review. Any Authority Officer or Bus Owner who registers on the mobile app will immediately appear in this queue.
-                  </p>
+                <div className="empty-state">
+                  <div className="empty-state-icon">🎉</div>
+                  <h3>Queue is All Clear!</h3>
+                  <p>There are no pending account registrations awaiting verification at this time.</p>
+                  <button className="btn-secondary" onClick={handleSeedPending}>
+                    Generate Test Applicants
+                  </button>
                 </div>
               ) : (
-                <div className="pending-cards-list">
-                  {pendingList.map((item) => (
-                    <div key={item._id} className="pending-card">
+                <div className="pending-cards-grid">
+                  {pendingList.map((user) => (
+                    <div key={user._id} className="pending-card">
                       <div className="pending-card-left">
-                        <div className={`role-avatar-circle ${item.role}`}>
-                          {item.role === 'authority' ? '👮' : '🚌'}
+                        <div className={`role-avatar-circle ${user.role}`}>
+                          {user.role === 'authority' ? '👮' : '🚌'}
                         </div>
-
                         <div className="pending-details-col">
                           <div className="pending-badge-row">
-                            <span className={`role-pill ${item.role}`}>
-                              {item.role === 'authority' ? 'Authority Officer' : 'Bus Fleet Owner'}
+                            <span className={`role-pill ${user.role}`}>
+                              {user.role === 'authority' ? 'Authority Officer' : 'Bus Fleet Owner'}
                             </span>
                             <span className="time-pill">
-                              Registered: {new Date(item.createdAt).toLocaleString()}
+                              {new Date(user.createdAt || Date.now()).toLocaleDateString()}
                             </span>
                           </div>
 
-                          <div className="applicant-name">{item.name}</div>
-                          <div className="applicant-email">{item.email}</div>
-
-                          <div className="applicant-meta-grid">
-                            {item.role === 'authority' ? (
-                              <>
-                                <div className="meta-field">
-                                  <span className="meta-field-label">Officer ID / Badge</span>
-                                  <span className="meta-field-value">{item.officerId || 'N/A'}</span>
-                                </div>
-                                <div className="meta-field">
-                                  <span className="meta-field-label">Division / Department</span>
-                                  <span className="meta-field-value">{item.department || 'National Transport Commission'}</span>
-                                </div>
-                                <div className="meta-field">
-                                  <span className="meta-field-label">Contact Phone</span>
-                                  <span className="meta-field-value">{item.phone || 'Not provided'}</span>
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                <div className="meta-field">
-                                  <span className="meta-field-label">Fleet / Company</span>
-                                  <span className="meta-field-value">{item.companyName || 'Private Fleet'}</span>
-                                </div>
-                                <div className="meta-field">
-                                  <span className="meta-field-label">Bus Registration Numbers</span>
-                                  <span className="meta-field-value">{item.busRegNumbers || 'Not specified'}</span>
-                                </div>
-                                <div className="meta-field">
-                                  <span className="meta-field-label">Contact Phone</span>
-                                  <span className="meta-field-value">{item.phone || 'Not provided'}</span>
-                                </div>
-                              </>
-                            )}
+                          <h3 className="applicant-name">{user.name}</h3>
+                          <div className="applicant-email">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <rect width="20" height="16" x="2" y="4" rx="2"/>
+                              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                            </svg>
+                            {user.email}
                           </div>
+
+                          {user.role === 'authority' && (
+                            <div className="officer-credentials-box">
+                              <div className="cred-item">
+                                <span className="cred-label">Badge ID:</span>
+                                <span className="cred-value">{user.officerId || 'NTC-WP-4921'}</span>
+                              </div>
+                              <div className="cred-item">
+                                <span className="cred-label">Department:</span>
+                                <span className="cred-value">{user.department || 'National Transport Commission'}</span>
+                              </div>
+                              {user.phone && (
+                                <div className="cred-item">
+                                  <span className="cred-label">Phone:</span>
+                                  <span className="cred-value">{user.phone}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {user.role === 'bus_owner' && (
+                            <div className="owner-credentials-box">
+                              <div className="cred-item">
+                                <span className="cred-label">Fleet / Company:</span>
+                                <span className="cred-value">{user.companyName || 'Private Fleet Operator'}</span>
+                              </div>
+                              {user.busRegNumbers && (
+                                <div className="cred-item">
+                                  <span className="cred-label">Bus Reg Numbers:</span>
+                                  <span className="cred-value reg-nums">{user.busRegNumbers}</span>
+                                </div>
+                              )}
+                              {user.phone && (
+                                <div className="cred-item">
+                                  <span className="cred-label">Contact:</span>
+                                  <span className="cred-value">{user.phone}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
 
-                      {/* Approval Actions */}
                       <div className="pending-card-actions">
                         <button
                           className="btn-approve"
-                          onClick={() => handleApprove(item._id, item.name, item.role)}
+                          onClick={() => handleApprove(user._id, user.name, user.role)}
                         >
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12" />
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <polyline points="20 6 9 17 4 12"/>
                           </svg>
                           Approve Account
                         </button>
-
                         <button
                           className="btn-reject"
-                          onClick={() => handleReject(item._id, item.name)}
+                          onClick={() => handleReject(user._id, user.name)}
                         >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="18" y1="6" x2="6" y2="18" />
-                            <line x1="6" y1="6" x2="18" y2="18" />
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
                           </svg>
                           Reject
                         </button>
@@ -504,141 +783,128 @@ export default function App() {
                   ))}
                 </div>
               )}
-            </div>
+            </section>
           )}
 
-          {/* TAB 2: AUTHORITY OFFICERS */}
+          {/* Tab 2: Verified Officers */}
           {activeTab === 'officers' && (
-            <div className="data-table-container">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Officer Name</th>
-                    <th>Official Email</th>
-                    <th>Badge / Officer ID</th>
-                    <th>Department</th>
-                    <th>Status</th>
-                    <th>Registered</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {officersList.map((off) => (
-                    <tr key={off._id}>
-                      <td>
-                        <strong>{off.name}</strong>
-                      </td>
-                      <td>{off.email}</td>
-                      <td>
-                        <code>{off.officerId || 'NTC-001'}</code>
-                      </td>
-                      <td>{off.department || 'Western Province Transport Authority'}</td>
-                      <td>
-                        <span className={`status-pill ${off.status || 'approved'}`}>
-                          {off.status || 'approved'}
-                        </span>
-                      </td>
-                      <td>{new Date(off.createdAt || Date.now()).toLocaleDateString()}</td>
-                      <td>
-                        {off.status === 'pending' ? (
-                          <button
-                            className="btn-approve"
-                            style={{ padding: '0.4rem 0.8rem', fontSize: '0.78rem' }}
-                            onClick={() => handleApprove(off._id, off.name, 'authority')}
-                          >
-                            Approve
-                          </button>
-                        ) : off.status === 'rejected' ? (
-                          <button
-                            className="btn-approve"
-                            style={{ padding: '0.4rem 0.8rem', fontSize: '0.78rem', background: '#3B82F6' }}
-                            onClick={() => handleApprove(off._id, off.name, 'authority')}
-                          >
-                            Re-Approve
-                          </button>
-                        ) : (
-                          <span style={{ color: '#059669', fontWeight: '700', fontSize: '0.82rem' }}>
-                            ✓ Verified
-                          </span>
-                        )}
-                      </td>
+            <section className="tab-content-panel">
+              <div className="panel-header">
+                <h3>Verified Authority Officers ({officersList.length})</h3>
+                <span className="panel-sub">
+                  Active transport commission officers authorized to conduct inspections and ticket validation.
+                </span>
+              </div>
+
+              <div className="verified-table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Officer Name</th>
+                      <th>Badge / ID</th>
+                      <th>Official Email</th>
+                      <th>Department</th>
+                      <th>Status</th>
+                      <th>Registered</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {officersList.map((off) => (
+                      <tr key={off._id}>
+                        <td>
+                          <div className="table-user-cell">
+                            <span className="table-avatar blue-avatar">👮</span>
+                            <span className="table-user-name">{off.name}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <span className="table-badge-id">{off.officerId || 'NTC-VERIFIED'}</span>
+                        </td>
+                        <td>{off.email}</td>
+                        <td>{off.department || 'National Transport Commission'}</td>
+                        <td>
+                          <span className={`status-pill ${off.status || 'approved'}`}>
+                            {off.status || 'approved'}
+                          </span>
+                        </td>
+                        <td>{new Date(off.createdAt || Date.now()).toLocaleDateString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
           )}
 
-          {/* TAB 3: BUS FLEET OWNERS */}
+          {/* Tab 3: Verified Bus Owners */}
           {activeTab === 'owners' && (
-            <div className="data-table-container">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Owner Name</th>
-                    <th>Business Email</th>
-                    <th>Fleet / Company</th>
-                    <th>Bus Numbers</th>
-                    <th>Phone</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ownersList.map((own) => (
-                    <tr key={own._id}>
-                      <td>
-                        <strong>{own.name}</strong>
-                      </td>
-                      <td>{own.email}</td>
-                      <td>{own.companyName || 'Private Bus Owner'}</td>
-                      <td>
-                        <code style={{ background: '#F1F5F9', padding: '2px 6px', borderRadius: '4px' }}>
-                          {own.busRegNumbers || 'ND-3204, ND-4521'}
-                        </code>
-                      </td>
-                      <td>{own.phone || '077 123 4567'}</td>
-                      <td>
-                        <span className={`status-pill ${own.status || 'approved'}`}>
-                          {own.status || 'approved'}
-                        </span>
-                      </td>
-                      <td>
-                        {own.status === 'pending' ? (
-                          <button
-                            className="btn-approve"
-                            style={{ padding: '0.4rem 0.8rem', fontSize: '0.78rem' }}
-                            onClick={() => handleApprove(own._id, own.name, 'bus_owner')}
-                          >
-                            Approve
-                          </button>
-                        ) : own.status === 'rejected' ? (
-                          <button
-                            className="btn-approve"
-                            style={{ padding: '0.4rem 0.8rem', fontSize: '0.78rem', background: '#3B82F6' }}
-                            onClick={() => handleApprove(own._id, own.name, 'bus_owner')}
-                          >
-                            Re-Approve
-                          </button>
-                        ) : (
-                          <span style={{ color: '#059669', fontWeight: '700', fontSize: '0.82rem' }}>
-                            ✓ Verified
-                          </span>
-                        )}
-                      </td>
+            <section className="tab-content-panel">
+              <div className="panel-header">
+                <h3>Approved Bus Fleet Owners ({ownersList.length})</h3>
+                <span className="panel-sub">
+                  Verified transport operators with active commercial fleet permits on TransitLK.
+                </span>
+              </div>
+
+              <div className="verified-table-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Owner / Managing Director</th>
+                      <th>Company / Fleet Name</th>
+                      <th>Contact Email</th>
+                      <th>Registered Buses</th>
+                      <th>Phone</th>
+                      <th>Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {ownersList.map((own) => (
+                      <tr key={own._id}>
+                        <td>
+                          <div className="table-user-cell">
+                            <span className="table-avatar teal-avatar">🚌</span>
+                            <span className="table-user-name">{own.name}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <strong>{own.companyName || 'Private Operator'}</strong>
+                        </td>
+                        <td>{own.email}</td>
+                        <td>
+                          <span className="bus-plate-tag">{own.busRegNumbers || 'ND-3204, ND-4521'}</span>
+                        </td>
+                        <td>{own.phone || '0771234567'}</td>
+                        <td>
+                          <span className={`status-pill ${own.status || 'approved'}`}>
+                            {own.status || 'approved'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
           )}
 
-          {/* TAB 4: ALL USERS */}
+          {/* Tab 4: All Platform Users */}
           {activeTab === 'all' && (
-            <div>
-              <div className="panel-filter-bar">
+            <div className="tab-content-panel">
+              <div className="panel-header">
+                <h3>All Platform Users ({allUsersList.length})</h3>
+                <span className="panel-sub">
+                  Directory of all registered accounts including passengers, operators, and commission officials.
+                </span>
+              </div>
+
+              {/* Filters Toolbar */}
+              <div className="filters-toolbar">
                 <div className="search-input-wrap">
-                  <span className="search-icon">🔍</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
                   <input
                     type="text"
                     placeholder="Search by name, email, badge, or fleet..."
@@ -647,59 +913,61 @@ export default function App() {
                   />
                 </div>
 
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <select
-                    className="filter-select"
-                    value={roleFilter}
-                    onChange={(e) => setRoleFilter(e.target.value)}
-                  >
+                <div className="filter-selects">
+                  <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
                     <option value="all">All Roles</option>
                     <option value="passenger">Passengers</option>
+                    <option value="bus_owner">Bus Fleet Owners</option>
                     <option value="authority">Authority Officers</option>
-                    <option value="bus_owner">Bus Owners</option>
+                    <option value="admin">Administrators</option>
                   </select>
 
-                  <select
-                    className="filter-select"
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                  >
+                  <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                     <option value="all">All Statuses</option>
-                    <option value="pending">Pending</option>
                     <option value="approved">Approved</option>
+                    <option value="pending">Pending</option>
                     <option value="rejected">Rejected</option>
                   </select>
                 </div>
               </div>
 
-              <div className="data-table-container">
+              <div className="verified-table-wrap">
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>User Name</th>
+                      <th>User</th>
                       <th>Email</th>
                       <th>Role</th>
+                      <th>Identifier / Details</th>
                       <th>Status</th>
-                      <th>Joined Date</th>
+                      <th>Joined</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredAllUsers.map((u) => (
                       <tr key={u._id}>
                         <td>
-                          <strong>{u.name}</strong>
+                          <div className="table-user-cell">
+                            <span className="table-avatar">
+                              {u.role === 'admin'
+                                ? '👑'
+                                : u.role === 'authority'
+                                ? '👮'
+                                : u.role === 'bus_owner'
+                                ? '🚌'
+                                : '👤'}
+                            </span>
+                            <span className="table-user-name">{u.name}</span>
+                          </div>
                         </td>
                         <td>{u.email}</td>
                         <td>
-                          <span className={`role-pill ${u.role}`}>
-                            {u.role === 'authority'
-                              ? 'Officer'
-                              : u.role === 'bus_owner'
-                              ? 'Bus Owner'
-                              : u.role === 'admin'
-                              ? 'Admin'
-                              : 'Passenger'}
-                          </span>
+                          <span className={`role-pill ${u.role}`}>{u.role}</span>
+                        </td>
+                        <td>
+                          {u.officerId && <span>Badge: {u.officerId}</span>}
+                          {u.companyName && <span>{u.companyName}</span>}
+                          {!u.officerId && !u.companyName && <span className="text-muted">—</span>}
                         </td>
                         <td>
                           <span className={`status-pill ${u.status || 'approved'}`}>
@@ -714,8 +982,8 @@ export default function App() {
               </div>
             </div>
           )}
-        </section>
-      </main>
+        </main>
+      )}
 
       {/* Floating Action Toast */}
       {toastMessage && (

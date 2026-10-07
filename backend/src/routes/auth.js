@@ -591,6 +591,11 @@ authRouter.get('/me', async (req, res) => {
         name: user.name,
         role: user.role || 'passenger',
         language: user.language || 'en',
+        companyName: user.companyName || null,
+        officerId: user.officerId || null,
+        department: user.department || null,
+        phone: user.phone || null,
+        status: user.status || 'approved',
       },
     });
   } catch (error) {

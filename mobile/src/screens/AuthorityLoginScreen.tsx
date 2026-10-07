@@ -64,8 +64,12 @@ export const AuthorityLoginScreen: React.FC<AuthorityLoginScreenProps> = ({
         await api.saveSession(res.token, res.user);
         showAlert(
           'Authority Access Granted',
-          `Authenticated as ${res.user.name} (${res.user.email})`
+          `Authenticated as ${res.user.name} (${res.user.email}). Opening Authority Officer Web Portal...`
         );
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+          const webUrl = `http://localhost:3001/?role=authority&token=${encodeURIComponent(res.token)}`;
+          window.open(webUrl, '_blank');
+        }
         onLoginSuccess?.(res.user);
       } else {
         const msg = res.message || 'Authentication failed. Please verify official credentials.';
@@ -301,6 +305,22 @@ export const AuthorityLoginScreen: React.FC<AuthorityLoginScreenProps> = ({
                   activeOpacity={0.8}
                 >
                   <Text style={styles.returnToSignInText}>Proceed to Sign In</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.returnToSignInBtn, { backgroundColor: colors.authority.primary, marginTop: 10 }]}
+                  onPress={() => {
+                    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+                      window.open('http://localhost:3001/?role=authority', '_blank');
+                    } else {
+                      showAlert('Web Portal', 'Access the Authority Officer Portal at http://localhost:3001/?role=authority');
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.returnToSignInText, { color: '#FFFFFF' }]}>
+                    Open Authority Web Portal ↗
+                  </Text>
                 </TouchableOpacity>
               </View>
             ) : (
