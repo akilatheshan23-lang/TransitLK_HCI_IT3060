@@ -9,6 +9,8 @@ export default function RevenueDetails({ route }: any) {
   const [stats, setStats] = useState<any>({ invalid: 0 });
   const [expandedTrip, setExpandedTrip] = useState<string | null>(null);
 
+  const filterType = route.params?.filter || 'valid'; // 'valid' | 'invalid' | 'revenue'
+
   const ROUTES = Array.from({ length: 15 }).map((_, i) => {
     const isOdd = (i + 1) % 2 !== 0;
     return {
@@ -31,9 +33,15 @@ export default function RevenueDetails({ route }: any) {
     }, [])
   );
 
+  const getTitle = () => {
+    if (filterType === 'invalid') return 'Invalid Tickets Breakdown';
+    if (filterType === 'revenue') return 'Revenue Breakdown';
+    return 'Valid Tickets Breakdown';
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Trip Metrics Breakdown" />
+      <Header title={getTitle()} />
       
       <ScrollView contentContainerStyle={styles.content}>
         
@@ -43,12 +51,24 @@ export default function RevenueDetails({ route }: any) {
 
         {ROUTES.map((trip) => {
           const isExpanded = expandedTrip === trip.id;
-          // Because we use stringified JSON for activeTrip in Dashboard, the key in stats is actually the stringified JSON
-          // Let's find the matching key in stats.
-          const statKey = Object.keys(stats).find(k => k.includes(trip.id));
-          const tripStats = statKey ? stats[statKey] : { valid: 0, revenue: 0 };
+          
+          // Match the exact ID in the JSON string to prevent trip_1 from matching trip_10
+          const statKey = Object.keys(stats).find(k => {
+            try {
+              if (k === 'invalid' || k === 'trip1' || k === 'trip2') return false;
+              const parsed = JSON.parse(k);
+              return parsed.id === trip.id;
+            } catch (e) {
+              return k.includes(`"id":"${trip.id}"`);
+            }
+          });
+          
+          const tripStats = statKey ? stats[statKey] : {};
+          
           const valid = tripStats.valid || 0;
           const revenue = tripStats.revenue || 0;
+          const invalid = tripStats.invalid || 0;
+          const invalidRevenue = tripStats.invalidRevenue || 0;
 
           return (
             <View key={trip.id} style={styles.tripCard}>
@@ -67,17 +87,36 @@ export default function RevenueDetails({ route }: any) {
                 <View style={styles.expandedContent}>
                   <View style={styles.divider} />
                   
-                  <View style={styles.calcRow}>
-                    <Text style={styles.calcLabel}>Valid Tickets</Text>
-                    <Text style={[styles.calcValue, { color: '#059669' }]}>{valid}</Text>
-                  </View>
+                  {(filterType === 'valid' || filterType === 'revenue') && (
+                    <>
+                      <View style={styles.calcRow}>
+                        <Text style={styles.calcLabel}>Valid Tickets</Text>
+                        <Text style={[styles.calcValue, { color: '#059669' }]}>{valid}</Text>
+                      </View>
+                      <View style={styles.calcRow}>
+                        <Text style={styles.calcLabel}>Total Amount</Text>
+                        <Text style={[styles.calcValue, { color: '#2563eb', fontSize: 18 }]}>
+                          Rs. {revenue.toFixed(2)}
+                        </Text>
+                      </View>
+                    </>
+                  )}
 
-                  <View style={styles.calcRow}>
-                    <Text style={styles.calcLabel}>Gross Revenue</Text>
-                    <Text style={[styles.calcValue, { color: '#2563eb', fontSize: 18 }]}>
-                      Rs. {revenue.toLocaleString()}
-                    </Text>
-                  </View>
+                  {filterType === 'invalid' && (
+                    <>
+                      <View style={styles.calcRow}>
+                        <Text style={styles.calcLabel}>Invalid Tickets</Text>
+                        <Text style={[styles.calcValue, { color: '#dc2626' }]}>{invalid}</Text>
+                      </View>
+                      <View style={styles.calcRow}>
+                        <Text style={styles.calcLabel}>Total Amount</Text>
+                        <Text style={[styles.calcValue, { color: '#dc2626', fontSize: 18 }]}>
+                          Rs. {invalidRevenue.toFixed(2)}
+                        </Text>
+                      </View>
+                    </>
+                  )}
+                  
                 </View>
               )}
             </View>

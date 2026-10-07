@@ -1,6 +1,6 @@
 // Force reload
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -60,6 +60,18 @@ export default function ConductorDashboard() {
     }
     if (actionType === 'scan') navigation.navigate('ScanTicket');
     else navigation.navigate('ManualCheck');
+  };
+
+  const resetMetrics = async () => {
+    try {
+      await AsyncStorage.removeItem('@conductor_stats_v3');
+      await AsyncStorage.removeItem('@conductor_history_v3');
+      await AsyncStorage.removeItem('@scanned_tickets_v3');
+      setStats({ invalid: 0 });
+      alert('All metrics have been reset to 0.');
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // Calculate totals from dynamic keys
@@ -168,13 +180,18 @@ export default function ConductorDashboard() {
             onPress={() => navigation.navigate('RevenueDetails', { filter: 'revenue' })}
           >
             <Text style={[styles.statValue, { color: '#2563eb', fontSize: 24, marginTop: 10 }]}>
-              Rs.{totalRevenue.toLocaleString()}
+              Rs.{totalRevenue.toFixed(2)}
             </Text>
             <Text style={[styles.statLabel, { color: '#2563eb' }]}>Total Gross Revenue</Text>
           </TouchableOpacity>
         </View>
         
         <Text style={styles.footerText}>Metrics synced with TransitLK Backend.</Text>
+        
+        <TouchableOpacity style={styles.resetButton} onPress={resetMetrics}>
+          <Text style={styles.resetButtonText}>Reset All Metrics</Text>
+        </TouchableOpacity>
+        
         <View style={{height: 40}} />
       </ScrollView>
 
@@ -245,6 +262,8 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 36, fontWeight: '800', marginBottom: 4 },
   statLabel: { fontSize: 12, fontWeight: '600' },
   footerText: { fontSize: 12, color: '#94a3b8', textAlign: 'center', marginTop: 8 },
+  resetButton: { marginTop: 16, padding: 12, backgroundColor: '#fee2e2', borderRadius: 8, alignItems: 'center' },
+  resetButtonText: { color: '#ef4444', fontWeight: '700' },
   routeSelectorBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   routeSelectorLabel: { fontSize: 12, color: '#64748b', fontWeight: '600', marginBottom: 4 },
   routeSelectorValue: { fontSize: 15, color: '#0f172a', fontWeight: '700' },

@@ -13,40 +13,95 @@ export default function ValidationResult() {
   const [isValid, setIsValid] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(true);
 
-  let ticketId = ticketData;
-  let fromLoc = 'Horana';
-  let toLoc = 'Colombo';
-  
   const now = new Date();
-  let dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  let timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  let priceStr = 'Rs. 250';
-
-  // Try to parse dynamic data if the QR code contains JSON (e.g., from Passenger flow)
-  try {
-    const parsed = JSON.parse(ticketData);
-    if (parsed.id) ticketId = parsed.id;
-    if (parsed.from) fromLoc = parsed.from;
-    if (parsed.to) toLoc = parsed.to;
-    if (parsed.date) dateStr = parsed.date;
-    if (parsed.time) timeStr = parsed.time;
-    if (parsed.price) priceStr = parsed.price;
-  } catch (e) {
-    // Fallback to defaults if it's just a raw string like "TKT001"
-  }
+  const [ticketDetails, setTicketDetails] = useState({
+    ticketId: ticketData,
+    fromLoc: 'Horana',
+    toLoc: 'Colombo',
+    dateStr: now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+    timeStr: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+    priceStr: 'Rs. 250',
+    numberOfTickets: 1,
+    fare: 250
+  });
 
   useEffect(() => {
     const validateTicket = async () => {
       try {
+        let finalDetails = { ...ticketDetails };
+        
+        try {
+          // If it starts with { and ends with }, it's likely a JSON object from QR
+          const trimmedTicketData = String(ticketData).trim();
+          if (!trimmedTicketData.startsWith('{')) {
+            throw new Error('Not a JSON object string');
+          }
+          
+          const parsed = JSON.parse(trimmedTicketData);
+          if (typeof parsed !== 'object' || parsed === null) {
+            throw new Error('Not a JSON object');
+          }
+          if (parsed.id) finalDetails.ticketId = parsed.id;
+          if (parsed.from) finalDetails.fromLoc = parsed.from;
+          if (parsed.to) finalDetails.toLoc = parsed.to;
+          if (parsed.date) finalDetails.dateStr = parsed.date;
+          if (parsed.time) finalDetails.timeStr = parsed.time;
+          if (parsed.price) finalDetails.priceStr = String(parsed.price);
+          
+          const cleanPrice = finalDetails.priceStr.replace(/Rs\.?/gi, '').replace(/,/g, '').replace(/[^0-9.]/g, '').trim();
+          finalDetails.fare = parseFloat(cleanPrice);
+          if (isNaN(finalDetails.fare)) finalDetails.fare = 250;
+
+          if (parsed.ticketCount) {
+            finalDetails.numberOfTickets = parseInt(parsed.ticketCount, 10);
+            if (isNaN(finalDetails.numberOfTickets) || finalDetails.numberOfTickets < 1) finalDetails.numberOfTickets = 1;
+          } else {
+            finalDetails.numberOfTickets = Math.max(1, Math.round(finalDetails.fare / 250));
+          }
+        } catch (e) {
+          // It's a raw string (manual entry). Look up in offline wallet storage.
+          const offlineStr = await AsyncStorage.getItem('@offline_tickets');
+          if (offlineStr) {
+            const offlineTickets = JSON.parse(offlineStr);
+            const foundTicket = offlineTickets.find((t: any) => t.id === ticketData || t.verificationCode === ticketData);
+            if (foundTicket) {
+              finalDetails.ticketId = foundTicket.id || ticketData;
+              finalDetails.fromLoc = foundTicket.from || finalDetails.fromLoc;
+              finalDetails.toLoc = foundTicket.to || finalDetails.toLoc;
+              finalDetails.dateStr = foundTicket.date || finalDetails.dateStr;
+              finalDetails.timeStr = foundTicket.time || finalDetails.timeStr;
+              if (foundTicket.price) finalDetails.priceStr = String(foundTicket.price);
+              
+              const cleanPrice = finalDetails.priceStr.replace(/Rs\.?/gi, '').replace(/,/g, '').replace(/[^0-9.]/g, '').trim();
+              finalDetails.fare = parseFloat(cleanPrice);
+              if (isNaN(finalDetails.fare)) finalDetails.fare = 250;
+              
+              if (foundTicket.ticketCount) {
+                finalDetails.numberOfTickets = parseInt(foundTicket.ticketCount, 10);
+                if (isNaN(finalDetails.numberOfTickets) || finalDetails.numberOfTickets < 1) finalDetails.numberOfTickets = 1;
+              } else {
+                finalDetails.numberOfTickets = Math.max(1, Math.round(finalDetails.fare / 250));
+              }
+            } else {
+              // Fallback
+              const cleanPrice = finalDetails.priceStr.replace(/Rs\.?/gi, '').replace(/,/g, '').replace(/[^0-9.]/g, '').trim();
+              finalDetails.fare = parseFloat(cleanPrice) || 250;
+              finalDetails.numberOfTickets = Math.max(1, Math.round(finalDetails.fare / 250));
+            }
+          }
+        }
+        
+        setTicketDetails(finalDetails);
+
         const scannedJson = await AsyncStorage.getItem('@scanned_tickets_v3');
         const scannedTickets = scannedJson ? JSON.parse(scannedJson) : [];
         
         let validStatus = false;
-        if (scannedTickets.includes(ticketId)) {
+        if (scannedTickets.includes(finalDetails.ticketId)) {
           validStatus = false; // Already scanned
         } else {
           validStatus = true; // New ticket
-          scannedTickets.push(ticketId);
+          scannedTickets.push(finalDetails.ticketId);
           await AsyncStorage.setItem('@scanned_tickets_v3', JSON.stringify(scannedTickets));
         }
         
@@ -63,16 +118,16 @@ export default function ValidationResult() {
             invalid: stats.invalid || 0
           };
         }
-        
-        const fare = parseFloat(priceStr.replace(/[^0-9.]/g, '')) || 250;
-        const numberOfTickets = Math.max(1, Math.round(fare / 250));
+
+        if (!stats[activeTrip]) stats[activeTrip] = { valid: 0, revenue: 0, invalid: 0, invalidRevenue: 0 };
 
         if (validStatus) {
-          if (!stats[activeTrip]) stats[activeTrip] = { valid: 0, revenue: 0 };
-          stats[activeTrip].valid = (stats[activeTrip].valid || 0) + numberOfTickets;
-          stats[activeTrip].revenue = (stats[activeTrip].revenue || 0) + fare;
+          stats[activeTrip].valid = (stats[activeTrip].valid || 0) + finalDetails.numberOfTickets;
+          stats[activeTrip].revenue = (stats[activeTrip].revenue || 0) + finalDetails.fare;
         } else {
-          stats.invalid = (stats.invalid || 0) + 1;
+          stats.invalid = (stats.invalid || 0) + 1; // Keep global counter
+          stats[activeTrip].invalid = (stats[activeTrip].invalid || 0) + finalDetails.numberOfTickets;
+          stats[activeTrip].invalidRevenue = (stats[activeTrip].invalidRevenue || 0) + finalDetails.fare;
         }
         
         await AsyncStorage.setItem('@conductor_stats_v3', JSON.stringify(stats));
@@ -80,14 +135,13 @@ export default function ValidationResult() {
         // Save to History
         const historyJson = await AsyncStorage.getItem('@conductor_history_v3');
         const history = historyJson ? JSON.parse(historyJson) : [];
-        const now = new Date();
-        const formattedTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        const histTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
         
         history.push({
-          ticketId,
+          ticketId: finalDetails.ticketId,
           isValid: validStatus,
-          time: formattedTime,
-          date: now.toLocaleDateString()
+          time: histTime,
+          date: new Date().toLocaleDateString()
         });
         
         await AsyncStorage.setItem('@conductor_history_v3', JSON.stringify(history));
@@ -98,7 +152,7 @@ export default function ValidationResult() {
       }
     };
     validateTicket();
-  }, [ticketId]);
+  }, [ticketData]);
 
   if (isChecking || isValid === null) {
     return (
@@ -132,25 +186,34 @@ export default function ValidationResult() {
         <View style={styles.detailsCard}>
           <View style={styles.row}>
             <Text style={styles.label}>Ticket ID</Text>
-            <Text style={styles.value}>{ticketId}</Text>
+            <Text style={styles.value}>{ticketDetails.ticketId}</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>From</Text>
-            <Text style={styles.value}>{fromLoc}</Text>
+            <Text style={styles.value}>{ticketDetails.fromLoc}</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>To</Text>
-            <Text style={styles.value}>{toLoc}</Text>
+            <Text style={styles.value}>{ticketDetails.toLoc}</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Date</Text>
-            <Text style={styles.value}>{dateStr}</Text>
+            <Text style={styles.value}>{ticketDetails.dateStr}</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Time</Text>
-            <Text style={styles.value}>{timeStr}</Text>
+            <Text style={styles.value}>{ticketDetails.timeStr}</Text>
           </View>
-          <Text style={styles.price}>{priceStr}</Text>
+          
+          <View style={[styles.row, { marginTop: 8, borderTopWidth: 1, borderTopColor: '#f1f5f9', paddingTop: 16 }]}>
+            <Text style={styles.label}>Tickets Count</Text>
+            <Text style={styles.value}>{ticketDetails.numberOfTickets}</Text>
+          </View>
+          
+          <View style={[styles.row, { marginBottom: 0 }]}>
+            <Text style={[styles.label, { color: '#0f172a', fontWeight: '700' }]}>Total Amount</Text>
+            <Text style={styles.price}>{ticketDetails.priceStr}</Text>
+          </View>
           
           {!isValid && (
             <Text style={styles.invalidNote}>Check the date with the passenger.</Text>
@@ -201,7 +264,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   label: { fontSize: 14, color: '#94a3b8', fontWeight: '500' },
   value: { fontSize: 14, color: '#0f172a', fontWeight: '700' },
-  price: { fontSize: 18, color: '#0f766e', fontWeight: '800', marginTop: 16 },
+  price: { fontSize: 18, color: '#0f766e', fontWeight: '800' },
   invalidNote: { marginTop: 16, fontSize: 13, color: '#94a3b8', borderTopWidth: 1, borderTopColor: '#f1f5f9', paddingTop: 16 },
   footer: { width: '100%', marginTop: 'auto' },
   primaryButton: { backgroundColor: '#0f766e', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 18, borderRadius: 12, marginBottom: 16 },

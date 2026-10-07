@@ -27,6 +27,7 @@ export default function TicketSummary() {
             date: route.date,
             time: route.fromTime,
             price: `Rs. ${route.totalFare ? route.totalFare.toFixed(2) : route.price.toFixed(2)}`,
+            ticketCount: route.ticketCount || 1,
             bus: route.bus,
             savedAt: new Date().toLocaleDateString()
           };

@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PaymentStackParamList } from '../../navigation/AppNavigator';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import Header from '../../components/Header';
 
 type NavigationProp = NativeStackNavigationProp<PaymentStackParamList, 'CardPayment'>;
@@ -18,10 +18,11 @@ export default function CardPayment() {
   const [cardName, setCardName] = useState('');
   const [totalFare, setTotalFare] = useState<number>(0);
   const [isTopUpMode, setIsTopUpMode] = useState(false);
+  const [cardType, setCardType] = useState('visa');
 
-  const isFormValid = cardNumber.trim().length > 0 && 
-                      expiry.trim().length > 0 && 
-                      cvv.trim().length > 0 && 
+  const isFormValid = cardNumber.trim().length > 14 && 
+                      expiry.trim().length === 5 && 
+                      cvv.trim().length >= 3 && 
                       cardName.trim().length > 0;
 
   useEffect(() => {
@@ -44,11 +45,41 @@ export default function CardPayment() {
     loadData();
   }, []);
 
+  const handleCardNumberChange = (text: string) => {
+    const numericText = text.replace(/\D/g, '');
+    
+    // Format based on manually selected card type
+    let formattedText = numericText;
+    if (cardType === 'amex') {
+      const match = numericText.match(/^(\d{0,4})(\d{0,6})(\d{0,5})$/);
+      if (match) {
+        formattedText = !match[2] ? match[1] : `${match[1]} ${match[2]}${match[3] ? ` ${match[3]}` : ''}`;
+      }
+    } else {
+      formattedText = numericText.match(/.{1,4}/g)?.join(' ') || '';
+    }
+    
+    setCardNumber(formattedText.substring(0, 19));
+  };
+
+  const handleExpiryChange = (text: string) => {
+    const numericText = text.replace(/\D/g, '');
+    let formattedText = numericText;
+    if (numericText.length >= 2) {
+      formattedText = `${numericText.substring(0, 2)}/${numericText.substring(2, 4)}`;
+    }
+    setExpiry(formattedText.substring(0, 5));
+  };
+
+  const handleCvvChange = (text: string) => {
+    const numericText = text.replace(/\D/g, '');
+    setCvv(numericText.substring(0, cardType === 'amex' ? 4 : 3));
+  };
+
   const handlePayment = async () => {
     setIsLoading(true);
     
-    // Simulate PaymentFailed screen on entering '0000'
-    if (cardNumber === '0000') {
+    if (cardNumber.replace(/\s/g, '') === '0000000000000000' || cardNumber === '0000') {
       setTimeout(() => {
         setIsLoading(false);
         navigation.navigate('PaymentFailed');
@@ -56,7 +87,6 @@ export default function CardPayment() {
       return;
     }
 
-    // Process payment based on mode
     setTimeout(async () => {
       setIsLoading(false);
       
@@ -67,7 +97,6 @@ export default function CardPayment() {
           await AsyncStorage.setItem('@wallet_balance', (currentBalance + totalFare).toString());
           await AsyncStorage.removeItem('@pending_topup');
           
-          // Direct navigation without Alert
           navigation.navigate('EWalletPayment');
         } catch (e) {
           Alert.alert('Error', 'Something went wrong. Please try again.');
@@ -78,6 +107,32 @@ export default function CardPayment() {
     }, 1500);
   };
 
+  const getCardIcon = (type = cardType) => {
+    switch (type) {
+      case 'visa': return 'cc-visa';
+      case 'mastercard': return 'cc-mastercard';
+      case 'amex': return 'cc-amex';
+      case 'discover': return 'cc-discover';
+      default: return 'credit-card';
+    }
+  };
+
+  const getCardLogoText = () => {
+    switch (cardType) {
+      case 'visa': return 'VISA';
+      case 'mastercard': return 'MASTERCARD';
+      case 'amex': return 'AMERICAN EXPRESS';
+      case 'discover': return 'DISCOVER';
+      default: return 'TRANSITLK SECURE PAY';
+    }
+  };
+
+  const displayCardNumber = cardNumber || '••••  ••••  ••••  3456';
+  const displayCardName = cardName || 'KAMAL PERERA';
+  const displayExpiry = expiry || '12/28';
+
+  const cardTypes = ['visa', 'mastercard', 'amex', 'discover'];
+
   return (
     <SafeAreaView style={styles.container}>
       <Header title={isTopUpMode ? "Wallet top-up" : "Card payment"} />
@@ -85,30 +140,63 @@ export default function CardPayment() {
       <View style={styles.content}>
         <View style={styles.cardPreview}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardPreviewLogo}>TRANSITLK SECURE PAY</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <FontAwesome name={getCardIcon()} size={24} color="#94a3b8" style={{ marginRight: 8 }} />
+              <Text style={styles.cardPreviewLogo}>{getCardLogoText()}</Text>
+            </View>
             <View style={styles.nfcIcon} />
           </View>
-          <Text style={styles.cardPreviewNumber}>••••  ••••  ••••  3456</Text>
+          <Text style={styles.cardPreviewNumber}>{displayCardNumber}</Text>
           <View style={styles.cardFooter}>
             <View>
               <Text style={styles.cardLabel}>CARDHOLDER</Text>
-              <Text style={styles.cardPreviewName}>KAMAL PERERA</Text>
+              <Text style={styles.cardPreviewName}>{displayCardName.toUpperCase()}</Text>
             </View>
             <View>
               <Text style={styles.cardLabel}>EXPIRES</Text>
-              <Text style={styles.cardPreviewName}>12/28</Text>
+              <Text style={styles.cardPreviewName}>{displayExpiry}</Text>
             </View>
           </View>
         </View>
 
+        <Text style={styles.label}>Select Card Type</Text>
+        <View style={styles.typeSelector}>
+          {cardTypes.map(type => (
+            <TouchableOpacity 
+              key={type} 
+              style={[styles.typeButton, cardType === type && styles.typeButtonSelected]}
+              onPress={() => {
+                setCardType(type);
+                // Reformat card number if they switch types
+                const numericText = cardNumber.replace(/\D/g, '');
+                let formattedText = numericText;
+                if (type === 'amex') {
+                  const match = numericText.match(/^(\d{0,4})(\d{0,6})(\d{0,5})$/);
+                  if (match) {
+                    formattedText = !match[2] ? match[1] : `${match[1]} ${match[2]}${match[3] ? ` ${match[3]}` : ''}`;
+                  }
+                } else {
+                  formattedText = numericText.match(/.{1,4}/g)?.join(' ') || '';
+                }
+                setCardNumber(formattedText.substring(0, 19));
+              }}
+            >
+              <FontAwesome name={getCardIcon(type)} size={32} color={cardType === type ? '#0f766e' : '#94a3b8'} />
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <Text style={styles.label}>Card number</Text>
-        <TextInput 
-          style={styles.input} 
-          placeholder="1234 5678 9012 3456" 
-          keyboardType="numeric" 
-          value={cardNumber}
-          onChangeText={setCardNumber}
-        />
+        <View style={styles.inputWrapper}>
+          <TextInput 
+            style={[styles.input, { flex: 1, marginBottom: 0, borderWidth: 0 }]} 
+            placeholder="1234 5678 9012 3456" 
+            keyboardType="numeric" 
+            value={cardNumber}
+            onChangeText={handleCardNumberChange}
+          />
+          <FontAwesome name={getCardIcon()} size={24} color={'#0f766e'} style={{ marginRight: 16 }} />
+        </View>
 
         <View style={styles.row}>
           <View style={[styles.inputGroup, { marginRight: 12 }]}>
@@ -116,19 +204,20 @@ export default function CardPayment() {
             <TextInput 
               style={styles.input} 
               placeholder="MM/YY" 
+              keyboardType="numeric"
               value={expiry}
-              onChangeText={setExpiry}
+              onChangeText={handleExpiryChange}
             />
           </View>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>CVV</Text>
             <TextInput 
               style={styles.input} 
-              placeholder="•••" 
+              placeholder={cardType === 'amex' ? "••••" : "•••"} 
               secureTextEntry 
               keyboardType="numeric" 
               value={cvv}
-              onChangeText={setCvv}
+              onChangeText={handleCvvChange}
             />
           </View>
         </View>
@@ -139,6 +228,7 @@ export default function CardPayment() {
           placeholder="Kamal Perera" 
           value={cardName}
           onChangeText={setCardName}
+          autoCapitalize="words"
         />
 
         <View style={styles.footer}>
@@ -169,14 +259,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a', 
     padding: 24, 
     borderRadius: 16, 
-    marginBottom: 32,
+    marginBottom: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 8,
   },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32, alignItems: 'center' },
   cardPreviewLogo: { color: '#94a3b8', fontSize: 13, fontWeight: '700', letterSpacing: 1 },
   nfcIcon: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#334155' },
   cardPreviewNumber: { color: '#f8fafc', fontSize: 24, letterSpacing: 4, marginBottom: 24, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
@@ -184,6 +274,36 @@ const styles = StyleSheet.create({
   cardLabel: { color: '#64748b', fontSize: 10, marginBottom: 4, letterSpacing: 1 },
   cardPreviewName: { color: '#f1f5f9', fontSize: 14, textTransform: 'uppercase', fontWeight: '600', letterSpacing: 1 },
   label: { fontSize: 13, color: '#475569', marginBottom: 8, fontWeight: '600' },
+  typeSelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  typeButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 12,
+    marginHorizontal: 4,
+  },
+  typeButtonSelected: {
+    borderColor: '#0f766e',
+    backgroundColor: '#f0fdfa',
+    borderWidth: 2,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    marginBottom: 16,
+  },
   input: { backgroundColor: '#fff', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#cbd5e1', fontSize: 16, marginBottom: 16, color: '#1e293b' },
   row: { flexDirection: 'row' },
   inputGroup: { flex: 1 },
