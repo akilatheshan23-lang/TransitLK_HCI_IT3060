@@ -28,6 +28,21 @@ export function transitRouter(store,authenticate){
  const r=Router();
  r.get('/journeys',async(req,res)=>{const q=searchSchema.safeParse(req.query);if(!q.success)return res.status(400).json({error:'Choose two places, bus or train, and a valid date (YYYY-MM-DD).'});const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Colombo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());if(q.data.date<today)return res.status(400).json({error:'Choose today or a future travel date.'});const journeys=q.data.demo==='true'?demoTrips(q.data):await store.searchTrips(q.data);res.json({journeys,source:q.data.demo==='true'?'demo':'live'});});
  r.get('/journeys/:id/tracking',async(req,res)=>{if(!identifier.safeParse(req.params.id).success)return res.status(400).json({error:'Invalid journey.'});const trip=req.params.id.startsWith('demo-')?demoTrip(req.params.id,req.query.date):await store.findTrip(req.params.id);if(!trip)return res.status(404).json({error:'Journey not found.'});res.json(tracking(trip));});
+ r.get('/geocode',async(req,res)=>{
+  const text=String(req.query.text||'').trim();
+  if(!text||text.length<2)return res.status(400).json({error:'Search query must be at least 2 characters.'});
+  const apiKey=process.env.GEOAPIFY_API_KEY;
+  if(!apiKey)return res.status(503).json({error:'Geocoding is not configured.'});
+  try{
+   const url=`https://api.geoapify.com/v1/geocode/search?text=${encodeURIComponent(text)}&apiKey=${apiKey}`;
+   const response=await fetch(url,{method:'GET'});
+   if(!response.ok)return res.status(response.status).json({error:'Geocoding service unavailable.'});
+   const data=await response.json();
+   res.json(data);
+  }catch(err){
+   res.status(502).json({error:'Geocoding request failed.'});
+  }
+ });
  r.post('/telemetry/:id',async(req,res)=>{
  const key=process.env.TRANSIT_INGEST_KEY;const supplied=req.get('x-transit-key')||'';
  if(!key||key.length<32||Buffer.byteLength(key)!==Buffer.byteLength(supplied)||!timingSafeEqual(Buffer.from(key),Buffer.from(supplied)))return res.status(401).json({error:'Invalid vehicle feed credentials.'});

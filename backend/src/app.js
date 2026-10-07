@@ -4,8 +4,11 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { hashPassword, verifyPassword, newToken, tokenHash, publicUser } from './auth.js';
 
+const ownerPortalFile = fileURLToPath(new URL('owner-portal.html', import.meta.url));
 const language = z.enum(['en', 'ta', 'si']);
 const credentials = z.object({ email: z.string().trim().toLowerCase().email().max(254), password: z.string().min(8).max(128) }).strict();
 const registration = credentials.extend({ name: z.string().trim().min(2).max(80), language: language.default('en') });
@@ -13,9 +16,33 @@ const registration = credentials.extend({ name: z.string().trim().min(2).max(80)
 export function createApp(store, { origins = ['http://localhost:8081'], limit = 20 } = {}) {
   const app = express();
   app.disable('x-powered-by');
-  app.use(helmet());
+  app.use(helmet({ contentSecurityPolicy: false }));
   app.use(cors({ origin: (origin, cb) => cb(null, !origin || origins.includes(origin)) }));
   app.use(express.json({ limit: '16kb' }));
+  app.get(['/owner', '/owner-portal'], async (_req, res) => {
+    const html = await readFile(ownerPortalFile, 'utf8');
+    const key = JSON.stringify(process.env.GEOAPIFY_API_KEY || '').replaceAll('<', '\\u003c');
+    res.type('html').send(html.replace("const GEOAPIFY_API_KEY = '';", 'const GEOAPIFY_API_KEY = ' + key + ';'));
+  });
+  app.get('/api/owner/overview', (_req, res) => res.json({
+    operator: 'Lanka Ashok Leyland Fleet #LK-BUS-4029',
+    ownerName: 'Bandara Silva',
+    todayRevenue: 45800,
+    yesterdayRevenue: 40890,
+    revenueChangePercent: 12,
+    activeBuses: 24,
+    totalBuses: 28,
+    inMaintenance: 4,
+    delayedTrips: 3,
+    avgDelayMinutes: 12,
+    routes: [
+      { route: '177', from: 'Kaduwela', to: 'Kollupitiya', busNumber: 'NA-4402', status: 'On-time', etaMinutes: 5, revenue: 8420 },
+      { route: '179', from: 'Maharagama', to: 'Bambalapitiya', busNumber: 'NB-8891', status: 'Delayed', etaMinutes: 12, revenue: 6350 },
+      { route: '185', from: 'Pettah', to: 'Nugegoda', busNumber: 'NC-1204', status: 'On-time', etaMinutes: 8, revenue: 9120 },
+      { route: '187', from: 'Colombo Fort', to: 'Katunayake Airport', busNumber: 'ND-5541', status: 'On-time', etaMinutes: 3, revenue: 7890 },
+      { route: '189', from: 'Moratuwa', to: 'Rajagiriya', busNumber: 'NE-7721', status: 'Delayed', etaMinutes: 18, revenue: 5230 }
+    ]
+  }));
   app.get('/api/health', async (_req, res) => {
     try { await store.ping(); res.json({ status: 'ok', database: 'connected' }); }
     catch { res.status(503).json({ error: 'Service temporarily unavailable.' }); }

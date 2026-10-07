@@ -1,9 +1,9 @@
 import React from 'react';
 import Svg, { Rect, Path, Circle, Text as SvgText } from 'react-native-svg';
 import { colors } from './theme';
-export function Icon({name,size=22,color=colors.navy}:{name:'bus'|'back'|'arrow'|'bell'|'close'|'check';size?:number;color?:string}) {
+export function Icon({name,size=22,color=colors.navy}:{name:'bus'|'back'|'arrow'|'bell'|'close'|'check'|'user'|'lock'|'eye'|'eye-off'|'google';size?:number;color?:string}) {
   return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.65} strokeLinecap="round" strokeLinejoin="round">
-    {name==='bus'?<><Rect x="5" y="3" width="14" height="16" rx="3"/><Path d="M5 11h14M8 19v2m8-2v2M8 15h1m6 0h1M8 6h8"/></>:name==='bell'?<><Path d="M6 16V9a6 6 0 0 1 12 0v7l2 2H4l2-2ZM10 21h4"/></>:name==='back'?<Path d="m10 5-7 7 7 7M3 12h18"/>:name==='arrow'?<Path d="m14 5 7 7-7 7M3 12h18"/>:name==='close'?<Path d="m6 6 12 12M18 6 6 18"/>:<Path d="m5 12 4 4L19 6"/>}
+    {name==='bus'?<><Rect x="5" y="3" width="14" height="16" rx="3"/><Path d="M5 11h14M8 19v2m8-2v2M8 15h1m6 0h1M8 6h8"/></>:name==='bell'?<><Path d="M6 16V9a6 6 0 0 1 12 0v7l2 2H4l2-2ZM10 21h4"/></>:name==='back'?<Path d="m10 5-7 7 7 7M3 12h18"/>:name==='arrow'?<Path d="m14 5 7 7-7 7M3 12h18"/>:name==='close'?<Path d="m6 6 12 12M18 6 6 18"/>:name==='check'?<Path d="m5 12 4 4L19 6"/>:name==='user'?<><Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><Circle cx="12" cy="7" r="4"/></>:name==='lock'?<><Rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><Path d="M7 11V7a5 5 0 0 1 10 0v4"/></>:name==='eye'?<><Path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><Circle cx="12" cy="12" r="3"/></>:name==='eye-off'?<><Path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><Path d="m1 1 22 22"/></>:<><Circle cx="12" cy="12" r="10"/><Path d="M12 8v8m-4-4h8"/></>}
   </Svg>;
 }
 // Vector recreation of the supplied welcome illustration; no screenshot embedded.

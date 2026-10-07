@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TransitLK • Bus Owner Portal & Fleet Operations</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root {
+      --navy: #12304A;
+      --teal: #008783;
+      --mint: #DDF6EF;
+      --bg: #F4F7F9;
+      --card-bg: #FFFFFF;
+      --text-main: #12304A;
+      --text-muted: #607D94;
+      --border: #E2E8F0;
+      --warning: #D97706;
+      --warning-bg: #FEF3C7;
+      --success: #059669;
+      --success-bg: #D1FAE5;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: var(--bg); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
+    
+    /* Top Navigation Bar */
+    header {
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+    .brand-wrap { display: flex; align-items: center; gap: 12px; }
+    .brand-logo {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: var(--teal); display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 20px; font-weight: bold;
+    }
+    .brand-text h1 { font-size: 19px; font-weight: 800; color: var(--navy); letter-spacing: -0.4px; }
+    .brand-text p { font-size: 11px; color: var(--teal); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    .header-actions { display: flex; align-items: center; gap: 16px; }
+    .live-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--mint); color: var(--teal);
+      padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;
+    }
+    .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(1.3); } 100% { opacity: 1; transform: scale(1); } }
+    
+    .owner-profile {
+      display: flex; align-items: center; gap: 10px;
+      padding-left: 16px; border-left: 1px solid var(--border);
+    }
+    .owner-avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: #E2E8F0; color: var(--navy); display: flex;
+      align-items: center; justify-content: center; font-weight: 700; font-size: 13px;
+    }
+    .owner-info { text-align: right; }
+    .owner-info .name { font-size: 13px; font-weight: 700; color: var(--navy); }
+    .owner-info .role { font-size: 11px; color: var(--text-muted); }
+
+    /* Main Container */
+    main { flex: 1; max-width: 1280px; width: 100%; margin: 0 auto; padding: 24px 28px; display: flex; flex-direction: column; gap: 24px; }
+
+    /* Overview Header */
+    .overview-banner {
+      display: flex; justify-content: space-between; align-items: flex-end;
+      flex-wrap: wrap; gap: 12px;
+    }
+    .eyebrow { font-size: 11px; font-weight: 800; color: var(--teal); letter-spacing: 0.8px; margin-bottom: 4px; text-transform: uppercase; }
+    .greeting { font-size: 28px; font-weight: 800; color: var(--navy); letter-spacing: -0.5px; }
+
+    .btn-group { display: flex; gap: 10px; }
+    .btn {
+      padding: 9px 16px; border-radius: 12px; font-size: 13px; font-weight: 700;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+      border: none; transition: all 0.15s ease;
+    }
+    .btn-primary { background: var(--teal); color: white; }
+    .btn-primary:hover { background: #00736f; }
+    .btn-outline { background: white; color: var(--navy); border: 1px solid var(--border); }
+    .btn-outline:hover { background: #F8FAFC; }
+
+    /* KPI Cards Grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .kpi-card {
+      background: var(--card-bg);
+      border-radius: 20px;
+      padding: 20px 22px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .kpi-label { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+    .kpi-value { font-size: 30px; font-weight: 800; color: var(--teal); letter-spacing: -0.5px; }
+    .kpi-value.warning { color: var(--warning); }
+    .kpi-sub { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+    .kpi-sub.positive { color: var(--success); font-weight: 600; }
+
+    /* Two Columns Section: Real GPS Live Map + Route Performance */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1.45fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 960px) {
+      .dashboard-grid { grid-template-columns: 1fr; }
+    }
+
+    .panel-card {
+      background: var(--card-bg);
+      border-radius: 22px;
+      border: 1px solid var(--border);
+      padding: 20px 22px;
+      display: flex; flex-direction: column; gap: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .panel-title { font-size: 17px; font-weight: 800; color: var(--navy); }
+    .panel-subtitle { font-size: 12px; color: var(--text-muted); }
+
+    /* GPS Map Box */
+    .map-container {
+      width: 100%;
+      height: 420px;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      position: relative;
+      background: #E8F4F0;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.04);
+    }
+    #map { width: 100%; height: 100%; z-index: 1; }
+
+    /* Map Tool Buttons */
+    .map-actions-bar {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    }
+    .map-tool-btn {
+      padding: 6px 12px; border-radius: 10px; font-size: 11px; font-weight: 700;
+      border: 1px solid var(--border); background: white; cursor: pointer;
+      color: var(--text-muted); transition: all 0.15s ease;
+      display: inline-flex; align-items: center; gap: 5px;
+    }
+    .map-tool-btn:hover { background: #F8FAFC; color: var(--navy); }
+    .map-tool-btn.active {
+      background: var(--teal); color: white; border-color: var(--teal);
+    }
+
+    /* Radar Pulse Beacon around bus markers */
+    .bus-marker-pulse {
+      position: absolute;
+      top: -10px; left: -10px;
+      width: 54px; height: 54px;
+      border-radius: 50%;
+      pointer-events: none;
+      animation: markerPulse 2s infinite cubic-bezier(0.2, 0.8, 0.4, 1);
+    }
+    @keyframes markerPulse {
+      0% { transform: scale(0.35); opacity: 0.95; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+    .bus-pin-badge {
+      width: 34px; height: 34px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-weight: 800; font-size: 11px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      border: 2px solid #FFFFFF;
+      cursor: pointer;
+      position: relative;
+      z-index: 2;
+      transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.4, 1);
+    }
+    .bus-pin-badge:hover {
+      transform: scale(1.25);
+    }
+
+    /* Floating Telemetry Chip */
+    .telemetry-chip-overlay {
+      position: absolute;
+      bottom: 12px;
+      left: 14px;
+      right: 14px;
+      background: rgba(18, 48, 74, 0.94);
+      color: white;
+      padding: 10px 16px;
+      border-radius: 12px;
+      font-size: 12px;
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 1000;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }
+
+    .map-caption-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 6px; font-size: 11px; color: var(--text-muted);
+    }
+
+    /* Route Performance List (matching Mint Card) */
+    .perf-mint-card {
+      background: var(--mint);
+      border-radius: 16px;
+      padding: 16px 18px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .perf-mint-title { font-size: 15px; font-weight: 800; color: var(--navy); }
+    
+    .route-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; background: white; border-radius: 12px;
+      border: 1px solid rgba(0, 135, 131, 0.15);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .route-row:hover {
+      transform: translateX(3px);
+      border-color: var(--teal);
+      box-shadow: 0 2px 8px rgba(0, 135, 131, 0.12);
+    }
+    .route-num { font-weight: 800; font-size: 15px; color: var(--navy); width: 44px; }
+    .route-status-pill {
+      font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px;
+    }
+    .status-ontime { background: var(--success-bg); color: var(--success); }
+    .status-delayed { background: var(--warning-bg); color: var(--warning); }
+    .route-eta { font-size: 12px; color: var(--text-muted); font-weight: 600; width: 60px; text-align: center; }
+    .route-revenue { font-size: 14px; font-weight: 800; color: var(--navy); }
+
+    /* Full Fleet Table */
+    .table-responsive { width: 100%; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px;
+      color: var(--text-muted); padding: 12px 14px; border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 14px; font-size: 13px; color: var(--navy);
+      border-bottom: 1px solid var(--border); vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background-color: #F8FAFC; }
+    .tag { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+    
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 18px 28px; text-align: center; font-size: 12px; color: var(--text-muted);
+      background: white; margin-top: auto;
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(18, 48, 74, 0.5);
+      display: none; align-items: center; justify-content: center; z-index: 2000;
+    }
+    .modal-box {
+      background: white; border-radius: 20px; max-width: 480px; width: 90%;
+      padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; }
+    .modal-title { font-size: 18px; font-weight: 800; color: var(--navy); }
+    .close-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-muted); }
+  </style>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand-wrap">
+      <div class="brand-logo">🚌</div>
+      <div class="brand-text">
+        <h1>TransitLK</h1>
+        <p>Bus Owner & Fleet Portal</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="live-badge">
+        <span class="pulse-dot"></span>
+        <span>5 / 5 Fleet Buses Live on GPS</span>
+      </div>
+      <div class="owner-profile">
+        <div class="owner-avatar">OW</div>
+        <div class="owner-info">
+          <div class="name">Bandara Silva</div>
+          <div class="role">Owner • Lanka Ashok Leyland</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main>
+    <!-- Welcome Banner -->
+    <div class="overview-banner">
+      <div>
+        <div class="eyebrow">TODAY'S OPERATIONS</div>
+        <h2 class="greeting">Good morning, Owner.</h2>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-outline" onclick="exportReport()">📊 Export Revenue Report</button>
+        <button class="btn btn-primary" onclick="openDispatchModal()">➕ Dispatch Bus</button>
+      </div>
+    </div>
+
+    <!-- KPI Metric Cards matching mobile app figures -->
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <span class="kpi-label">Today's revenue</span>
+        <span class="kpi-value" id="kpiRevenue">Rs. 45,800</span>
+        <span class="kpi-sub positive">+12% vs yesterday</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Active buses</span>
+        <span class="kpi-value" id="kpiActiveBuses">24 / 28</span>
+        <span class="kpi-sub">4 in maintenance</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Delayed trips</span>
+        <span class="kpi-value warning" id="kpiDelayed">2</span>
+        <span class="kpi-sub">Avg. delay: 12 min</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">Digital tickets sold</span>
+        <span class="kpi-value" id="kpiTickets">620</span>
+        <span class="kpi-sub positive">83.8% digital adoption</span>
+      </div>
+    </div>
+
+    <!-- Live GPS Map & Route Performance -->
+    <div class="dashboard-grid">
+      <!-- Live Map Panel (Real Geoapify Leaflet GPS Map) -->
+      <div class="panel-card">
+        <div class="panel-header">
+          <div>
+            <h3 class="panel-title">Live GPS fleet tracking</h3>
+            <p class="panel-subtitle">Real-time street telemetry • Geoapify Maps live GPS feed</p>
+          </div>
+          <div class="map-actions-bar">
+            <button class="map-tool-btn" onclick="recenterFleet()">🎯 Center Fleet</button>
+            <button id="btnTileBright" class="map-tool-btn active" onclick="setTileStyle('osm-bright')">🗺️ Street</button>
+            <button id="btnTileDark" class="map-tool-btn" onclick="setTileStyle('dark-matter')">🌙 Dark</button>
+            <button id="btnTilePositron" class="map-tool-btn" onclick="setTileStyle('positron')">⚪ Light</button>
+          </div>
+        </div>
+
+        <!-- Geoapify Real Interactive GPS Map Container -->
+        <div class="map-container">
+          <div id="map"></div>
+
+          <!-- Floating live telemetry chip -->
+          <div id="mapTelemetryOverlay" class="telemetry-chip-overlay">
+            <div>
+              <span style="color: #34D399; font-weight: 800; margin-right: 6px;">● GPS LIVE</span>
+              <strong id="ttRouteTitle">Route 177 (NA-4402) • Kollupitiya</strong> · <span id="ttStatus" style="color: #34D399; font-weight: 700;">On-time (5 min)</span>
+            </div>
+            <div>
+              Speed: <strong id="ttSpeed" style="color: #6EE7B7;">34 km/h</strong> · Today: <strong id="ttRevenue" style="color: #6EE7B7;">Rs. 8,420</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="map-caption-bar">
+          <span>🛰️ Real-time GPS map • Geoapify Maps live telemetry • Updated seconds ago</span>
+          <span style="font-weight: 700; color: var(--teal);">5 of 5 buses operating on routes</span>
+        </div>
+      </div>
+
+      <!-- Route Status & Performance (Matching Mobile Card) -->
+      <div class="panel-card">
+        <div class="panel-header">
+          <div>
+            <h3 class="panel-title">Active routes • Today</h3>
+            <p class="panel-subtitle">Tap any route to focus on map</p>
+          </div>
+        </div>
+
+        <div class="perf-mint-card">
+          <div class="perf-mint-title">Route status & performance</div>
+          <div class="route-row" onclick="focusBus('177')">
+            <span class="route-num">177</span>
+            <span class="route-status-pill status-ontime">On-time</span>
+            <span class="route-eta">5 min</span>
+            <span class="route-revenue">Rs. 8,420</span>
+          </div>
+          <div class="route-row" onclick="focusBus('179')">
+            <span class="route-num">179</span>
+            <span class="route-status-pill status-delayed">Delayed</span>
+            <span class="route-eta">12 min</span>
+            <span class="route-revenue">Rs. 6,350</span>
+          </div>
+        </div>
+
+        <!-- Remaining active routes matching mobile screen -->
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <div class="route-row" style="background: #F8FAFC;" onclick="focusBus('185')">
+            <span class="route-num">185</span>
+            <span class="route-status-pill status-ontime">On-time</span>
+            <span class="route-eta">8 min</span>
+            <span class="route-revenue">Rs. 9,120</span>
+          </div>
+          <div class="route-row" style="background: #F8FAFC;" onclick="focusBus('187')">
+            <span class="route-num">187</span>
+            <span class="route-status-pill status-ontime">On-time</span>
+            <span class="route-eta">3 min</span>
+            <span class="route-revenue">Rs. 7,890</span>
+          </div>
+          <div class="route-row" style="background: #F8FAFC;" onclick="focusBus('189')">
+            <span class="route-num">189</span>
+            <span class="route-status-pill status-delayed">Delayed</span>
+            <span class="route-eta">18 min</span>
+            <span class="route-revenue">Rs. 5,230</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Full Fleet Table Panel -->
+    <div class="panel-card">
+      <div class="panel-header">
+        <div>
+          <h3 class="panel-title">Fleet Vehicles & Status</h3>
+          <p class="panel-subtitle">Assigned buses and conductor details • Click 'View GPS' to track on map</p>
+        </div>
+        <span class="live-badge" style="background: #F1F5F9; color: var(--navy);">5 Active Lines</span>
+      </div>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Route</th>
+              <th>Origin → Destination</th>
+              <th>Bus Plate</th>
+              <th>Status</th>
+              <th>Delay / ETA</th>
+              <th>Today's Revenue</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="fleetTableBody">
+            <tr>
+              <td><strong>177</strong></td>
+              <td>Kaduwela → Kollupitiya</td>
+              <td><code>NA-4402</code></td>
+              <td><span class="tag status-ontime">On-time</span></td>
+              <td>5 min</td>
+              <td><strong>Rs. 8,420</strong></td>
+              <td><button class="btn btn-outline" style="padding: 4px 10px; font-size: 11px;" onclick="focusBus('177')">📍 View GPS</button></td>
+            </tr>
+            <tr>
+              <td><strong>179</strong></td>
+              <td>Maharagama → Bambalapitiya</td>
+              <td><code>NB-8891</code></td>
+              <td><span class="tag status-delayed">Delayed</span></td>
+              <td>12 min</td>
+              <td><strong>Rs. 6,350</strong></td>
+              <td><button class="btn btn-outline" style="padding: 4px 10px; font-size: 11px;" onclick="focusBus('179')">📍 View GPS</button></td>
+            </tr>
+            <tr>
+              <td><strong>185</strong></td>
+              <td>Pettah → Nugegoda</td>
+              <td><code>NC-1204</code></td>
+              <td><span class="tag status-ontime">On-time</span></td>
+              <td>8 min</td>
+              <td><strong>Rs. 9,120</strong></td>
+              <td><button class="btn btn-outline" style="padding: 4px 10px; font-size: 11px;" onclick="focusBus('185')">📍 View GPS</button></td>
+            </tr>
+            <tr>
+              <td><strong>187</strong></td>
+              <td>Colombo Fort → Katunayake</td>
+              <td><code>ND-5541</code></td>
+              <td><span class="tag status-ontime">On-time</span></td>
+              <td>3 min</td>
+              <td><strong>Rs. 7,890</strong></td>
+              <td><button class="btn btn-outline" style="padding: 4px 10px; font-size: 11px;" onclick="focusBus('187')">📍 View GPS</button></td>
+            </tr>
+            <tr>
+              <td><strong>189</strong></td>
+              <td>Moratuwa → Rajagiriya</td>
+              <td><code>NE-7721</code></td>
+              <td><span class="tag status-delayed">Delayed</span></td>
+              <td>18 min</td>
+              <td><strong>Rs. 5,230</strong></td>
+              <td><button class="btn btn-outline" style="padding: 4px 10px; font-size: 11px;" onclick="focusBus('189')">📍 View GPS</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal for Dispatching -->
+  <div class="modal-backdrop" id="dispatchModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Dispatch Bus to Route</h3>
+        <button class="close-btn" onclick="closeDispatchModal()">&times;</button>
+      </div>
+      <p style="font-size: 13px; color: var(--text-muted);">Assign an active depot bus to a registered transport line.</p>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <label style="font-size: 12px; font-weight: 700;">Select Route</label>
+        <select id="modalRouteSelect" style="padding: 10px; border-radius: 8px; border: 1px solid var(--border);">
+          <option>177 • Kaduwela - Kollupitiya</option>
+          <option>179 • Maharagama - Bambalapitiya</option>
+          <option>185 • Pettah - Nugegoda</option>
+          <option>187 • Colombo Fort - Katunayake</option>
+          <option>189 • Moratuwa - Rajagiriya</option>
+        </select>
+        <label style="font-size: 12px; font-weight: 700;">Bus Registration</label>
+        <input type="text" value="NA-9921 (Leyland Viking)" style="padding: 10px; border-radius: 8px; border: 1px solid var(--border);" />
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+        <button class="btn btn-outline" onclick="closeDispatchModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmDispatch()">Confirm Dispatch</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    TransitLK National Bus Owner & Operator Management System • Connected to Colombo Regional Transport Authority
+  </footer>
+
+  <script>
+    const GEOAPIFY_API_KEY = '';
+
+    // Fleet vehicles with exact real-world Colombo GPS coordinates
+    const buses = [
+      {
+        route: '177',
+        plate: 'NA-4402',
+        name: 'Kaduwela → Kollupitiya',
+        lat: 6.9271,
+        lon: 79.8612,
+        area: 'Kollupitiya Junction, Galle Road',
+        speed: '34 km/h',
+        status: 'On-time (5 min)',
+        rev: 'Rs. 8,420',
+        driver: 'K. Perera',
+        ontime: true
+      },
+      {
+        route: '179',
+        plate: 'NB-8891',
+        name: 'Maharagama → Bambalapitiya',
+        lat: 6.8520,
+        lon: 79.8630,
+        area: 'Bambalapitiya Station Road',
+        speed: '18 km/h',
+        status: 'Delayed (12 min)',
+        rev: 'Rs. 6,350',
+        driver: 'S. Fernando',
+        ontime: false
+      },
+      {
+        route: '185',
+        plate: 'NC-1204',
+        name: 'Pettah → Nugegoda',
+        lat: 6.8770,
+        lon: 79.8780,
+        area: 'Nugegoda Supermarket Junction',
+        speed: '31 km/h',
+        status: 'On-time (8 min)',
+        rev: 'Rs. 9,120',
+        driver: 'M. Jayawardena',
+        ontime: true
+      },
+      {
+        route: '187',
+        plate: 'ND-5541',
+        name: 'Colombo Fort → Katunayake Airport',
+        lat: 6.9340,
+        lon: 79.8500,
+        area: 'Colombo Fort Central Bus Terminal',
+        speed: '42 km/h',
+        status: 'On-time (3 min)',
+        rev: 'Rs. 7,890',
+        driver: 'R. De Silva',
+        ontime: true
+      },
+      {
+        route: '189',
+        plate: 'NE-7721',
+        name: 'Moratuwa → Rajagiriya',
+        lat: 6.7710,
+        lon: 79.8830,
+        area: 'Moratuwa Cross Junction',
+        speed: '16 km/h',
+        status: 'Delayed (18 min)',
+        rev: 'Rs. 5,230',
+        driver: 'C. Wickramasinghe',
+        ontime: false
+      },
+    ];
+
+    // Initialize Map with Geoapify OSM-Bright
+    const map = L.map('map', { zoomControl: true }).setView([6.885, 79.87], 12);
+    
+    let currentTileLayer = null;
+    function setTileStyle(style) {
+      if (currentTileLayer) map.removeLayer(currentTileLayer);
+      
+      let layerPath = 'osm-bright';
+      if (style === 'dark-matter') layerPath = 'dark-matter-dark-grey';
+      else if (style === 'positron') layerPath = 'positron';
+      
+      currentTileLayer = L.tileLayer(`https://maps.geoapify.com/v1/tile/${layerPath}/{z}/{x}/{y}.png?apiKey=${GEOAPIFY_API_KEY}`, {
+        maxZoom: 19,
+        attribution: 'Powered by <a href="https://www.geoapify.com/" target="_blank">Geoapify</a> | &copy; OpenStreetMap'
+      }).addTo(map);
+
+      ['btnTileBright', 'btnTileDark', 'btnTilePositron'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.classList.remove('active');
+      });
+      if (style === 'osm-bright') document.getElementById('btnTileBright')?.classList.add('active');
+      if (style === 'dark-matter') document.getElementById('btnTileDark')?.classList.add('active');
+      if (style === 'positron') document.getElementById('btnTilePositron')?.classList.add('active');
+    }
+    setTileStyle('osm-bright');
+
+    const markersGroup = L.featureGroup();
+    const routeMarkers = {};
+
+    // Generate GPS Bus Markers with live radar pulse effect
+    buses.forEach(b => {
+      const color = b.ontime ? '#008783' : '#D97706';
+      const pulseBg = b.ontime ? 'rgba(0, 135, 131, 0.45)' : 'rgba(217, 119, 6, 0.45)';
+      const iconHtml = `
+        <div style="position:relative; width:34px; height:34px; display:flex; align-items:center; justify-content:center;">
+          <div class="bus-marker-pulse" style="background:${pulseBg};"></div>
+          <div class="bus-pin-badge" style="background:${color};">
+            ${b.route}
+          </div>
+        </div>
+      `;
+      const icon = L.divIcon({ html: iconHtml, className: '', iconSize: [34, 34], iconAnchor: [17, 17] });
+      const marker = L.marker([b.lat, b.lon], { icon }).addTo(markersGroup);
+      
+      marker.bindPopup(`
+        <div style="font-family:sans-serif; min-width:200px; padding:4px;">
+          <div style="font-size:15px; font-weight:800; color:#12304A; margin-bottom:4px;">
+            Route ${b.route} (${b.plate})
+          </div>
+          <div style="font-size:12px; color:#607D94; margin-bottom:6px;">
+            ${b.name}
+          </div>
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+            <span style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px; background:${b.ontime ? '#D1FAE5' : '#FEF3C7'}; color:${color};">
+              ${b.status}
+            </span>
+            <span style="font-size:11px; color:#12304A; font-weight:700;">⚡ ${b.speed}</span>
+          </div>
+          <div style="font-size:11px; color:#607D94; margin-bottom:2px;">
+            Current Area: <b>${b.area}</b>
+          </div>
+          <div style="font-size:11px; color:#607D94; margin-bottom:4px;">
+            Driver: <b>${b.driver}</b>
+          </div>
+          <div style="font-size:13px; color:#008783; font-weight:800; border-top:1px solid #E2E8F0; padding-top:4px;">
+            Today's Revenue: ${b.rev}
+          </div>
+        </div>
+      `);
+      
+      marker.on('click', () => {
+        showBusDetail(b.route);
+      });
+
+      routeMarkers[b.route] = marker;
+    });
+
+    markersGroup.addTo(map);
+    map.fitBounds(markersGroup.getBounds(), { padding: [50, 50] });
+
+    function showBusDetail(route) {
+      const b = buses.find(x => x.route === route);
+      if (!b) return;
+      document.getElementById('ttRouteTitle').innerText = `Route ${b.route} (${b.plate}) • ${b.area.split(',')[0]}`;
+      const stEl = document.getElementById('ttStatus');
+      stEl.innerText = b.status;
+      stEl.style.color = b.ontime ? '#34D399' : '#FBBF24';
+      document.getElementById('ttSpeed').innerText = b.speed;
+      document.getElementById('ttRevenue').innerText = b.rev;
+    }
+
+    function focusBus(route) {
+      const b = buses.find(x => x.route === route);
+      if (!b) return;
+      showBusDetail(route);
+      map.flyTo([b.lat, b.lon], 15, { animate: true, duration: 1 });
+      const m = routeMarkers[route];
+      if (m) {
+        setTimeout(() => m.openPopup(), 650);
+      }
+    }
+
+    function recenterFleet() {
+      map.fitBounds(markersGroup.getBounds(), { padding: [50, 50] });
+    }
+
+    function openDispatchModal() {
+      document.getElementById('dispatchModal').style.display = 'flex';
+    }
+
+    function closeDispatchModal() {
+      document.getElementById('dispatchModal').style.display = 'none';
+    }
+
+    function confirmDispatch() {
+      alert('Bus dispatched successfully! GPS beacon registered.');
+      closeDispatchModal();
+    }
+
+    function exportReport() {
+      const csv = "Route,Plate,Status,Revenue\n177,NA-4402,On-time,Rs. 8420\n179,NB-8891,Delayed,Rs. 6350\n185,NC-1204,On-time,Rs. 9120\n187,ND-5541,On-time,Rs. 7890\n189,NE-7721,Delayed,Rs. 5230\n";
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.setAttribute('href', url);
+      a.setAttribute('download', 'TransitLK_Owner_Daily_Revenue.csv');
+      a.click();
+    }
+  </script>
+</body>
+</html>

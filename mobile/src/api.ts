@@ -1,7 +1,8 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-export type User = { id:string; name:string; email:string; language:'en'|'ta'|'si'; role:'passenger' };
+export type User = { id:string; name:string; email:string; language:'en'|'ta'|'si'; role:'passenger'|'owner'|'officer' };
 const base = process.env.EXPO_PUBLIC_API_URL || (Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000');
+export const API_BASE_URL = base;
 let token: string | null = null;
 export class ApiError extends Error { constructor(message:string, public status:number) { super(message); } }
 export async function restoreSession() {
