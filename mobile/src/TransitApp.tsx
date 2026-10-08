@@ -96,8 +96,15 @@ if (page === 'postDetails') {
   return (
     <PostDetailsScreen
       postId={selectedLostFoundPostId}
+      user={user}
       onBack={() => setPage('community')}
       onNotifications={onNotifications}
+      onProfile={onProfile}
+      onDeleted={() => {
+        setSelectedLostFoundPostId(null);
+        setPublishedPost(null);
+        setPage('community');
+      }}
     />
   );
 }
