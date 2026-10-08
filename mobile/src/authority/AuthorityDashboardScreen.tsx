@@ -99,6 +99,26 @@ export default function AuthorityDashboardScreen({
   const [deleteId, setDeleteId] =
     useState<string | null>(null);
 
+    const [editingId, setEditingId] =
+  useState<string | null>(null);
+
+const [editTitle, setEditTitle] =
+  useState('');
+
+const [editDescription, setEditDescription] =
+  useState('');
+
+const [editRoute, setEditRoute] =
+  useState('');
+
+const [editSeverity, setEditSeverity] =
+  useState<'low' | 'medium' | 'high'>(
+    'medium'
+  );
+
+const [editSaving, setEditSaving] =
+  useState(false);
+
   async function loadAll() {
     setLoading(true);
     setError('');
@@ -216,7 +236,100 @@ export default function AuthorityDashboardScreen({
       );
     }
   }
+function beginEdit(
+  incident: AuthorityIncident
+) {
+  if (incident.createdBy !== user.id) {
+    setError(
+      'Only the officer who created this incident can edit it.'
+    );
+    return;
+  }
 
+  setEditingId(incident.id);
+
+  setEditTitle(incident.title);
+  setEditDescription(
+    incident.description
+  );
+  setEditRoute(incident.route);
+  setEditSeverity(incident.severity);
+
+  setDeleteId(null);
+  setError('');
+}
+
+function cancelEdit() {
+  setEditingId(null);
+
+  setEditTitle('');
+  setEditDescription('');
+  setEditRoute('');
+  setEditSeverity('medium');
+
+  setEditSaving(false);
+}
+
+async function saveEdit(
+  incident: AuthorityIncident
+) {
+  if (incident.createdBy !== user.id) {
+    setError(
+      'Only the officer who created this incident can edit it.'
+    );
+    return;
+  }
+
+  if (
+    !editTitle.trim() ||
+    !editDescription.trim() ||
+    !editRoute.trim()
+  ) {
+    setError(
+      'Complete all incident fields.'
+    );
+    return;
+  }
+
+  setEditSaving(true);
+  setError('');
+
+  try {
+    const result =
+      await updateAuthorityIncident(
+        incident.id,
+        {
+          title: editTitle.trim(),
+          description:
+            editDescription.trim(),
+          route: editRoute.trim(),
+          severity: editSeverity,
+        }
+      );
+
+    setIncidents(current =>
+      current.map(item =>
+        item.id === incident.id
+          ? result.incident
+          : item
+      )
+    );
+
+    cancelEdit();
+
+    setOverview(
+      await getAuthorityOverview()
+    );
+  } catch (e) {
+    setError(
+      e instanceof Error
+        ? e.message
+        : 'Could not edit incident.'
+    );
+  } finally {
+    setEditSaving(false);
+  }
+}
   async function removeIncident(
     id: string
   ) {
@@ -827,193 +940,354 @@ export default function AuthorityDashboardScreen({
                   </Pressable>
                 </View>
 
-                {incidents.map(
-                  incident => (
-                    <View
-                      key={incident.id}
+                {incidents.map(incident => {
+  const isCreator =
+    incident.createdBy === user.id;
+
+  const isEditing =
+    editingId === incident.id;
+
+  return (
+    <View
+      key={incident.id}
+      style={styles.incidentCard}
+    >
+      <View style={styles.row}>
+        <Text
+          style={styles.incidentTitle}
+        >
+          {incident.title}
+        </Text>
+
+        <Text
+          style={[
+            styles.severityLabel,
+            incident.severity === 'high'
+              ? styles.danger
+              : incident.severity ===
+                  'medium'
+                ? styles.warning
+                : styles.good,
+          ]}
+        >
+          {incident.severity}
+        </Text>
+      </View>
+
+      <Text
+        style={
+          styles.incidentDescription
+        }
+      >
+        {incident.description}
+      </Text>
+
+      <Text
+        style={styles.incidentMeta}
+      >
+        Route {incident.route}
+        {' · '}
+        {incident.status}
+      </Text>
+
+      <Text
+        style={styles.incidentMeta}
+      >
+        Reported by{' '}
+        {incident.createdByName}
+        {isCreator ? ' (you)' : ''}
+      </Text>
+
+      {isEditing ? (
+        <View style={styles.editForm}>
+          <Text style={styles.editHeading}>
+            Edit incident
+          </Text>
+
+          <TextInput
+            value={editTitle}
+            onChangeText={setEditTitle}
+            placeholder="Incident title"
+            placeholderTextColor={
+              c.muted
+            }
+            style={styles.input}
+          />
+
+          <TextInput
+            value={editRoute}
+            onChangeText={setEditRoute}
+            placeholder="Route"
+            placeholderTextColor={
+              c.muted
+            }
+            style={styles.input}
+          />
+
+          <TextInput
+            value={editDescription}
+            onChangeText={
+              setEditDescription
+            }
+            placeholder="Description"
+            placeholderTextColor={
+              c.muted
+            }
+            multiline
+            style={[
+              styles.input,
+              styles.textArea,
+            ]}
+          />
+
+          <Text
+            style={
+              styles.editFieldLabel
+            }
+          >
+            Severity
+          </Text>
+
+          <View
+            style={styles.severityRow}
+          >
+            {(
+              [
+                'low',
+                'medium',
+                'high',
+              ] as const
+            ).map(value => (
+              <Pressable
+                key={value}
+                disabled={editSaving}
+                onPress={() =>
+                  setEditSeverity(
+                    value
+                  )
+                }
+                style={[
+                  styles.severityButton,
+                  editSeverity ===
+                    value &&
+                    styles.severitySelected,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.severityText,
+                    editSeverity ===
+                      value &&
+                      styles.severityTextSelected,
+                  ]}
+                >
+                  {value}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <View
+            style={styles.editActions}
+          >
+            <Pressable
+              disabled={editSaving}
+              onPress={cancelEdit}
+              style={
+                styles.editCancelButton
+              }
+            >
+              <Text
+                style={
+                  styles.softButtonText
+                }
+              >
+                Cancel
+              </Text>
+            </Pressable>
+
+            <Pressable
+              disabled={editSaving}
+              onPress={() =>
+                void saveEdit(
+                  incident
+                )
+              }
+              style={[
+                styles.editSaveButton,
+                editSaving &&
+                  styles.disabledButton,
+              ]}
+            >
+              {editSaving ? (
+                <ActivityIndicator
+                  color={c.white}
+                />
+              ) : (
+                <Text
+                  style={
+                    styles.blueButtonText
+                  }
+                >
+                  Save changes
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <>
+          {incident.status ===
+            'open' && (
+            <Pressable
+              onPress={() =>
+                void changeStatus(
+                  incident,
+                  'acknowledged'
+                )
+              }
+              style={
+                styles.softButton
+              }
+            >
+              <Text
+                style={
+                  styles.softButtonText
+                }
+              >
+                Acknowledge
+              </Text>
+            </Pressable>
+          )}
+
+          {incident.status !==
+            'resolved' && (
+            <Pressable
+              onPress={() =>
+                void changeStatus(
+                  incident,
+                  'resolved'
+                )
+              }
+              style={
+                styles.blueSmallButton
+              }
+            >
+              <Text
+                style={
+                  styles.blueButtonText
+                }
+              >
+                Resolve
+              </Text>
+            </Pressable>
+          )}
+
+          {isCreator && (
+            <Pressable
+              onPress={() =>
+                beginEdit(incident)
+              }
+              style={styles.editButton}
+            >
+              <Text
+                style={
+                  styles.editButtonText
+                }
+              >
+                Edit incident
+              </Text>
+            </Pressable>
+          )}
+
+          {isCreator && (
+            <>
+              {deleteId !==
+              incident.id ? (
+                <Pressable
+                  onPress={() =>
+                    setDeleteId(
+                      incident.id
+                    )
+                  }
+                  style={
+                    styles.deleteButton
+                  }
+                >
+                  <Text
+                    style={
+                      styles.deleteText
+                    }
+                  >
+                    Delete
+                  </Text>
+                </Pressable>
+              ) : (
+                <View
+                  style={
+                    styles.deleteConfirm
+                  }
+                >
+                  <Text
+                    style={
+                      styles.deleteWarning
+                    }
+                  >
+                    Delete this incident?
+                  </Text>
+
+                  <View
+                    style={
+                      styles.actionRow
+                    }
+                  >
+                    <Pressable
+                      onPress={() =>
+                        setDeleteId(
+                          null
+                        )
+                      }
                       style={
-                        styles.incidentCard
+                        styles.softSmall
                       }
                     >
-                      <View
-                        style={styles.row}
-                      >
-                        <Text
-                          style={
-                            styles.incidentTitle
-                          }
-                        >
-                          {incident.title}
-                        </Text>
-
-                        <Text
-                          style={[
-                            styles.severityLabel,
-                            incident.severity ===
-                            'high'
-                              ? styles.danger
-                              : incident.severity ===
-                                  'medium'
-                                ? styles.warning
-                                : styles.good,
-                          ]}
-                        >
-                          {
-                            incident.severity
-                          }
-                        </Text>
-                      </View>
-
                       <Text
                         style={
-                          styles.incidentDescription
+                          styles.softButtonText
                         }
                       >
-                        {
-                          incident.description
-                        }
+                        Cancel
                       </Text>
+                    </Pressable>
 
+                    <Pressable
+                      onPress={() =>
+                        void removeIncident(
+                          incident.id
+                        )
+                      }
+                      style={
+                        styles.deleteSmall
+                      }
+                    >
                       <Text
                         style={
-                          styles.incidentMeta
+                          styles.deleteText
                         }
                       >
-                        Route{' '}
-                        {incident.route}
-                        {' · '}
-                        {incident.status}
+                        Delete
                       </Text>
-
-                      {incident.status ===
-                        'open' && (
-                        <Pressable
-                          onPress={() =>
-                            void changeStatus(
-                              incident,
-                              'acknowledged'
-                            )
-                          }
-                          style={
-                            styles.softButton
-                          }
-                        >
-                          <Text
-                            style={
-                              styles.softButtonText
-                            }
-                          >
-                            Acknowledge
-                          </Text>
-                        </Pressable>
-                      )}
-
-                      {incident.status !==
-                        'resolved' && (
-                        <Pressable
-                          onPress={() =>
-                            void changeStatus(
-                              incident,
-                              'resolved'
-                            )
-                          }
-                          style={
-                            styles.blueSmallButton
-                          }
-                        >
-                          <Text
-                            style={
-                              styles.blueButtonText
-                            }
-                          >
-                            Resolve
-                          </Text>
-                        </Pressable>
-                      )}
-
-                      {deleteId !==
-                      incident.id ? (
-                        <Pressable
-                          onPress={() =>
-                            setDeleteId(
-                              incident.id
-                            )
-                          }
-                          style={
-                            styles.deleteButton
-                          }
-                        >
-                          <Text
-                            style={
-                              styles.deleteText
-                            }
-                          >
-                            Delete
-                          </Text>
-                        </Pressable>
-                      ) : (
-                        <View
-                          style={
-                            styles.deleteConfirm
-                          }
-                        >
-                          <Text
-                            style={
-                              styles.deleteWarning
-                            }
-                          >
-                            Delete this
-                            incident?
-                          </Text>
-
-                          <View
-                            style={
-                              styles.actionRow
-                            }
-                          >
-                            <Pressable
-                              onPress={() =>
-                                setDeleteId(
-                                  null
-                                )
-                              }
-                              style={
-                                styles.softSmall
-                              }
-                            >
-                              <Text
-                                style={
-                                  styles.softButtonText
-                                }
-                              >
-                                Cancel
-                              </Text>
-                            </Pressable>
-
-                            <Pressable
-                              onPress={() =>
-                                void removeIncident(
-                                  incident.id
-                                )
-                              }
-                              style={
-                                styles.deleteSmall
-                              }
-                            >
-                              <Text
-                                style={
-                                  styles.deleteText
-                                }
-                              >
-                                Delete
-                              </Text>
-                            </Pressable>
-                          </View>
-                        </View>
-                      )}
-                    </View>
-                  )
-                )}
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </View>
+  );
+})}
               </>
             )}
 
@@ -1756,6 +2030,70 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 7,
   },
+  editForm: {
+  marginTop: 16,
+  paddingTop: 16,
+  borderTopWidth: 1,
+  borderTopColor: c.border,
+},
+
+editHeading: {
+  color: c.navy,
+  fontSize: 14,
+  fontWeight: '800',
+  marginBottom: 12,
+},
+
+editFieldLabel: {
+  color: c.muted,
+  fontSize: 11,
+  fontWeight: '600',
+  marginBottom: 8,
+},
+
+editActions: {
+  flexDirection: 'row',
+  gap: 8,
+  marginTop: 2,
+},
+
+editCancelButton: {
+  flex: 1,
+  minHeight: 44,
+  borderRadius: 11,
+  backgroundColor: authorityLight,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+
+editSaveButton: {
+  flex: 1,
+  minHeight: 44,
+  borderRadius: 11,
+  backgroundColor: authorityBlue,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+
+editButton: {
+  minHeight: 42,
+  marginTop: 8,
+  borderRadius: 11,
+  borderWidth: 1,
+  borderColor: authorityBlue,
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+
+editButtonText: {
+  color: authorityBlue,
+  fontWeight: '700',
+  fontSize: 12,
+},
+
+disabledButton: {
+  opacity: 0.65,
+},
 
   softButton: {
     minHeight: 42,
