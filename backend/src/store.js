@@ -6,10 +6,15 @@ export async function createMongoStore(db) {
   await sessions.createIndex({ tokenHash: 1 }, { unique: true });
   await sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
   const trips=db.collection('trips'), saved=db.collection('savedJourneys');
+  const lostFoundPosts = db.collection('lostFoundPosts');
   await trips.createIndex({id:1},{unique:true});
   await trips.createIndex({mode:1,from:1,to:1,date:1});
   await saved.createIndex({userId:1,tripId:1,date:1},{unique:true});
+  await lostFoundPosts.createIndex({ createdAt: -1 });
+  await lostFoundPosts.createIndex({ userId: 1 });
+  await lostFoundPosts.createIndex({ type: 1 });
   const savedView=d=>d&&({...d,id:String(d._id),_id:undefined,userId:undefined});
+  const lostFoundView = d =>d && ({...d, id: String(d._id), _id: undefined});
   return {
     searchTrips:q=>trips.find({from:q.from,to:q.to,mode:q.mode,date:q.date},{projection:{_id:0}}).limit(50).toArray(),
     findTrip:id=>trips.findOne({id},{projection:{_id:0}}),
@@ -27,6 +32,102 @@ export async function createMongoStore(db) {
     createSession: session => sessions.insertOne(session),
     findSession: tokenHash => sessions.findOne({ tokenHash, expiresAt: { $gt: new Date() } }),
     deleteSession: tokenHash => sessions.deleteOne({ tokenHash }),
+    async listLostFoundPosts() {
+    return (
+      await lostFoundPosts
+        .find({})
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .toArray()
+    ).map(lostFoundView);
+  },
+
+  async findLostFoundPost(id) {
+    if (!ObjectId.isValid(id)) return null;
+
+    return lostFoundView(
+      await lostFoundPosts.findOne({
+        _id: new ObjectId(id)
+      })
+    );
+  },
+
+  async createLostFoundPost(userId, data) {
+    const post = {
+      ...data,
+      userId,
+      comments: [],
+      likes: 0,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const result = await lostFoundPosts.insertOne(post);
+
+    return lostFoundView({
+      ...post,
+      _id: result.insertedId
+    });
+  },
+
+  async updateLostFoundPost(userId, id, data) {
+    if (!ObjectId.isValid(id)) return null;
+
+    return lostFoundView(
+      await lostFoundPosts.findOneAndUpdate(
+        {
+          _id: new ObjectId(id),
+          userId
+        },
+        {
+          $set: {
+            ...data,
+            updatedAt: new Date()
+          }
+        },
+        {
+          returnDocument: 'after'
+        }
+      )
+    );
+  },
+
+  async deleteLostFoundPost(userId, id) {
+    if (!ObjectId.isValid(id)) return false;
+
+    const result = await lostFoundPosts.deleteOne({
+      _id: new ObjectId(id),
+      userId
+    });
+
+    return result.deletedCount === 1;
+  },
+
+  async addLostFoundComment(postId, comment) {
+    if (!ObjectId.isValid(postId)) return null;
+
+    return lostFoundView(
+      await lostFoundPosts.findOneAndUpdate(
+        {
+          _id: new ObjectId(postId)
+        },
+        {
+          $push: {
+            comments: {
+              ...comment,
+              createdAt: new Date()
+            }
+          },
+          $set: {
+            updatedAt: new Date()
+          }
+        },
+        {
+          returnDocument: 'after'
+        }
+      )
+    );
+  },
     ping: () => db.command({ ping: 1 })
   };
 }

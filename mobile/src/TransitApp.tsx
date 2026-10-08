@@ -8,16 +8,23 @@ import {colors as c} from './theme';
 import {Journey,Tracking,SavedJourney} from './transitTypes';
 import JourneyMap from './JourneyMap';
 import { geoapifyReverseGeocode } from './geoapify';
+import CommunityScreen from './lostFound/CommunityScreen';
+import CreatePostScreen from './lostFound/CreatePostScreen';
+import PostPublishedScreen from './lostFound/PostPublishedScreen';
+import PostDetailsScreen from './lostFound/PostDetailsScreen';
+import type { LostFoundPost } from './lostFound/lostFoundApi';
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
 function Action({label,onPress,secondary=false,busy=false}:{label:string;onPress:()=>void;secondary?:boolean;busy?:boolean}){return <Pressable accessibilityRole="button" disabled={busy} onPress={onPress} style={[s.action,secondary&&s.secondary]}><Text style={[s.actionText,secondary&&{color:c.teal}]}>{label}</Text>{busy?<ActivityIndicator color={c.teal}/>:<Icon name="arrow" color={secondary?c.teal:'white'}/>}</Pressable>;}
 export default function TransitApp({user,onProfile,onWelcome,onNotifications}:{user:User|null;onProfile:()=>void;onWelcome:()=>void;onNotifications:()=>void}){
- const insets=useSafeAreaInsets();const [page,setPage]=useState<'home'|'results'|'tracking'>('home');const [mode,setMode]=useState<'bus'|'train'>('bus');
+ const insets=useSafeAreaInsets();const [page,setPage]=useState<'home'|'results'|'tracking'|'community'| 'createPost'|'postPublished'|'postDetails'>('home');const [mode,setMode]=useState<'bus'|'train'>('bus');
  const [from,setFrom]=useState('Horana'),[to,setTo]=useState('Colombo'),[date,setDate]=useState(today());const [demo,setDemo]=useState(true);
  const [journeys,setJourneys]=useState<Journey[]>([]),[selected,setSelected]=useState<Journey|null>(null),[data,setData]=useState<Tracking|null>(null);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[trackingError,setTrackingError]=useState(''),[saved,setSaved]=useState<SavedJourney[]>([]),[savedError,setSavedError]=useState('');
  const [dialog,setDialog]=useState<'tickets'|'community'|'rename'|null>(null),[editing,setEditing]=useState<SavedJourney|null>(null),[label,setLabel]=useState('');
  const [notice,setNotice]=useState(''),[saveBusy,setSaveBusy]=useState(false),[retry,setRetry]=useState(0);const request=useRef(0);
  const [gpsBusy,setGpsBusy]=useState(false);
+ const [publishedPost, setPublishedPost] =useState<LostFoundPost | null>(null);
+ const [selectedLostFoundPostId, setSelectedLostFoundPostId] =useState<string | null>(null);
  async function detectGps(){
   if(Platform.OS==='web'&&typeof navigator!=='undefined'&&'geolocation' in navigator){
    setGpsBusy(true);setNotice('Requesting GPS location…');
@@ -35,7 +42,18 @@ export default function TransitApp({user,onProfile,onWelcome,onNotifications}:{u
    );
   }else{setNotice('GPS is not available on this browser.');}
  }
- const back=()=>{setError('');setNotice('');if(page==='tracking')setPage('results');else if(page==='results')setPage('home');else onWelcome();};
+const back=()=>{
+  setError('');
+  setNotice('');
+
+  if(page==='tracking') setPage('results');
+  else if(page==='results') setPage('home');
+  else if(page==='createPost') setPage('community');
+  else if(page==='community') setPage('home');
+  else if(page==='postPublished') setPage('community');
+  else if(page==='postDetails') setPage('community');
+  else onWelcome();
+};
  useEffect(()=>{const sub=BackHandler.addEventListener('hardwareBackPress',()=>{if(dialog){setDialog(null);return true;}back();return true;});return()=>sub.remove();},[page,dialog]);
  async function loadSaved(){if(!user)return;setSavedError('');try{const r=await api<{journeys:SavedJourney[]}>('/saved-journeys');setSaved(r.journeys);}catch{setSavedError('Could not load saved journeys. Tap to retry.');}}
  useEffect(()=>{void loadSaved();},[user?.id]);
@@ -51,6 +69,60 @@ export default function TransitApp({user,onProfile,onWelcome,onNotifications}:{u
  function removeConfirm(j:SavedJourney){if(Platform.OS==='web'){if(globalThis.confirm('Remove this saved journey?'))void remove(j);}else Alert.alert('Remove saved journey?',j.label,[{text:'Cancel',style:'cancel'},{text:'Remove',style:'destructive',onPress:()=>void remove(j)}]);}
  const stale=!!data&&(data.stale||!!trackingError||!data.updatedAt||Date.now()-Date.parse(data.updatedAt)>60000);
  const field=(title:string,value:string,onChange:(v:string)=>void,icon:TransitIconName,action?:{label:string;onPress:()=>void;busy?:boolean})=><View style={s.field}><View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center'}}><Text style={s.label}>{title}</Text>{action&&<Pressable accessibilityRole="button" onPress={action.onPress} style={{paddingVertical:2,paddingHorizontal:7,borderRadius:8,backgroundColor:c.mint}}><Text style={{color:c.teal,fontSize:11,fontWeight:'700'}}>{action.busy?'Detecting…':action.label}</Text></Pressable>}</View><View style={s.inputWrap}><TransitIcon name={icon} size={20}/><TextInput accessibilityLabel={title} value={value} onChangeText={onChange} style={s.input} placeholder={title==='Travel date'?'YYYY-MM-DD':title} placeholderTextColor={c.muted} maxLength={title==='Travel date'?10:80} autoCapitalize="words"/></View></View>;
+if (page === 'createPost') {
+  return (
+    <CreatePostScreen
+      onBack={() => setPage('community')}
+      onPublished={(post) => {
+        setPublishedPost(post);
+        setPage('postPublished');
+      }}
+      onNotifications={onNotifications}
+    />
+  );
+}
+
+if (page === 'postPublished') {
+  return (
+    <PostPublishedScreen
+      post={publishedPost}
+      onBack={() => setPage('community')}
+      onViewPost={() => {if (publishedPost) {setSelectedLostFoundPostId(publishedPost.id);} setPage('postDetails'); }}
+      onBackToCommunity={() => setPage('community')}
+    />
+  );
+}
+if (page === 'postDetails') {
+  return (
+    <PostDetailsScreen
+      postId={selectedLostFoundPostId}
+      onBack={() => setPage('community')}
+      onNotifications={onNotifications}
+    />
+  );
+}
+ if (page === 'community') {
+  return (
+    <CommunityScreen
+      onBack={() => setPage('home')}
+      onCreatePost={() => {
+       if (user) {
+        setPage('createPost');
+       } else {
+         onProfile();
+       }
+    }}
+      onOpenPost={(postId) => { setSelectedLostFoundPostId(postId); setPage('postDetails');}}
+      onHome={() => setPage('home')}
+      onTickets={() => {
+        setPage('home');
+        setDialog('tickets');
+      }}
+      onProfile={onProfile}
+      onNotifications={onNotifications}
+    />
+  );
+}
  return <View style={s.stage}><View style={[s.screen,{paddingTop:Math.max(insets.top,Platform.OS==='web'?10:14)}]}>
  <View style={s.header}><Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={back} style={s.iconButton}><Icon name="back" size={20}/></Pressable><Text style={s.headerText}>{page==='home'?'TransitLK':page==='results'?'Available rides':`Track your ${selected?.mode||mode}`}</Text><Pressable accessibilityRole="button" accessibilityLabel="Notifications" onPress={onNotifications} style={s.iconButton}><Icon name="bell" size={20}/></Pressable></View>
  <ScrollView style={{ flex: 1, width: '100%' }} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -70,7 +142,7 @@ export default function TransitApp({user,onProfile,onWelcome,onNotifications}:{u
  <Action label="Buy ticket" onPress={()=>setDialog('tickets')}/><Action label={user?'Save journey':'Sign in to save journey'} secondary onPress={()=>void save()} busy={saveBusy}/><Pressable accessibilityRole="button" onPress={()=>setRetry(v=>v+1)} style={s.refresh}><TransitIcon name="refresh" size={17}/><Text style={s.link}>Refresh location</Text></Pressable>{!!notice&&<Text accessibilityRole="alert" style={s.body}>{notice}</Text>}
  </>}
  </ScrollView>
- {page!=='tracking'&&<View style={[s.nav,{paddingBottom:Math.max(insets.bottom,8)}]}>{([{icon:'home',label:'Home',action:()=>setPage('home')},{icon:'ticket',label:'Tickets',action:()=>setDialog('tickets')},{icon:'community',label:'Community',action:()=>setDialog('community')},{icon:'profile',label:'Profile',action:onProfile}] as {icon:TransitIconName;label:string;action:()=>void}[]).map(item=><Pressable accessibilityRole="button" key={item.label} onPress={item.action} style={[s.navItem,item.icon==='home'&&s.navActive]}><TransitIcon name={item.icon} color={item.icon==='home'?c.teal:c.muted} size={21}/><Text style={[s.navText,item.icon==='home'&&{color:c.teal}]}>{item.label}</Text></Pressable>)}</View>}
+ {page!=='tracking'&&<View style={[s.nav,{paddingBottom:Math.max(insets.bottom,8)}]}>{([{icon:'home',label:'Home',action:()=>setPage('home')},{icon:'ticket',label:'Tickets',action:()=>setDialog('tickets')},{icon:'community',label:'Community',action:()=>setPage('community')},{icon:'profile',label:'Profile',action:onProfile}] as {icon:TransitIconName;label:string;action:()=>void}[]).map(item=><Pressable accessibilityRole="button" key={item.label} onPress={item.action} style={[s.navItem,item.icon==='home'&&s.navActive]}><TransitIcon name={item.icon} color={item.icon==='home'?c.teal:c.muted} size={21}/><Text style={[s.navText,item.icon==='home'&&{color:c.teal}]}>{item.label}</Text></Pressable>)}</View>}
  </View>
  {Platform.OS==='web'?(dialog!==null&&<View style={s.overlay}><View style={[s.dialog,{paddingBottom:Math.max(insets.bottom,24)}]}><Pressable accessibilityRole="button" accessibilityLabel="Close dialog" style={s.dialogClose} onPress={()=>setDialog(null)}><Icon name="close"/></Pressable><Text style={s.title}>{dialog==='rename'?'Rename journey':dialog==='tickets'?'Tickets':'Community'}</Text>{dialog==='rename'?<>{field('Journey label',label,setLabel,'bookmark')}<Action label="Save label" onPress={()=>void rename()} busy={saveBusy}/>{!!savedError&&<Text style={s.error}>{savedError}</Text>}</>:<><Text style={s.body}>{dialog==='tickets'?'Ticket purchases are not connected yet. No payment or reservation has been made.':'Community conversations are not connected yet. Your journey search and GPS tracking are available on Home.'}</Text><Action label="Back to journey" onPress={()=>setDialog(null)}/></>}</View></View>):<Modal visible={dialog!==null} transparent animationType="slide" onRequestClose={()=>setDialog(null)}><View style={s.overlay}><View style={[s.dialog,{paddingBottom:Math.max(insets.bottom,24)}]}><Pressable accessibilityRole="button" accessibilityLabel="Close dialog" style={s.dialogClose} onPress={()=>setDialog(null)}><Icon name="close"/></Pressable><Text style={s.title}>{dialog==='rename'?'Rename journey':dialog==='tickets'?'Tickets':'Community'}</Text>{dialog==='rename'?<>{field('Journey label',label,setLabel,'bookmark')}<Action label="Save label" onPress={()=>void rename()} busy={saveBusy}/>{!!savedError&&<Text style={s.error}>{savedError}</Text>}</>:<><Text style={s.body}>{dialog==='tickets'?'Ticket purchases are not connected yet. No payment or reservation has been made.':'Community conversations are not connected yet. Your journey search and GPS tracking are available on Home.'}</Text><Action label="Back to journey" onPress={()=>setDialog(null)}/></>}</View></View></Modal>}
  </View>;
