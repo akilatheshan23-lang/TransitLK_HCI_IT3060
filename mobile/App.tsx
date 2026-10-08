@@ -10,6 +10,8 @@ import { BusArtwork, Icon } from './src/Artwork';
 import { PhoneFrame } from './src/PhoneFrame';
 import { colors as c } from './src/theme';
 import { copy, Language } from './src/i18n';
+import AuthorityLoginScreen from './src/authority/AuthorityLoginScreen';
+import AuthorityDashboardScreen from './src/authority/AuthorityDashboardScreen';
 import { api, ApiError, restoreSession, saveSession, User, API_BASE_URL } from './src/api';
 
 type Sheet = 'register' | 'login' | 'profile' | 'notifications' | 'about' | null;
@@ -26,6 +28,7 @@ function Button({ label, onPress, secondary = false, busy = false }: { label: st
 function Welcome() {
   const insets = useSafeAreaInsets();
   const [showTransit, setShowTransit] = useState(false);
+  const [showOfficerLogin, setShowOfficerLogin] =useState(false);
   const [ownerScreen, setOwnerScreen] = useState<'dashboard' | 'fleet'>('dashboard');
   const [lang, setLang] = useState<Language>('en');
   const t = copy[lang];
@@ -41,7 +44,7 @@ function Welcome() {
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [notificationState, setNotificationState] = useState<'loading' | 'ready' | 'error'>('loading');
-
+  
   const openWebsiteDashboard = () => {
     const url = `${API_BASE_URL}/owner`;
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -50,6 +53,15 @@ function Welcome() {
       void Linking.openURL(url);
     }
   };
+  const openAuthorityWebsiteDashboard = () => {
+  const url = `${API_BASE_URL}/authority`;
+
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    window.open(url, '_blank');
+  } else {
+    void Linking.openURL(url);
+  }
+};
 
   useEffect(() => {
     let active = true;
@@ -150,6 +162,14 @@ function Welcome() {
     setNotice('Google sign-in is not connected yet. Please use email and password.');
   }
 
+  function openOfficerLogin() {
+  setSheet(null);
+  setError('');
+  setNotice('');
+  setPassword('');
+  setShowOfficerLogin(true);
+}
+
   const title = sheet === 'register' ? t.register : sheet === 'login' ? t.login : sheet === 'notifications' ? t.notifications : sheet === 'profile' ? t.signedIn : 'TransitLK';
 
   const sheetContentElement = (
@@ -231,9 +251,14 @@ function Welcome() {
                 <Pressable onPress={() => loadStaffAccess('owner')} style={s.staffBtn}>
                   <Text style={s.staffBtnText}>Bus Owner</Text>
                 </Pressable>
-                <Pressable onPress={() => loadStaffAccess('officer')} style={s.staffBtn}>
-                  <Text style={s.staffBtnText}>Authority Officer</Text>
-                </Pressable>
+                <Pressable
+                onPress={openOfficerLogin}
+                style={s.staffBtn}
+      >
+              <Text style={s.staffBtnText}>
+                Authority Officer
+              </Text>
+              </Pressable>
               </View>
             </View>
           </>
@@ -299,7 +324,14 @@ function Welcome() {
             <Text style={s.profileName}>{user.name}</Text>
             <Text style={s.centerText}>{user.email}</Text>
             <Text style={s.sheetIntro}>{t.saved}</Text>
-            <Button label="Find my ride" onPress={() => { setSheet(null); setShowTransit(true); }} />
+            <Button
+              label={
+                user.role === 'owner'
+                  ? 'Owner Dashboard'
+                  : user.role === 'officer'
+                    ? 'Authority Dashboard'
+                    : 'Find my ride'
+              } onPress={() => { setSheet(null); setShowTransit(true); }} />
             {!!error && <Text accessibilityRole="alert" style={s.error}>{error}</Text>}
             <Button label={t.logout} onPress={() => void logout()} secondary busy={busy} />
           </>
@@ -339,7 +371,20 @@ function Welcome() {
   return (
     <View style={s.stage}>
       <StatusBar style="dark" />
-      {showTransit ? (
+      {showOfficerLogin ? (
+  <AuthorityLoginScreen
+    onBack={() => {
+      setShowOfficerLogin(false);
+      open('login');
+    }}
+    onSignedIn={(officer) => {
+      setUser(officer);
+      setLang(officer.language);
+      setShowOfficerLogin(false);
+      setShowTransit(true);
+    }}
+  />
+) : showTransit ? (
         user?.role === 'owner' ? (
           ownerScreen === 'fleet' ? (
             <FleetTrackingScreen
@@ -355,6 +400,19 @@ function Welcome() {
               onOpenWebDashboard={openWebsiteDashboard}
             />
           )
+          ) : user?.role === 'officer' ? (
+  <AuthorityDashboardScreen
+    user={user}
+    onBack={() =>
+      setShowTransit(false)
+    }
+    onSignOut={() =>
+      void logout()
+    }
+    onOpenWebDashboard={
+      openAuthorityWebsiteDashboard
+    }
+  />
         ) : (
           <TransitApp user={user} onProfile={() => open(user ? 'profile' : 'login')} onWelcome={() => setShowTransit(false)} onNotifications={() => open('notifications')} />
         )
@@ -391,7 +449,16 @@ function Welcome() {
             <View style={s.spacer} />
 
             <View style={s.actions}>
-              <Button label={user ? (user.role === 'owner' ? 'Owner Dashboard' : 'Find my ride') : t.start} onPress={() => user ? setShowTransit(true) : open('register')} busy={restoring} />
+              <Button
+                  label={
+                        user
+                          ? user.role === 'owner'
+                            ? 'Owner Dashboard'
+                            : user.role === 'officer'
+                              ? 'Authority Dashboard'
+                              : 'Find my ride'
+                          : t.start
+              } onPress={() => user ? setShowTransit(true) : open('register')} busy={restoring} />
               {!user && (
                 <Pressable accessibilityRole="button" onPress={() => setShowTransit(true)} style={s.switch}>
                   <Text style={s.switchText}>Explore journeys</Text>
