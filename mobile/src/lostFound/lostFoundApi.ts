@@ -49,3 +49,50 @@ export async function createLostFoundPost(
     data
   );
 }
+
+export async function addLostFoundComment(
+  postId: string,
+  message: string
+) {
+  return api<{ post: LostFoundPost }>(
+    `/lost-found/${postId}/comments`,
+    'POST',
+    { message }
+  );
+}
+
+export type UpdateLostFoundPostInput = {
+  type?: 'lost' | 'found';
+  item?: string;
+  description?: string;
+  routeTime?: string;
+};
+
+export async function updateLostFoundPost(
+  postId: string,
+  data: UpdateLostFoundPostInput
+) {
+  return api<{ post: LostFoundPost }>(
+    `/lost-found/${postId}`,
+    'PATCH',
+    data
+  );
+}
+
+export async function deleteLostFoundPost(
+  postId: string
+) {
+  return api<void>(
+    `/lost-found/${postId}`,
+    'DELETE'
+  );
+}
+
+export async function likeLostFoundPost(
+  postId: string
+) {
+  return api<{ post: LostFoundPost }>(
+    `/lost-found/${postId}/like`,
+    'POST'
+  );
+}
