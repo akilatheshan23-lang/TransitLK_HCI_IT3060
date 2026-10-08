@@ -1,4 +1,5 @@
 import { transitRouter } from './transit.js';
+import { lostFoundRouter } from './lostFound.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -97,6 +98,7 @@ export function createApp(store, { origins = ['http://localhost:8081'], limit = 
     await store.deleteSession(req.sessionHash);
     res.status(204).end();
   });
+  app.use('/api', lostFoundRouter(store, authenticate));
   app.use('/api', transitRouter(store, authenticate));
   app.use((_req, res) => res.status(404).json({ error: 'This endpoint does not exist.' }));
   app.use((error, _req, res, _next) => {
