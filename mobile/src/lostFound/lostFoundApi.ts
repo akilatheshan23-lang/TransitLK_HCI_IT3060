@@ -14,6 +14,8 @@ export type LostFoundPost = {
   description: string;
   routeTime: string;
   image?: string;
+  location?: string;
+  busRegNumber?: string;
   authorName: string;
   userId: string;
   comments: LostFoundComment[];
@@ -38,6 +40,9 @@ export type CreateLostFoundPostInput = {
   description: string;
   routeTime: string;
   image?: string;
+  title?: string;
+  location?: string;
+  busRegNumber?: string;
 };
 
 export async function createLostFoundPost(

@@ -155,7 +155,10 @@ export async function requireAdmin(req, res, next) {
     const users = getSafeUsersCollection();
     const tokenH = hashToken(token);
 
-    const session = await sessions.findOne({ tokenHash: tokenH });
+    const session = await sessions.findOne({
+      tokenHash: tokenH,
+      expiresAt: { $gt: new Date() },
+    });
     if (!session) {
       return res.status(401).json({
         success: false,
@@ -289,7 +292,8 @@ adminRouter.post('/login', async (req, res) => {
       tokenHash,
       userId: admin._id,
       role: 'admin',
-      expiresAt: expiresAt.toISOString(),
+      expiresAt,
+      createdAt: new Date(),
     });
 
     return res.json({

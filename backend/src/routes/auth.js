@@ -20,7 +20,8 @@ async function createSession(userId) {
     _id: generateId(),
     tokenHash,
     userId,
-    expiresAt: expiresAt.toISOString(),
+    expiresAt,
+    createdAt: new Date(),
   });
 
   return token;
@@ -572,7 +573,7 @@ authRouter.get('/me', async (req, res) => {
 
     const session = await getSessionsCollection().findOne({
       tokenHash,
-      expiresAt: { $gt: new Date().toISOString() },
+      expiresAt: { $gt: new Date() },
     });
 
     if (!session) {

@@ -3,18 +3,22 @@ import { z } from 'zod';
 
 const postSchema = z.object({
   type: z.enum(['lost', 'found']),
-  item: z.string().trim().min(2).max(80),
-  description: z.string().trim().min(2).max(300),
-  routeTime: z.string().trim().min(2).max(100),
-  image: z.string().trim().max(500).optional()
+  item: z.string().trim().min(2, 'Item name must be at least 2 characters').max(80, 'Item name cannot exceed 80 characters'),
+  description: z.string().trim().min(2, 'Description must be at least 2 characters').max(300, 'Description cannot exceed 300 characters'),
+  routeTime: z.string().trim().min(2, 'Route or time must be at least 2 characters').max(100, 'Route or time cannot exceed 100 characters'),
+  image: z.string().trim().max(500).optional(),
+  location: z.string().trim().max(100).optional(),
+  busRegNumber: z.string().trim().max(50).optional(),
 }).strict();
 
 const updatePostSchema = z.object({
   type: z.enum(['lost', 'found']).optional(),
-  item: z.string().trim().min(2).max(80).optional(),
-  description: z.string().trim().min(2).max(300).optional(),
-  routeTime: z.string().trim().min(2).max(100).optional(),
-  image: z.string().trim().max(500).optional()
+  item: z.string().trim().min(2, 'Item name must be at least 2 characters').max(80, 'Item name cannot exceed 80 characters').optional(),
+  description: z.string().trim().min(2, 'Description must be at least 2 characters').max(300, 'Description cannot exceed 300 characters').optional(),
+  routeTime: z.string().trim().min(2, 'Route or time must be at least 2 characters').max(100, 'Route or time cannot exceed 100 characters').optional(),
+  image: z.string().trim().max(500).optional(),
+  location: z.string().trim().max(100).optional(),
+  busRegNumber: z.string().trim().max(50).optional(),
 }).strict();
 
 const commentSchema = z.object({
@@ -53,11 +57,51 @@ export function lostFoundRouter(store, authenticate) {
     '/lost-found',
     authenticate,
     async (req, res) => {
-      const result = postSchema.safeParse(req.body);
+      const raw = req.body || {};
+
+      // 1. Map item name: prefer canonical 'item', fallback to UI 'title'
+      const item = typeof raw.item === 'string' && raw.item.trim()
+        ? raw.item.trim()
+        : (typeof raw.title === 'string' && raw.title.trim() ? raw.title.trim() : raw.item);
+
+      // 2. Map routeTime: prefer canonical 'routeTime', fallback to UI 'routeNumber' / 'location' / 'busRegNumber'
+      let routeTime = typeof raw.routeTime === 'string' && raw.routeTime.trim()
+        ? raw.routeTime.trim()
+        : undefined;
+
+      if (!routeTime) {
+        const parts = [raw.routeNumber, raw.location, raw.busRegNumber]
+          .filter(v => typeof v === 'string' && v.trim().length > 0)
+          .map(v => v.trim());
+        if (parts.length > 0) {
+          routeTime = parts.join(' • ');
+        }
+      }
+
+      // 3. Assemble normalized payload
+      const payloadToValidate = {
+        type: raw.type,
+        item,
+        description: raw.description,
+        routeTime,
+      };
+
+      if (raw.image && typeof raw.image === 'string' && raw.image.trim()) {
+        payloadToValidate.image = raw.image.trim();
+      }
+      if (raw.location && typeof raw.location === 'string' && raw.location.trim()) {
+        payloadToValidate.location = raw.location.trim();
+      }
+      if (raw.busRegNumber && typeof raw.busRegNumber === 'string' && raw.busRegNumber.trim()) {
+        payloadToValidate.busRegNumber = raw.busRegNumber.trim();
+      }
+
+      const result = postSchema.safeParse(payloadToValidate);
 
       if (!result.success) {
         return res.status(400).json({
-          error: 'Enter valid lost or found item details.'
+          error: 'Enter valid lost or found item details.',
+          details: result.error.issues,
         });
       }
 
@@ -80,11 +124,27 @@ export function lostFoundRouter(store, authenticate) {
     '/lost-found/:id',
     authenticate,
     async (req, res) => {
-      const result = updatePostSchema.safeParse(req.body);
+      const raw = req.body || {};
+      const normalized = { ...raw };
+      if (normalized.title && !normalized.item && typeof normalized.title === 'string') {
+        normalized.item = normalized.title.trim();
+        delete normalized.title;
+      }
+      if (!normalized.routeTime && (normalized.routeNumber || normalized.location || normalized.busRegNumber)) {
+        const parts = [normalized.routeNumber, normalized.location, normalized.busRegNumber]
+          .filter(v => typeof v === 'string' && v.trim().length > 0)
+          .map(v => v.trim());
+        if (parts.length > 0) {
+          normalized.routeTime = parts.join(' • ');
+        }
+        delete normalized.routeNumber;
+      }
+      const result = updatePostSchema.safeParse(normalized);
 
       if (!result.success) {
         return res.status(400).json({
-          error: 'Enter valid post details.'
+          error: 'Enter valid post details.',
+          details: result.error.issues,
         });
       }
 

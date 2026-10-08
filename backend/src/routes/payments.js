@@ -279,7 +279,7 @@ export async function requireConductorOrAdmin(req, res, next) {
 
     const session = await sessions.findOne({
       tokenHash: tokenH,
-      expiresAt: { $gt: new Date().toISOString() },
+      expiresAt: { $gt: new Date() },
     });
 
     if (!session) {
@@ -350,7 +350,7 @@ export async function requireAuthorityOrAdmin(req, res, next) {
 
     const session = await sessions.findOne({
       tokenHash: tokenH,
-      expiresAt: { $gt: new Date().toISOString() },
+      expiresAt: { $gt: new Date() },
     });
 
     if (!session) {
@@ -407,7 +407,7 @@ paymentsRouter.post('/process', async (req, res) => {
         const sessions = getSessionsCollection();
         const session = await sessions.findOne({
           tokenHash: hashToken(token),
-          expiresAt: { $gt: new Date().toISOString() },
+          expiresAt: { $gt: new Date() },
         });
         if (session && session.userId) {
           scopedUserId = String(session.userId);
@@ -714,7 +714,8 @@ paymentsRouter.post('/tickets/verify', requireConductorOrAdmin, async (req, res)
           redeemedBy,
           redeemedByRole,
         },
-      }
+      },
+      { returnDocument: 'after' }
     );
 
     if (updateResult) {
