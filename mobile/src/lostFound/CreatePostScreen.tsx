@@ -10,10 +10,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon } from '../Artwork';
 import { colors as c } from '../theme';
+import { createLostFoundPost } from './lostFoundApi';
+import type { LostFoundPost } from './lostFoundApi';
 
 type CreatePostScreenProps = {
   onBack: () => void;
-  onPublished: () => void;
+  onPublished: (post: LostFoundPost) => void;
   onNotifications: () => void;
 };
 
@@ -32,14 +34,37 @@ export default function CreatePostScreen({
   const [routeTime, setRouteTime] = useState(
     '125 • 12 Sep, 08:30 AM'
   );
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
-  function publish() {
-    if (!item.trim() || !description.trim() || !routeTime.trim()) {
-      return;
-    }
-
-    onPublished();
+  async function publish() {
+  if (!item.trim() || !description.trim() || !routeTime.trim()) {
+    setError('Please complete all required fields.');
+    return;
   }
+
+  setBusy(true);
+  setError('');
+
+  try {
+    const result = await createLostFoundPost({
+  type,
+  item: item.trim(),
+  description: description.trim(),
+  routeTime: routeTime.trim(),
+});
+
+onPublished(result.post);
+  } catch (e) {
+    setError(
+      e instanceof Error
+        ? e.message
+        : 'Could not publish the post.'
+    );
+  } finally {
+    setBusy(false);
+  }
+}
 
   return (
     <View style={styles.stage}>
@@ -178,16 +203,23 @@ export default function CreatePostScreen({
           </Pressable>
 
           <View style={styles.spacer} />
-
+            {!!error && (
+            <Text style={styles.errorText}>
+                {error}
+            </Text>
+            )}
           <Pressable
             accessibilityRole="button"
-            onPress={publish}
+            onPress={() => void publish()}
+            disabled={busy}
             style={({ pressed }) => [
               styles.publishButton,
               pressed && styles.pressed,
             ]}
           >
-            <Text style={styles.publishText}>Publish post</Text>
+            <Text style={styles.publishText}>
+             {busy ? 'Publishing...' : 'Publish post'}
+            </Text>
             <Text style={styles.arrow}>→</Text>
           </Pressable>
         </ScrollView>
@@ -384,4 +416,13 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.8,
   },
+
+  errorText: {
+  color: c.error,
+  fontSize: 13,
+  lineHeight: 20,
+  marginBottom: 12,
+  },
+
+
 });

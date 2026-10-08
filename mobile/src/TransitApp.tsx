@@ -12,6 +12,7 @@ import CommunityScreen from './lostFound/CommunityScreen';
 import CreatePostScreen from './lostFound/CreatePostScreen';
 import PostPublishedScreen from './lostFound/PostPublishedScreen';
 import PostDetailsScreen from './lostFound/PostDetailsScreen';
+import type { LostFoundPost } from './lostFound/lostFoundApi';
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
 function Action({label,onPress,secondary=false,busy=false}:{label:string;onPress:()=>void;secondary?:boolean;busy?:boolean}){return <Pressable accessibilityRole="button" disabled={busy} onPress={onPress} style={[s.action,secondary&&s.secondary]}><Text style={[s.actionText,secondary&&{color:c.teal}]}>{label}</Text>{busy?<ActivityIndicator color={c.teal}/>:<Icon name="arrow" color={secondary?c.teal:'white'}/>}</Pressable>;}
 export default function TransitApp({user,onProfile,onWelcome,onNotifications}:{user:User|null;onProfile:()=>void;onWelcome:()=>void;onNotifications:()=>void}){
@@ -22,6 +23,8 @@ export default function TransitApp({user,onProfile,onWelcome,onNotifications}:{u
  const [dialog,setDialog]=useState<'tickets'|'community'|'rename'|null>(null),[editing,setEditing]=useState<SavedJourney|null>(null),[label,setLabel]=useState('');
  const [notice,setNotice]=useState(''),[saveBusy,setSaveBusy]=useState(false),[retry,setRetry]=useState(0);const request=useRef(0);
  const [gpsBusy,setGpsBusy]=useState(false);
+ const [publishedPost, setPublishedPost] =useState<LostFoundPost | null>(null);
+ const [selectedLostFoundPostId, setSelectedLostFoundPostId] =useState<string | null>(null);
  async function detectGps(){
   if(Platform.OS==='web'&&typeof navigator!=='undefined'&&'geolocation' in navigator){
    setGpsBusy(true);setNotice('Requesting GPS location…');
@@ -66,20 +69,25 @@ const back=()=>{
  function removeConfirm(j:SavedJourney){if(Platform.OS==='web'){if(globalThis.confirm('Remove this saved journey?'))void remove(j);}else Alert.alert('Remove saved journey?',j.label,[{text:'Cancel',style:'cancel'},{text:'Remove',style:'destructive',onPress:()=>void remove(j)}]);}
  const stale=!!data&&(data.stale||!!trackingError||!data.updatedAt||Date.now()-Date.parse(data.updatedAt)>60000);
  const field=(title:string,value:string,onChange:(v:string)=>void,icon:TransitIconName,action?:{label:string;onPress:()=>void;busy?:boolean})=><View style={s.field}><View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center'}}><Text style={s.label}>{title}</Text>{action&&<Pressable accessibilityRole="button" onPress={action.onPress} style={{paddingVertical:2,paddingHorizontal:7,borderRadius:8,backgroundColor:c.mint}}><Text style={{color:c.teal,fontSize:11,fontWeight:'700'}}>{action.busy?'Detecting…':action.label}</Text></Pressable>}</View><View style={s.inputWrap}><TransitIcon name={icon} size={20}/><TextInput accessibilityLabel={title} value={value} onChangeText={onChange} style={s.input} placeholder={title==='Travel date'?'YYYY-MM-DD':title} placeholderTextColor={c.muted} maxLength={title==='Travel date'?10:80} autoCapitalize="words"/></View></View>;
- if (page === 'createPost') {
+if (page === 'createPost') {
   return (
     <CreatePostScreen
       onBack={() => setPage('community')}
-      onPublished={() => setPage('postPublished')}
+      onPublished={(post) => {
+        setPublishedPost(post);
+        setPage('postPublished');
+      }}
       onNotifications={onNotifications}
     />
   );
 }
+
 if (page === 'postPublished') {
   return (
     <PostPublishedScreen
+      post={publishedPost}
       onBack={() => setPage('community')}
-      onViewPost={() => setPage('postDetails')}
+      onViewPost={() => {if (publishedPost) {setSelectedLostFoundPostId(publishedPost.id);} setPage('postDetails'); }}
       onBackToCommunity={() => setPage('community')}
     />
   );
@@ -87,6 +95,7 @@ if (page === 'postPublished') {
 if (page === 'postDetails') {
   return (
     <PostDetailsScreen
+      postId={selectedLostFoundPostId}
       onBack={() => setPage('community')}
       onNotifications={onNotifications}
     />
@@ -96,8 +105,14 @@ if (page === 'postDetails') {
   return (
     <CommunityScreen
       onBack={() => setPage('home')}
-      onCreatePost={() => setPage('createPost')}
-      onOpenPost={() => setPage('postDetails')}
+      onCreatePost={() => {
+       if (user) {
+        setPage('createPost');
+       } else {
+         onProfile();
+       }
+    }}
+      onOpenPost={(postId) => { setSelectedLostFoundPostId(postId); setPage('postDetails');}}
       onHome={() => setPage('home')}
       onTickets={() => {
         setPage('home');

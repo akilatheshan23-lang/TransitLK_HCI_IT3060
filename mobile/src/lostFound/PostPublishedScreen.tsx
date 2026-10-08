@@ -6,28 +6,45 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { Icon } from '../Artwork';
 import { colors as c } from '../theme';
+import type { LostFoundPost } from './lostFoundApi';
 
 type PostPublishedScreenProps = {
+  post?: LostFoundPost | null;
   onBack: () => void;
   onViewPost: () => void;
   onBackToCommunity: () => void;
 };
 
 export default function PostPublishedScreen({
+  post,
   onBack,
   onViewPost,
   onBackToCommunity,
 }: PostPublishedScreenProps) {
   const insets = useSafeAreaInsets();
 
+  const postType =
+    post?.type === 'lost'
+      ? 'Lost'
+      : post?.type === 'found'
+        ? 'Found'
+        : 'Published';
+
+  const postTitle = post
+    ? `${postType} ${post.item}`
+    : 'Post published';
+
   return (
     <View style={styles.stage}>
       <View
         style={[
           styles.screen,
-          { paddingTop: Math.max(insets.top, 12) },
+          {
+            paddingTop: Math.max(insets.top, 12),
+          },
         ]}
       >
         <View style={styles.header}>
@@ -40,7 +57,9 @@ export default function PostPublishedScreen({
             <Icon name="back" size={20} />
           </Pressable>
 
-          <Text style={styles.headerTitle}>Post published</Text>
+          <Text style={styles.headerTitle}>
+            Post published
+          </Text>
 
           <View style={styles.iconButton} />
         </View>
@@ -52,12 +71,12 @@ export default function PostPublishedScreen({
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>
-              Found umbrella
+              {postTitle}
             </Text>
 
             <Text style={styles.cardText}>
               Your lost-and-found post is now visible to the
-              community in this demo.
+              community.
             </Text>
           </View>
 
