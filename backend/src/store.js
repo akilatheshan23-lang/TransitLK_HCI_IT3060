@@ -58,6 +58,7 @@ export async function createMongoStore(db) {
       userId,
       comments: [],
       likes: 0,
+      likedBy: [],
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -127,6 +128,33 @@ export async function createMongoStore(db) {
         }
       )
     );
+  },
+
+  async likeLostFoundPost(userId, id) {
+  if (!ObjectId.isValid(id)) return null;
+
+  const objectId = new ObjectId(id);
+
+  const updated = await lostFoundPosts.findOneAndUpdate(
+    {
+      _id: objectId,
+      likedBy: { $ne: userId }
+    },
+    {
+      $addToSet: { likedBy: userId },
+      $inc: { likes: 1 },
+      $set: { updatedAt: new Date() }
+    },
+    { returnDocument: 'after' }
+  );
+
+  if (updated) {
+    return lostFoundView(updated);
+  }
+
+  return lostFoundView(
+    await lostFoundPosts.findOne({ _id: objectId })
+  );
   },
     ping: () => db.command({ ping: 1 })
   };

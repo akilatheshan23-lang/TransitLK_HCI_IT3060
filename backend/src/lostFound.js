@@ -165,6 +165,24 @@ export function lostFoundRouter(store, authenticate) {
       });
     }
   );
+  router.post(
+  '/lost-found/:id/like',
+  authenticate,
+  async (req, res) => {
+    const post = await store.likeLostFoundPost(
+      String(req.user._id),
+      req.params.id
+    );
+
+    if (!post) {
+      return res.status(404).json({
+        error: 'Lost and found post not found.'
+      });
+    }
+
+    res.json({ post });
+  }
+);
 
   return router;
 }
