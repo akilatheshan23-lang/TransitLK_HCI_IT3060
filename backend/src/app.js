@@ -20,6 +20,21 @@ export function createApp(store, { origins = ['http://localhost:8081'], limit = 
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(cors({ origin: (origin, cb) => cb(null, !origin || origins.includes(origin)) }));
   app.use(express.json({ limit: '16kb' }));
+  const uploadsDirectory = fileURLToPath(
+  new URL('../uploads/', import.meta.url)
+);
+
+app.use(
+  '/uploads',
+  (_req, res, next) => {
+    res.setHeader(
+      'Cross-Origin-Resource-Policy',
+      'cross-origin'
+    );
+    next();
+  },
+  express.static(uploadsDirectory)
+);
   app.get(['/owner', '/owner-portal'], async (_req, res) => {
     const html = await readFile(ownerPortalFile, 'utf8');
     const key = JSON.stringify(process.env.GEOAPIFY_API_KEY || '').replaceAll('<', '\\u003c');

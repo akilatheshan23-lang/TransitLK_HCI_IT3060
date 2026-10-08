@@ -1,6 +1,53 @@
+import multer from 'multer';
+import { mkdirSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { Router } from 'express';
 import { z } from 'zod';
 
+const uploadDirectory = fileURLToPath(
+  new URL('../uploads/lost-found/', import.meta.url)
+);
+
+mkdirSync(uploadDirectory, { recursive: true });
+
+const allowedImageTypes = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp'
+};
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, callback) => {
+      callback(null, uploadDirectory);
+    },
+
+    filename: (_req, file, callback) => {
+      const extension = allowedImageTypes[file.mimetype];
+
+      callback(
+        null,
+        `${randomUUID()}${extension}`
+      );
+    }
+  }),
+
+  limits: {
+    fileSize: 2 * 1024 * 1024,
+    files: 1
+  },
+
+  fileFilter: (_req, file, callback) => {
+    if (!allowedImageTypes[file.mimetype]) {
+      return callback(
+        new Error('Only JPEG, PNG and WEBP images are allowed.')
+      );
+    }
+
+    callback(null, true);
+  }
+});
 const postSchema = z.object({
   type: z.enum(['lost', 'found']),
   item: z.string().trim().min(2).max(80),
@@ -74,6 +121,23 @@ export function lostFoundRouter(store, authenticate) {
       });
     }
   );
+
+  router.post(
+  '/lost-found/upload',
+  authenticate,
+  upload.single('image'),
+  (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({
+        error: 'Choose an image to upload.'
+      });
+    }
+
+    res.status(201).json({
+      image: `/uploads/lost-found/${req.file.filename}`
+    });
+  }
+);
 
   // UPDATE - only the user who created the post
   router.patch(
