@@ -29,3 +29,36 @@ export async function api<T>(path:string, method='GET', body?:unknown):Promise<T
     return data;
   } finally {clearTimeout(timeout);}
 }
+export async function uploadImage(
+  path: string,
+  formData: FormData
+) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+
+  try {
+    const res = await fetch(`${base}/api${path}`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        ...(token
+          ? { Authorization: `Bearer ${token}` }
+          : {}),
+      },
+      body: formData,
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new ApiError(
+        data.error || 'Image upload failed.',
+        res.status
+      );
+    }
+
+    return data as { image: string };
+  } finally {
+    clearTimeout(timeout);
+  }
+}

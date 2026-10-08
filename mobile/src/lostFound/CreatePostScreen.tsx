@@ -12,6 +12,9 @@ import { Icon } from '../Artwork';
 import { colors as c } from '../theme';
 import { createLostFoundPost } from './lostFoundApi';
 import type { LostFoundPost } from './lostFoundApi';
+import { uploadLostFoundImage } from './lostFoundApi';
+import { Image, Platform } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 
 type CreatePostScreenProps = {
   onBack: () => void;
@@ -36,6 +39,44 @@ export default function CreatePostScreen({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageFile, setImageFile] =useState<File | null>(null);
+  const [imageMimeType, setImageMimeType] =useState('image/jpeg');
+
+  async function choosePhoto() {
+  const permission =
+    await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+  if (!permission.granted) {
+    setError(
+      'Please allow photo access to choose an image.'
+    );
+    return;
+  }
+
+  const result =
+    await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.7,
+    });
+
+  if (result.canceled) return;
+
+  const asset = result.assets[0];
+
+  setImageUri(asset.uri);
+
+  setImageMimeType(
+    asset.mimeType || 'image/jpeg'
+  );
+
+  if (Platform.OS === 'web') {
+    setImageFile(asset.file || null);
+  }
+
+  setError('');
+}
 
   async function publish() {
   if (!item.trim() || !description.trim() || !routeTime.trim()) {
@@ -47,11 +88,25 @@ export default function CreatePostScreen({
   setError('');
 
   try {
-    const result = await createLostFoundPost({
+    let uploadedImage: string | undefined;
+
+if (imageUri) {
+  const uploaded = await uploadLostFoundImage(
+    imageUri,
+    imageFile,
+    imageMimeType
+  );
+
+  uploadedImage = uploaded.image;
+}
+   const result = await createLostFoundPost({
   type,
   item: item.trim(),
   description: description.trim(),
   routeTime: routeTime.trim(),
+  ...(uploadedImage
+    ? { image: uploadedImage }
+    : {}),
 });
 
 onPublished(result.post);
@@ -192,15 +247,25 @@ onPublished(result.post);
           </View>
 
           <Pressable
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.photoButton,
-              pressed && styles.pressed,
-            ]}
-          >
+                accessibilityRole="button"
+                onPress={() => void choosePhoto()}
+                style={({ pressed }) => [
+                    styles.photoButton,
+                    pressed && styles.pressed,
+                ]}
+                >
             <Text style={styles.photoPlus}>＋</Text>
-            <Text style={styles.photoText}>Add a photo</Text>
+            <Text style={styles.photoText}>
+            {imageUri ? 'Change photo' : 'Add a photo'}
+            </Text>
           </Pressable>
+          {imageUri && (
+            <Image
+                source={{ uri: imageUri }}
+                style={styles.photoPreview}
+                resizeMode="cover"
+            />
+            )}
 
           <View style={styles.spacer} />
             {!!error && (
@@ -423,6 +488,12 @@ const styles = StyleSheet.create({
   lineHeight: 20,
   marginBottom: 12,
   },
-
+  
+  photoPreview: {
+  width: '100%',
+  height: 170,
+  borderRadius: 15,
+  marginTop: 12,
+},
 
 });

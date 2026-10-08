@@ -1,4 +1,8 @@
-import { api } from '../api';
+import {
+  api,
+  uploadImage,
+  API_BASE_URL,
+} from '../api';
 
 export type LostFoundComment = {
   userId: string;
@@ -95,4 +99,45 @@ export async function likeLostFoundPost(
     `/lost-found/${postId}/like`,
     'POST'
   );
+}
+
+export async function uploadLostFoundImage(
+  uri: string,
+  file?: File | null,
+  mimeType = 'image/jpeg'
+) {
+  const formData = new FormData();
+
+  if (file) {
+    formData.append('image', file);
+  } else {
+    formData.append(
+      'image',
+      {
+        uri,
+        name: `lost-found-${Date.now()}.jpg`,
+        type: mimeType,
+      } as any
+    );
+  }
+
+  return uploadImage(
+    '/lost-found/upload',
+    formData
+  );
+}
+
+export function getLostFoundImageUrl(
+  image?: string
+) {
+  if (!image) return undefined;
+
+  if (
+    image.startsWith('http://') ||
+    image.startsWith('https://')
+  ) {
+    return image;
+  }
+
+  return `${API_BASE_URL}${image}`;
 }
