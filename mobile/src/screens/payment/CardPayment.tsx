@@ -20,6 +20,7 @@ export default function CardPayment() {
   const [totalFare, setTotalFare] = useState<number>(0);
   const [isTopUpMode, setIsTopUpMode] = useState(false);
   const [cardType, setCardType] = useState('visa');
+  const [idempotencyKey] = useState(() => 'card_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9));
 
   const isFormValid = cardNumber.trim().length > 14 &&
                       expiry.trim().length === 5 &&
@@ -107,6 +108,7 @@ export default function CardPayment() {
       const cleanLast4 = cardNumber.replace(/\D/g, '').slice(-4) || '3456';
 
       const res = await api.processPayment({
+        idempotencyKey,
         amount: totalFare || pendingTicket.totalFare || pendingTicket.price || 250,
         method: 'card',
         details: {

@@ -1,16 +1,29 @@
-// Force reload
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useContext } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../../components/Header';
+import { ScreenBackContext } from '../../navigation/AppNavigator';
+import { AppNavigationContext } from '../../../App';
 
 export default function ConductorDashboard() {
   const navigation = useNavigation<any>();
+  const { onBackToHome } = useContext(ScreenBackContext);
+  const { navigateToScreen } = useContext(AppNavigationContext);
   const [activeTrip, setActiveTrip] = useState<any>(null);
   const [stats, setStats] = useState<any>({ invalid: 0 });
   const [isRouteModalVisible, setRouteModalVisible] = useState(false);
+
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else if (onBackToHome) {
+      onBackToHome();
+    } else if (navigateToScreen) {
+      navigateToScreen('dashboard');
+    }
+  };
 
   const ROUTES = Array.from({ length: 15 }).map((_, i) => {
     const isOdd = (i + 1) % 2 !== 0;
@@ -87,7 +100,7 @@ export default function ConductorDashboard() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Conductor dashboard" />
+      <Header title="Conductor dashboard" onBackPress={handleBack} />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>

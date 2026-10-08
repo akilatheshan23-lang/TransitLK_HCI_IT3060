@@ -49,13 +49,17 @@ export type PaymentStackParamList = {
 
 export interface AppNavigatorProps {
   initialRouteName?: keyof PaymentStackParamList;
+  onBackToHome?: () => void;
 }
+
+export const ScreenBackContext = React.createContext<{ onBackToHome?: () => void }>({});
 
 const Stack = createNativeStackNavigator<PaymentStackParamList>();
 
-export default function AppNavigator({ initialRouteName = 'PaymentCheckout' }: AppNavigatorProps = {}) {
+export default function AppNavigator({ initialRouteName = 'PaymentCheckout', onBackToHome }: AppNavigatorProps = {}) {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
+    <ScreenBackContext.Provider value={{ onBackToHome }}>
+      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
       <Stack.Screen name="PaymentCheckout" component={PaymentCheckout} />
       <Stack.Screen name="PaymentMethod" component={PaymentMethod} />
       <Stack.Screen name="CardPayment" component={CardPayment} />
@@ -73,5 +77,6 @@ export default function AppNavigator({ initialRouteName = 'PaymentCheckout' }: A
       <Stack.Screen name="TicketHistory" component={TicketHistory} />
       <Stack.Screen name="RevenueDetails" component={RevenueDetails} />
     </Stack.Navigator>
+    </ScreenBackContext.Provider>
   );
 }

@@ -34,6 +34,12 @@ export type ScreenType =
   | 'tickets'
   | 'conductor';
 
+export const AppNavigationContext = React.createContext<{
+  navigateToScreen: (screen: ScreenType) => void;
+}>({
+  navigateToScreen: () => {},
+});
+
 const defaultGuestUser: UserProfile = {
   id: 'guest',
   email: 'passenger@transitlk.com',
@@ -143,27 +149,83 @@ export default function App() {
             onWelcome={() => navigateTo('home')}
             onProfile={() => navigateTo(currentUser ? 'dashboard' : 'login')}
             onNotifications={() => {}}
+            onBuyTicket={async (ticket) => {
+              try {
+                await AsyncStorage.setItem('@pending_ticket', JSON.stringify(ticket));
+              } catch {}
+              navigateTo('payment');
+            }}
+            onTickets={() => navigateTo('tickets')}
           />
         );
 
       case 'payment':
         return (
           <NavigationContainer>
-            <AppNavigator initialRouteName="PaymentCheckout" />
+            <AppNavigator initialRouteName="PaymentCheckout" onBackToHome={() => navigateTo('transit')} />
           </NavigationContainer>
         );
 
       case 'tickets':
         return (
           <NavigationContainer>
-            <AppNavigator initialRouteName="SavedTickets" />
+            <AppNavigator initialRouteName="SavedTickets" onBackToHome={() => navigateTo('transit')} />
           </NavigationContainer>
         );
 
       case 'conductor':
+        // Guard unauthorized users from accessing conductor screen
+        if (!currentUser || (currentUser.role !== 'conductor' && currentUser.role !== 'admin')) {
+          if (!currentUser) {
+            return (
+              <LoginScreen
+                onNavigateToRegister={() => navigateTo('register')}
+                onNavigateToAuthority={() => navigateTo('authority-login')}
+                onNavigateToBusOwner={() => navigateTo('bus-owner-login')}
+                onLoginSuccess={(user) => {
+                  setCurrentUser(user);
+                  if (user.role === 'conductor') {
+                    navigateTo('conductor');
+                  } else if (user.role === 'bus_owner' || user.role === 'authority' || user.role === 'admin') {
+                    navigateTo('dashboard');
+                  } else {
+                    navigateTo('home');
+                  }
+                }}
+              />
+            );
+          }
+          if (currentUser.role === 'passenger') {
+            return (
+              <HomeScreen
+                user={activeUser}
+                onNavigateToProfile={() => navigateTo('dashboard')}
+                onNavigateBack={() => navigateTo('transit')}
+                onNavigateToTransit={() => navigateTo('transit')}
+                onNavigateToCommunity={() => navigateTo('transit')}
+                onNavigateToPayment={handleSelectBusAndPay}
+                onNavigateToTickets={() => navigateTo('tickets')}
+                onNavigateToConductor={() => navigateTo('conductor')}
+              />
+            );
+          }
+          return (
+            <DashboardScreen
+              user={activeUser}
+              onLogout={() => {
+                api.logout().finally(() => {
+                  setCurrentUser(null);
+                  navigateTo('login');
+                });
+              }}
+              onNavigateBack={() => navigateTo('home')}
+              onNavigateToHome={() => navigateTo('home')}
+            />
+          );
+        }
         return (
           <NavigationContainer>
-            <AppNavigator initialRouteName="ConductorDashboard" />
+            <AppNavigator initialRouteName="ConductorDashboard" onBackToHome={() => navigateTo('dashboard')} />
           </NavigationContainer>
         );
 
@@ -261,7 +323,9 @@ export default function App() {
   return (
     <SafeAreaProvider style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <DeviceFrame>{renderScreen()}</DeviceFrame>
+      <AppNavigationContext.Provider value={{ navigateToScreen: navigateTo }}>
+        <DeviceFrame>{renderScreen()}</DeviceFrame>
+      </AppNavigationContext.Provider>
     </SafeAreaProvider>
   );
 }

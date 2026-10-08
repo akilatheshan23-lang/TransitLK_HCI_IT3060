@@ -18,8 +18,11 @@ const language = z.enum(['en', 'ta', 'si']);
 const credentials = z.object({ email: z.string().trim().toLowerCase().email().max(254), password: z.string().min(8).max(128) }).strict();
 const registration = credentials.extend({ name: z.string().trim().min(2).max(80), language: language.default('en') });
 
-export function createApp(store, { origins = ['http://localhost:8081', 'http://127.0.0.1:8081', 'http://localhost:3001', 'http://127.0.0.1:3001'], limit = 20 } = {}) {
+export function createApp(store, { origins = ['http://localhost:8081', 'http://127.0.0.1:8081', 'http://localhost:3001', 'http://127.0.0.1:3001'], limit = 20, testAuthFixtures = null } = {}) {
   const app = express();
+  if (testAuthFixtures && process.env.NODE_ENV !== 'production') {
+    app.set('testAuthFixtures', testAuthFixtures);
+  }
   app.disable('x-powered-by');
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(cors({ origin: (origin, cb) => cb(null, !origin || origins.includes(origin) || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) }));

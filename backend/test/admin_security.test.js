@@ -2,6 +2,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../src/app.js';
 import { resetAdminMemoryStore } from '../src/routes/admin.js';
+import { registerTestAuthFixture, clearTestAuthFixtures } from '../src/testAuthFixtures.js';
 
 let server;
 let base;
@@ -19,13 +20,21 @@ const mockStore = {
 
 before(async () => {
   resetAdminMemoryStore();
+  clearTestAuthFixtures();
+  registerTestAuthFixture('mock-admin-token', { username: 'admin', email: 'admin@transitlk.com', role: 'admin' });
+  registerTestAuthFixture('mock-passenger-token', { username: 'passenger', email: 'passenger@transitlk.com', role: 'passenger' });
+  registerTestAuthFixture('mock-conductor-token', { email: 'conductor@transitlk.com', role: 'conductor' });
+
   const app = createApp(mockStore, { limit: 100 });
   server = app.listen(0, '127.0.0.1');
   await new Promise((resolve) => server.once('listening', resolve));
   base = `http://127.0.0.1:${server.address().port}/api/admin`;
 });
 
-after(() => new Promise((resolve) => server.close(resolve)));
+after(() => {
+  clearTestAuthFixtures();
+  return new Promise((resolve) => server.close(resolve));
+});
 
 async function adminApi(path, method = 'GET', body = null, token = null) {
   const headers = { 'Content-Type': 'application/json' };
@@ -144,4 +153,30 @@ test('6. Unauthorized users cannot approve pending officers or bus owners', asyn
   assert.equal(adminApprove.status, 200);
   assert.equal(adminApprove.data.success, true);
   assert.match(adminApprove.data.message, /successfully approved/i);
+});
+
+test('7. Unregistered mock tokens are rejected as 401 without valid session', async () => {
+  const resUnregistered = await adminApi('/stats', 'GET', null, 'unregistered-mock-token');
+  assert.equal(resUnregistered.status, 401);
+  assert.equal(resUnregistered.data.success, false);
+});
+
+test('8. Mock tokens are strictly rejected in production runtime (NODE_ENV=production)', async () => {
+  const previousEnv = process.env.NODE_ENV;
+  try {
+    process.env.NODE_ENV = 'production';
+    // Even though mock-admin-token is registered in the test fixtures map,
+    // getTestAuthFixture MUST return null in production, leading to 401 rejection.
+    const resProd = await adminApi('/stats', 'GET', null, 'mock-admin-token');
+    assert.equal(resProd.status, 401);
+    assert.equal(resProd.data.success, false);
+
+    // registerTestAuthFixture must also throw if attempted in production
+    assert.throws(
+      () => registerTestAuthFixture('another-token', { role: 'admin' }),
+      /cannot be registered in production runtime/i
+    );
+  } finally {
+    process.env.NODE_ENV = previousEnv || 'test';
+  }
 });

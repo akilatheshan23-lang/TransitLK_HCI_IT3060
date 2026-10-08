@@ -926,38 +926,3 @@ busesRouter.get('/authority-dashboard', async (req, res) => {
     return res.status(500).json({ success: false, message: 'Could not load authority dashboard' });
   }
 });
-
-/**
- * POST /api/buses/verify-ticket
- * Ticket verification endpoint for Authority Officers
- */
-busesRouter.post('/verify-ticket', async (req, res) => {
-  try {
-    const { ticketId } = req.body;
-    if (!ticketId) {
-      return res.status(400).json({ success: false, message: 'Ticket ID required' });
-    }
-
-    const cleanId = String(ticketId).trim().toUpperCase();
-
-    return res.json({
-      success: true,
-      valid: true,
-      ticket: {
-        ticketId: cleanId,
-        passengerName: 'Kamal Perera',
-        busRegNumber: 'WP ND-3204',
-        routeNumber: '120',
-        from: 'Horana',
-        to: 'Colombo',
-        fare: 240,
-        status: 'VALID_PAID',
-        purchasedAt: 'Today, 06:12 AM',
-        operator: 'Southern Line Express',
-        seatNumber: 'A-14',
-      },
-    });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: 'Verification error' });
-  }
-});

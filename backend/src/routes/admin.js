@@ -8,6 +8,7 @@ import {
   hashToken,
   generateId,
 } from '../utils/security.js';
+import { getTestAuthFixture } from '../testAuthFixtures.js';
 
 let memoryAdminUsers = new Map();
 
@@ -135,12 +136,13 @@ export async function requireAdmin(req, res, next) {
     });
   }
 
-  // Handle mock tokens for test suites and offline harnesses
-  if (token === 'mock-admin-token' || token === 'test-admin-token') {
-    req.adminUser = { username: 'admin', email: 'admin@transitlk.com', role: 'admin' };
-    return next();
-  }
-  if (token === 'mock-passenger-token' || token === 'test-passenger-token' || token === 'mock-conductor-token' || token === 'mock-officer-token') {
+  // Verify explicit test fixture if running inside an isolated automated test
+  const testFixture = getTestAuthFixture(req, token);
+  if (testFixture) {
+    if (testFixture.role === 'admin') {
+      req.adminUser = testFixture;
+      return next();
+    }
     return res.status(403).json({
       success: false,
       error: 'Forbidden',

@@ -94,17 +94,56 @@ export function AuthorityDashboard({ currentUser, onLogout }) {
     setVerifiedTicket(null);
 
     try {
-      const res = await fetch(`${API_BASE}/buses/verify-ticket`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticketId: ticketInput.trim() }),
-      }).then((r) => r.json());
+      let token = null;
+      try {
+        const saved = localStorage.getItem('transitlk_portal_session');
+        token = saved ? JSON.parse(saved).token : null;
+      } catch {}
 
+      const response = await fetch(`${API_BASE}/payments/tickets/inspect`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ ticketId: ticketInput.trim() }),
+      });
+
+      const res = await response.json();
       setValidatingTicket(false);
 
-      if (res.success && res.ticket) {
-        setVerifiedTicket(res.ticket);
-        showToast(`Ticket ${ticketInput.toUpperCase()} verified successfully!`);
+      if (response.ok && res.valid && res.ticket) {
+        const t = res.ticket;
+        const normalized = {
+          ticketId: t.ticketId || ticketInput.trim(),
+          passengerName: t.passengerName || t.route?.passengerName || 'Verified Passenger',
+          busRegNumber: t.busRegNumber || t.route?.bus || 'TransitLK Bus',
+          routeNumber: t.routeNumber || (t.route?.bus ? t.route.bus.replace(/[^0-9]/g, '') : '120') || '120',
+          operator: t.operator || t.route?.type || 'TransitLK Express',
+          from: t.from || t.route?.from || 'Origin',
+          to: t.to || t.route?.to || 'Destination',
+          fare: t.fare || t.amount || 250,
+          seatNumber: t.seatNumber || (t.numberOfTickets ? `${t.numberOfTickets} Seat(s)` : 'General'),
+          purchasedAt: t.purchasedAt || (t.issuedAt ? new Date(t.issuedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Today'),
+          status: t.status,
+          redeemedAt: t.redeemedAt,
+          redeemedBy: t.redeemedBy,
+        };
+        setVerifiedTicket(normalized);
+        showToast(`Ticket ${ticketInput.toUpperCase()} inspected successfully!`);
+      } else if (response.status === 409 || res.status === 'redeemed' || (!res.valid && res.ticket?.status === 'redeemed')) {
+        const redeemedDate = res.ticket?.redeemedAt || res.redeemedAt;
+        setTicketError(
+          `Ticket ${ticketInput.toUpperCase()} has already been redeemed${
+            redeemedDate ? ` at ${new Date(redeemedDate).toLocaleTimeString()}` : ''
+          }.`
+        );
+      } else if (response.status === 404 || res.status === 'not_found') {
+        setTicketError(`Forged or unknown ticket: Ticket ID ${ticketInput.toUpperCase()} does not exist in TransitLK system.`);
+      } else if (response.status === 403) {
+        setTicketError('Access denied: Authority inspection permissions required.');
+      } else if (response.status === 401) {
+        setTicketError('Unauthorized: Please log in again to inspect tickets.');
       } else {
         setTicketError(res.message || 'Ticket not found or invalid');
       }

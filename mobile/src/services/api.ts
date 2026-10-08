@@ -275,13 +275,18 @@ export const api = {
    * Invalidate session in MongoDB
    */
   async logout(token?: string): Promise<AuthResponse> {
-    if (token) {
-      await request('/auth/logout', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+    try {
+      const activeToken = token || (await AsyncStorage.getItem(STORAGE_KEY_TOKEN));
+      if (activeToken) {
+        await request('/auth/logout', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${activeToken}`,
+          },
+        });
+      }
+    } catch {
+      // Continue clearing local storage even if backend revocation throws
     }
     await this.clearSession();
     return { success: true };
@@ -379,6 +384,7 @@ export const api = {
   async processPayment(params: {
     amount: number;
     method?: 'card' | 'wallet';
+    idempotencyKey?: string;
     details?: {
       cardType?: string;
       last4?: string;
@@ -420,9 +426,13 @@ export const api = {
     };
     qrData: string;
   }> {
+    const key = params.idempotencyKey || `req_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
     const res = await request('/payments/process', {
       method: 'POST',
-      body: JSON.stringify(params),
+      headers: {
+        'Idempotency-Key': key,
+      },
+      body: JSON.stringify({ ...params, idempotencyKey: key }),
     });
     return res as any;
   },

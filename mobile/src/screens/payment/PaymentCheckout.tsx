@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { PaymentStackParamList } from '../../navigation/AppNavigator';
+import { PaymentStackParamList, ScreenBackContext } from '../../navigation/AppNavigator';
+import { AppNavigationContext } from '../../../App';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../../components/Header';
 
@@ -14,7 +15,10 @@ type CheckoutRouteProp = RouteProp<PaymentStackParamList, 'PaymentCheckout'>;
 export default function PaymentCheckout() {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute<CheckoutRouteProp>();
+  const { onBackToHome } = useContext(ScreenBackContext);
+  const { navigateToScreen } = useContext(AppNavigationContext);
   const [ticketCount, setTicketCount] = useState(1);
+  const [storedRoute, setStoredRoute] = useState<any>(route.params?.routeData || null);
 
   const now = new Date();
   const formattedDate = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -32,9 +36,34 @@ export default function PaymentCheckout() {
     date: formattedDate
   };
 
-  // Use route parameter if provided, otherwise fallback to default
-  const selectedRoute = route.params?.routeData || DEFAULT_ROUTE;
+  useEffect(() => {
+    if (!route.params?.routeData) {
+      AsyncStorage.getItem('@pending_ticket').then((val) => {
+        if (val) {
+          try {
+            const parsed = JSON.parse(val);
+            if (parsed && (parsed.bus || parsed.from)) {
+              setStoredRoute(parsed);
+            }
+          } catch {}
+        }
+      });
+    }
+  }, [route.params?.routeData]);
+
+  // Use route parameter or stored route if provided, otherwise fallback to default
+  const selectedRoute = storedRoute || DEFAULT_ROUTE;
   const totalFare = selectedRoute.price * ticketCount;
+
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else if (onBackToHome) {
+      onBackToHome();
+    } else if (navigateToScreen) {
+      navigateToScreen('transit');
+    }
+  };
 
   const handleProceed = async () => {
     try {
@@ -52,7 +81,7 @@ export default function PaymentCheckout() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Payment checkout" />
+      <Header title="Payment checkout" onBackPress={handleBack} />
 
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.title}>Review your journey</Text>

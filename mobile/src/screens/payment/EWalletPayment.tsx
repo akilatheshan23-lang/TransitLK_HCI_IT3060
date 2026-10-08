@@ -15,6 +15,7 @@ export default function EWalletPayment() {
   const [routeInfo, setRouteInfo] = useState({ from: '...', to: '...' });
   const [isLoading, setIsLoading] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number>(1250.00);
+  const [idempotencyKey] = useState(() => 'wal_' + Date.now() + '_' + Math.random().toString(36).slice(2, 9));
 
   const newBalance = walletBalance - totalFare;
 
@@ -63,6 +64,7 @@ export default function EWalletPayment() {
 
       // Process payment with backend server
       const paymentRes = await api.processPayment({
+        idempotencyKey,
         amount: fareAmount,
         method: 'wallet',
         routeData: {

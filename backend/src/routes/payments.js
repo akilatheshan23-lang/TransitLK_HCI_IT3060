@@ -7,16 +7,162 @@ import {
   getSessionsCollection,
 } from '../db/connection.js';
 import { generateId, hashToken } from '../utils/security.js';
+import { getTestAuthFixture } from '../testAuthFixtures.js';
+import { DEFAULT_COLOMBO_ROUTES } from './buses.js';
 
 export const paymentsRouter = Router();
 
 // In-memory fallbacks for unit tests when MongoDB is not connected
 const memoryPayments = new Map();
 const memoryTickets = new Map();
+const memoryIdempotency = new Map();
 
 export function resetPaymentMemoryStore() {
   memoryPayments.clear();
   memoryTickets.clear();
+  memoryIdempotency.clear();
+}
+
+/**
+ * Trusted server-side fare resolution.
+ * Matches against server-owned master routes (DEFAULT_COLOMBO_ROUTES)
+ * and server-owned demo transit catalog (transit.js).
+ * Does NOT accept arbitrary client fares.
+ */
+export function resolveTrustedFare(routeData = {}, candidateUnitFare = null) {
+  if (!routeData || typeof routeData !== 'object') {
+    return null;
+  }
+
+  const rawRoute = String(
+    routeData.routeNumber || routeData.route || routeData.bus || routeData.id || ''
+  ).trim();
+
+  const from = typeof routeData.from === 'string' ? routeData.from.trim().toLowerCase() : '';
+  const to = typeof routeData.to === 'string' ? routeData.to.trim().toLowerCase() : '';
+  const mode = String(routeData.mode || (rawRoute.toLowerCase().includes('train') ? 'train' : 'bus')).toLowerCase();
+
+  // 1. Check demo transit catalog (transit.js)
+  const tripId = String(routeData.id || routeData.tripId || '').toLowerCase();
+  if (tripId.startsWith('demo-train') || mode === 'train' || rawRoute.toLowerCase().includes('coastal')) {
+    if (from.includes('panadura') || to.includes('panadura') || from.includes('colombo') || to.includes('colombo')) {
+      return {
+        unitFare: 180,
+        routeNumber: 'Coastal',
+        routeName: 'Panadura - Colombo Train Service',
+        source: 'server_demo_train',
+      };
+    }
+  }
+
+  if (tripId.startsWith('demo-bus') || (rawRoute.includes('125') && (from.includes('horana') || to.includes('horana')))) {
+    return {
+      unitFare: 250,
+      routeNumber: '125',
+      routeName: 'Horana - Colombo Express Service',
+      source: 'server_demo_bus',
+    };
+  }
+
+  // 2. Check server-owned master Colombo bus routes (DEFAULT_COLOMBO_ROUTES)
+  const routeNumMatch = rawRoute.match(/\b(100|120|122|125|138|177|255)\b/);
+  const routeNumber = routeNumMatch ? routeNumMatch[1] : null;
+
+  if (routeNumber) {
+    const masterRoute = DEFAULT_COLOMBO_ROUTES.find((r) => r.routeNumber === routeNumber);
+    if (masterRoute) {
+      const baseFare = masterRoute.baseFare;
+      let segmentFare = baseFare;
+      const stops = masterRoute.stops || [];
+
+      if (from && to && stops.length > 1) {
+        const fromIdx = stops.findIndex((s) => s.toLowerCase() === from || s.toLowerCase().includes(from));
+        const toIdx = stops.findIndex((s) => s.toLowerCase() === to || s.toLowerCase().includes(to));
+
+        if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
+          const stopCount = Math.abs(toIdx - fromIdx);
+          const totalStops = stops.length;
+          const fareRatio = Math.max(0.3, Math.min(1.0, stopCount / Math.max(1, totalStops - 1)));
+          segmentFare = Math.round(baseFare * fareRatio);
+        }
+      }
+
+      // If candidate matches calculated segment fare, accept segment fare; otherwise enforce baseFare
+      let chosenUnitFare = baseFare;
+      if (candidateUnitFare !== null && Math.round(candidateUnitFare) === Math.round(segmentFare)) {
+        chosenUnitFare = segmentFare;
+      }
+
+      return {
+        unitFare: chosenUnitFare,
+        baseFare,
+        segmentFare,
+        routeNumber: masterRoute.routeNumber,
+        routeName: masterRoute.routeName,
+        source: 'server_master_route',
+      };
+    }
+  }
+
+  // 3. Fallback: match by known endpoints in master routes if routeNumber was omitted
+  if (from && to) {
+    const matchedRoute = DEFAULT_COLOMBO_ROUTES.find((r) => {
+      const stops = r.stops.map((s) => s.toLowerCase());
+      return stops.some((s) => s.includes(from) || from.includes(s)) &&
+             stops.some((s) => s.includes(to) || to.includes(s));
+    });
+
+    if (matchedRoute) {
+      return {
+        unitFare: matchedRoute.baseFare,
+        routeNumber: matchedRoute.routeNumber,
+        routeName: matchedRoute.routeName,
+        source: 'server_master_route',
+      };
+    }
+  }
+
+  // Unknown or unsupported route
+  return null;
+}
+
+
+export function getIdempotencyCollection() {
+  try {
+    const col = getDb().collection('payment_idempotency');
+    col.createIndex({ userId: 1, idempotencyKey: 1 }, { unique: true }).catch(() => {});
+    return col;
+  } catch {
+    return {
+      async insertOne(doc) {
+        const compositeKey = `${doc.userId}::${doc.idempotencyKey}`;
+        if (memoryIdempotency.has(compositeKey)) {
+          const err = new Error('Duplicate key');
+          err.code = 11000;
+          throw err;
+        }
+        memoryIdempotency.set(compositeKey, { ...doc });
+        return { insertedId: doc._id };
+      },
+      async findOne(filter) {
+        const compositeKey = `${filter.userId}::${filter.idempotencyKey}`;
+        const item = memoryIdempotency.get(compositeKey);
+        return item ? { ...item } : null;
+      },
+      async findOneAndUpdate(filter, update) {
+        const compositeKey = `${filter.userId}::${filter.idempotencyKey}`;
+        const item = memoryIdempotency.get(compositeKey);
+        if (!item) return null;
+        if (update.$set) Object.assign(item, update.$set);
+        return { ...item };
+      },
+      async deleteOne(filter) {
+        const compositeKey = `${filter.userId}::${filter.idempotencyKey}`;
+        const had = memoryIdempotency.delete(compositeKey);
+        return { deletedCount: had ? 1 : 0 };
+      },
+    };
+  }
 }
 
 export function getPaymentsCollection() {
@@ -112,12 +258,13 @@ export async function requireConductorOrAdmin(req, res, next) {
 
   const token = authHeader.split(' ')[1];
 
-  // Support mock tokens for unit testing harness and demo mode
-  if (token === 'mock-conductor-token' || token === 'test-conductor-token') {
-    req.conductorUser = { email: 'conductor@transitlk.com', role: 'conductor' };
-    return next();
-  }
-  if (token === 'mock-passenger-token' || token === 'test-passenger-token') {
+  // Verify explicit test fixture if running inside an isolated automated test
+  const testFixture = getTestAuthFixture(req, token);
+  if (testFixture) {
+    if (['conductor', 'admin'].includes(testFixture.role)) {
+      req.conductorUser = testFixture;
+      return next();
+    }
     return res.status(403).json({
       success: false,
       error: 'Forbidden',
@@ -149,7 +296,7 @@ export async function requireConductorOrAdmin(req, res, next) {
     }
 
     const user = await users.findOne(userFilter);
-    if (!user || !['conductor', 'admin', 'authority'].includes(user.role)) {
+    if (!user || !['conductor', 'admin'].includes(user.role)) {
       return res.status(403).json({
         success: false,
         error: 'Forbidden',
@@ -160,18 +307,77 @@ export async function requireConductorOrAdmin(req, res, next) {
     req.conductorUser = user;
     next();
   } catch {
-    // In test harness without live DB: verify against mock tokens
-    if (token === 'mock-conductor-token' || token === 'test-conductor-token') {
-      req.conductorUser = { email: 'conductor@transitlk.com', role: 'conductor' };
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized',
+      message: 'Invalid or expired session token',
+    });
+  }
+}
+
+/**
+ * Role-based authorization middleware for transport authority and admin inspection
+ */
+export async function requireAuthorityOrAdmin(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized',
+      message: 'Authority or Admin authorization token required',
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  const testFixture = getTestAuthFixture(req, token);
+  if (testFixture) {
+    if (['authority', 'admin'].includes(testFixture.role)) {
+      req.authorityUser = testFixture;
       return next();
     }
-    if (token === 'mock-passenger-token' || token === 'test-passenger-token') {
+    return res.status(403).json({
+      success: false,
+      error: 'Forbidden',
+      message: 'Access denied: authority or admin privileges required',
+    });
+  }
+
+  try {
+    const sessions = getSessionsCollection();
+    const users = getUsersCollection();
+    const tokenH = hashToken(token);
+
+    const session = await sessions.findOne({
+      tokenHash: tokenH,
+      expiresAt: { $gt: new Date().toISOString() },
+    });
+
+    if (!session) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized',
+        message: 'Invalid or expired session token',
+      });
+    }
+
+    let userFilter = { _id: session.userId };
+    if (typeof session.userId === 'string' && ObjectId.isValid(session.userId)) {
+      userFilter = { $or: [{ _id: new ObjectId(session.userId) }, { _id: session.userId }] };
+    }
+
+    const user = await users.findOne(userFilter);
+    if (!user || !['authority', 'admin'].includes(user.role)) {
       return res.status(403).json({
         success: false,
         error: 'Forbidden',
-        message: 'Access denied: conductor or admin privileges required',
+        message: 'Access denied: authority or admin privileges required',
       });
     }
+
+    req.authorityUser = user;
+    next();
+  } catch {
     return res.status(401).json({
       success: false,
       error: 'Unauthorized',
@@ -186,25 +392,168 @@ export async function requireConductorOrAdmin(req, res, next) {
  * Never stores real credit card numbers, CVVs, or cardholder credentials.
  */
 paymentsRouter.post('/process', async (req, res) => {
-  try {
-    const { amount, method = 'card', details = {}, routeData = {}, ticketCount = 1 } = req.body;
+  const idempotencyKey = req.headers['idempotency-key'] || req.body.idempotencyKey;
+  let scopedUserId = 'guest_user';
 
-    const parsedAmount = Number(amount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'A valid positive payment amount is required',
-      });
+  // Extract user identity for idempotency key scoping
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    const fixture = getTestAuthFixture(req, token);
+    if (fixture && (fixture.id || fixture.email || fixture.username)) {
+      scopedUserId = String(fixture.id || fixture.email || fixture.username);
+    } else {
+      try {
+        const sessions = getSessionsCollection();
+        const session = await sessions.findOne({
+          tokenHash: hashToken(token),
+          expiresAt: { $gt: new Date().toISOString() },
+        });
+        if (session && session.userId) {
+          scopedUserId = String(session.userId);
+        }
+      } catch {}
+    }
+  } else if (req.body.userId) {
+    scopedUserId = String(req.body.userId);
+  }
+
+  // 1. Validate ticketCount bounds (strict integer between 1 and 10)
+  const rawTicketCount = req.body.ticketCount ?? 1;
+  const parsedTicketCount = Number(rawTicketCount);
+  if (!Number.isInteger(parsedTicketCount) || parsedTicketCount < 1 || parsedTicketCount > 10) {
+    return res.status(400).json({
+      success: false,
+      code: 'InvalidTicketCount',
+      message: 'Ticket count must be an integer between 1 and 10',
+    });
+  }
+
+  // 2. Resolve trusted server-owned fare record
+  const routeData = req.body.routeData || {};
+  const clientAmount = Number(req.body.amount);
+  const candidateUnitFare = !isNaN(clientAmount) && parsedTicketCount > 0 ? clientAmount / parsedTicketCount : null;
+  const fareResolution = resolveTrustedFare(routeData, candidateUnitFare);
+
+  if (!fareResolution) {
+    return res.status(400).json({
+      success: false,
+      code: 'UnknownRouteFare',
+      message: 'Cannot validate fare: Unknown or unsupported route. Trusted server fare record not found.',
+    });
+  }
+
+  const trustedUnitFare = fareResolution.unitFare;
+  const serverCalculatedFare = trustedUnitFare * parsedTicketCount;
+
+  // 3. Validate client amount against server-calculated fare
+  if (isNaN(clientAmount) || Math.round(clientAmount) !== Math.round(serverCalculatedFare)) {
+    return res.status(400).json({
+      success: false,
+      code: 'FareMismatch',
+      message: `Fare amount mismatch: client amount ${req.body.amount} does not match trusted server fare ${serverCalculatedFare} (${trustedUnitFare} x ${parsedTicketCount})`,
+    });
+  }
+
+  const { method = 'card', details = {} } = req.body;
+
+  // Sanitization: Never store raw credit card numbers or CVVs
+  const sanitizedDetails = {
+    cardType: details.cardType || 'VISA',
+    last4: typeof details.cardNumber === 'string' ? details.cardNumber.slice(-4) : '3456',
+    cardholderName: details.cardholderName || details.cardName || 'PASSENGER',
+    isDemoSimulation: true,
+  };
+
+  const payloadHash = crypto
+    .createHash('sha256')
+    .update(
+      JSON.stringify({
+        amount: serverCalculatedFare,
+        method: method === 'wallet' ? 'wallet' : 'card',
+        ticketCount: parsedTicketCount,
+        unitFare: trustedUnitFare,
+        routeNumber: fareResolution.routeNumber,
+        routeData: {
+          bus: routeData.bus || `BUS ${fareResolution.routeNumber}`,
+          from: routeData.from || 'Origin',
+          to: routeData.to || 'Destination',
+          date: routeData.date || new Date().toLocaleDateString('en-GB'),
+        },
+        cardType: sanitizedDetails.cardType,
+        last4: sanitizedDetails.last4,
+      })
+    )
+    .digest('hex');
+
+  const idempotencyCol = getIdempotencyCollection();
+
+  if (idempotencyKey) {
+    const existing = await idempotencyCol.findOne({ userId: scopedUserId, idempotencyKey });
+    if (existing) {
+      if (existing.payloadHash !== payloadHash) {
+        return res.status(409).json({
+          success: false,
+          code: 'IdempotencyConflict',
+          error: 'IdempotencyConflict',
+          message: 'Payment request with the same idempotency key was already submitted with a different payload',
+        });
+      }
+      if (existing.status === 'completed' && existing.response) {
+        return res.status(existing.response.statusCode || 201).json(existing.response.body);
+      }
+      if (existing.status === 'processing') {
+        for (let i = 0; i < 20; i++) {
+          await new Promise((r) => setTimeout(r, 100));
+          const current = await idempotencyCol.findOne({ userId: scopedUserId, idempotencyKey });
+          if (current && current.status === 'completed' && current.response) {
+            return res.status(current.response.statusCode || 201).json(current.response.body);
+          }
+        }
+        return res.status(409).json({
+          success: false,
+          code: 'IdempotencyConflict',
+          error: 'IdempotencyConflict',
+          message: 'Concurrent payment request is currently being processed with this idempotency key',
+        });
+      }
     }
 
-    // Sanitization: Never store raw credit card numbers or CVVs
-    const sanitizedDetails = {
-      cardType: details.cardType || 'VISA',
-      last4: typeof details.cardNumber === 'string' ? details.cardNumber.slice(-4) : '3456',
-      cardholderName: details.cardholderName || details.cardName || 'PASSENGER',
-      isDemoSimulation: true,
-    };
+    try {
+      await idempotencyCol.insertOne({
+        _id: generateId(),
+        userId: scopedUserId,
+        idempotencyKey,
+        payloadHash,
+        status: 'processing',
+        createdAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      if (err.code === 11000) {
+        const collision = await idempotencyCol.findOne({ userId: scopedUserId, idempotencyKey });
+        if (collision && collision.payloadHash !== payloadHash) {
+          return res.status(409).json({
+            success: false,
+            code: 'IdempotencyConflict',
+            error: 'IdempotencyConflict',
+            message: 'Payment request with the same idempotency key was already submitted with a different payload',
+          });
+        }
+        if (collision && collision.status === 'completed' && collision.response) {
+          return res.status(collision.response.statusCode || 201).json(collision.response.body);
+        }
+        return res.status(409).json({
+          success: false,
+          code: 'IdempotencyConflict',
+          error: 'IdempotencyConflict',
+          message: 'Concurrent payment request is currently being processed',
+        });
+      }
+      throw err;
+    }
+  }
 
+  try {
     // Server-side unpredictable ticket ID & verification code
     const randomHex = crypto.randomBytes(4).toString('hex').toUpperCase();
     const ticketId = `TKT-${randomHex}`;
@@ -216,7 +565,8 @@ paymentsRouter.post('/process', async (req, res) => {
       _id: generateId(),
       transactionId,
       ticketId,
-      amount: parsedAmount,
+      amount: serverCalculatedFare,
+      unitFare: trustedUnitFare,
       method: method === 'wallet' ? 'wallet' : 'card',
       details: sanitizedDetails,
       status: 'Completed',
@@ -229,15 +579,26 @@ paymentsRouter.post('/process', async (req, res) => {
       ticketId,
       verificationCode,
       transactionId,
-      amount: parsedAmount,
+      amount: serverCalculatedFare,
+      unitFare: trustedUnitFare,
       status: 'valid', // 'valid' | 'redeemed' | 'cancelled'
-      numberOfTickets: Number(ticketCount) || 1,
+      numberOfTickets: parsedTicketCount,
+      ticketCount: parsedTicketCount,
       route: {
-        bus: routeData.bus || 'BUS 125',
+        bus: routeData.bus || `BUS ${fareResolution.routeNumber}`,
+        routeNumber: fareResolution.routeNumber,
+        routeName: fareResolution.routeName,
         type: routeData.type || 'Direct service',
-        from: routeData.from || 'Horana',
-        to: routeData.to || 'Colombo',
+        from: routeData.from || 'Origin',
+        to: routeData.to || 'Destination',
         departureTime: routeData.fromTime || routeData.departureTime || '08:30 AM',
+        date: routeData.date || new Date().toLocaleDateString('en-GB'),
+      },
+      routeData: {
+        bus: routeData.bus || `BUS ${fareResolution.routeNumber}`,
+        routeNumber: fareResolution.routeNumber,
+        from: routeData.from || 'Origin',
+        to: routeData.to || 'Destination',
         date: routeData.date || new Date().toLocaleDateString('en-GB'),
       },
       isDemo: true,
@@ -254,7 +615,8 @@ paymentsRouter.post('/process', async (req, res) => {
     const qrPayload = JSON.stringify({
       ticketId,
       verificationCode,
-      amount: parsedAmount,
+      amount: serverCalculatedFare,
+      route: fareResolution.routeNumber,
       date: ticketRecord.route.date,
       from: ticketRecord.route.from,
       to: ticketRecord.route.to,
@@ -263,15 +625,36 @@ paymentsRouter.post('/process', async (req, res) => {
       isDemo: true,
     });
 
-    return res.status(201).json({
+    const responseBody = {
       success: true,
       mode: 'DEMO',
       message: 'Simulated payment processed successfully (DEMO)',
       data: paymentRecord,
       ticket: ticketRecord,
       qrData: qrPayload,
-    });
+    };
+
+    if (idempotencyKey) {
+      await idempotencyCol.findOneAndUpdate(
+        { userId: scopedUserId, idempotencyKey },
+        {
+          $set: {
+            status: 'completed',
+            response: {
+              statusCode: 201,
+              body: responseBody,
+            },
+            completedAt: new Date().toISOString(),
+          },
+        }
+      );
+    }
+
+    return res.status(201).json(responseBody);
   } catch (error) {
+    if (idempotencyKey) {
+      await idempotencyCol.deleteOne({ userId: scopedUserId, idempotencyKey, status: 'processing' }).catch(() => {});
+    }
     console.error('Payment processing error:', error);
     return res.status(500).json({
       success: false,
@@ -319,6 +702,8 @@ paymentsRouter.post('/tickets/verify', requireConductorOrAdmin, async (req, res)
     // Atomic findOneAndUpdate: only matches if status === 'valid'
     const redeemedAt = new Date().toISOString();
     const redeemedBy = req.conductorUser ? req.conductorUser.email : 'conductor';
+    const verifiedByRole = req.conductorUser ? req.conductorUser.role : 'conductor';
+    const redeemedByRole = verifiedByRole;
 
     const updateResult = await tickets.findOneAndUpdate(
       { ticketId: cleanTicketId, status: 'valid' },
@@ -327,6 +712,7 @@ paymentsRouter.post('/tickets/verify', requireConductorOrAdmin, async (req, res)
           status: 'redeemed',
           redeemedAt,
           redeemedBy,
+          redeemedByRole,
         },
       }
     );
@@ -337,6 +723,7 @@ paymentsRouter.post('/tickets/verify', requireConductorOrAdmin, async (req, res)
         valid: true,
         status: 'redeemed',
         message: 'Ticket validated and redeemed successfully',
+        verifiedByRole,
         ticket: updateResult,
       });
     }
@@ -377,6 +764,91 @@ paymentsRouter.post('/tickets/verify', requireConductorOrAdmin, async (req, res)
       success: false,
       valid: false,
       message: 'Server error during ticket verification',
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * 3. POST /api/payments/tickets/inspect
+ * Read-Only Ticket Inspection for Transport Authority Officers & Admins
+ * Strictly audits ticket validity and metadata WITHOUT mutating ticket status,
+ * WITHOUT calling findOneAndUpdate, and WITHOUT redeeming the ticket.
+ * Exposes minimal metadata without sensitive passenger payment details.
+ */
+paymentsRouter.post('/tickets/inspect', requireAuthorityOrAdmin, async (req, res) => {
+  try {
+    const { qrData, ticketId } = req.body;
+
+    let targetTicketId = ticketId;
+
+    if (!targetTicketId && qrData) {
+      try {
+        const parsed = typeof qrData === 'string' ? JSON.parse(qrData) : qrData;
+        targetTicketId = parsed.ticketId || parsed.id;
+      } catch {
+        targetTicketId = String(qrData).trim();
+      }
+    }
+
+    if (!targetTicketId || typeof targetTicketId !== 'string' || !targetTicketId.trim()) {
+      return res.status(400).json({
+        success: false,
+        valid: false,
+        message: 'Invalid ticket identifier supplied for inspection',
+      });
+    }
+
+    const cleanTicketId = targetTicketId.trim();
+    const tickets = getTicketsCollection();
+
+    // READ-ONLY lookup: NEVER call findOneAndUpdate, NEVER change status, NEVER set redeemedAt
+    const ticket = await tickets.findOne({ ticketId: cleanTicketId });
+
+    if (!ticket) {
+      return res.status(404).json({
+        success: false,
+        valid: false,
+        status: 'not_found',
+        message: 'Forged or unknown ticket: Ticket ID does not exist in TransitLK system',
+      });
+    }
+
+    const isValid = ticket.status === 'valid';
+
+    return res.status(200).json({
+      success: true,
+      valid: isValid,
+      status: ticket.status,
+      inspectionType: 'READ_ONLY_AUDIT',
+      inspectedBy: req.authorityUser ? req.authorityUser.email : 'authority_officer',
+      inspectedAt: new Date().toISOString(),
+      ticket: {
+        ticketId: ticket.ticketId,
+        status: ticket.status,
+        busRegNumber: ticket.route?.bus || ticket.routeData?.bus || 'BUS 120',
+        routeNumber: ticket.route?.routeNumber || ticket.routeData?.routeNumber || '120',
+        operator: ticket.route?.type || 'TransitLK Bus',
+        from: ticket.route?.from || ticket.routeData?.from || 'Origin',
+        to: ticket.route?.to || ticket.routeData?.to || 'Destination',
+        fare: ticket.amount,
+        amount: ticket.amount,
+        unitFare: ticket.unitFare || ticket.amount,
+        seatNumber: ticket.numberOfTickets ? `${ticket.numberOfTickets} Seat(s)` : 'General',
+        numberOfTickets: ticket.numberOfTickets || ticket.ticketCount || 1,
+        ticketCount: ticket.ticketCount || ticket.numberOfTickets || 1,
+        issuedAt: ticket.issuedAt,
+        purchasedAt: ticket.issuedAt,
+        redeemedAt: ticket.redeemedAt || null,
+        redeemedBy: ticket.redeemedBy || null,
+      },
+    });
+  } catch (error) {
+    console.error('Ticket inspection error:', error);
+    return res.status(500).json({
+      success: false,
+      valid: false,
+      message: 'Server error during ticket inspection',
       error: error.message,
     });
   }

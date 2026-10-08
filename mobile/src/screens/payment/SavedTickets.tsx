@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../../components/Header';
+import { ScreenBackContext } from '../../navigation/AppNavigator';
+import { AppNavigationContext } from '../../../App';
 
 interface SavedTicket {
   id?: string;
@@ -20,6 +22,18 @@ export default function SavedTickets() {
   const [tickets, setTickets] = useState<SavedTicket[]>([]);
   const [activeTab, setActiveTab] = useState<'offline' | 'all'>('offline');
   const navigation = useNavigation<any>();
+  const { onBackToHome } = useContext(ScreenBackContext);
+  const { navigateToScreen } = useContext(AppNavigationContext);
+
+  const handleBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else if (onBackToHome) {
+      onBackToHome();
+    } else if (navigateToScreen) {
+      navigateToScreen('transit');
+    }
+  };
 
   useEffect(() => {
     loadTickets();
@@ -69,7 +83,7 @@ export default function SavedTickets() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Saved tickets" />
+      <Header title="Saved tickets" onBackPress={handleBack} />
 
       <FlatList
         data={tickets}
