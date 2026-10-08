@@ -195,58 +195,112 @@ export function authorityRouter(store, authenticate) {
     }
   );
 
-  // UPDATE / ACKNOWLEDGE / RESOLVE
-  router.patch(
-    '/authority/incidents/:id',
-    async (req, res) => {
-      const result =
-        incidentUpdateSchema.safeParse(req.body);
+  // EDIT / ACKNOWLEDGE / RESOLVE INCIDENT
+router.patch(
+  '/authority/incidents/:id',
+  async (req, res) => {
+    const result =
+      incidentUpdateSchema.safeParse(req.body);
 
-      if (
-        !result.success ||
-        Object.keys(result.data).length === 0
-      ) {
-        return res.status(400).json({
-          error: 'Enter valid incident changes.'
-        });
-      }
-
-      const incident =
-        await store.updateAuthorityIncident(
-          String(req.user._id),
-          req.params.id,
-          result.data
-        );
-
-      if (!incident) {
-        return res.status(404).json({
-          error: 'Incident not found.'
-        });
-      }
-
-      res.json({ incident });
+    if (
+      !result.success ||
+      Object.keys(result.data).length === 0
+    ) {
+      return res.status(400).json({
+        error: 'Enter valid incident changes.'
+      });
     }
-  );
 
-  // DELETE INCIDENT
-  router.delete(
-    '/authority/incidents/:id',
-    async (req, res) => {
-      const deleted =
-        await store.deleteAuthorityIncident(
-          String(req.user._id),
-          req.params.id
-        );
+    const currentIncident =
+      await store.findAuthorityIncident(
+        req.params.id
+      );
 
-      if (!deleted) {
-        return res.status(404).json({
-          error: 'Incident not found.'
-        });
-      }
-
-      res.status(204).end();
+    if (!currentIncident) {
+      return res.status(404).json({
+        error: 'Incident not found.'
+      });
     }
-  );
+
+    const changesIncidentDetails =
+      result.data.title !== undefined ||
+      result.data.description !== undefined ||
+      result.data.route !== undefined ||
+      result.data.severity !== undefined;
+
+    const officerId =
+      String(req.user._id);
+
+    if (
+      changesIncidentDetails &&
+      currentIncident.createdBy !== officerId
+    ) {
+      return res.status(403).json({
+        error:
+          'Only the officer who created this incident can edit its details.'
+      });
+    }
+
+    const incident =
+      await store.updateAuthorityIncident(
+        officerId,
+        req.params.id,
+        result.data,
+        changesIncidentDetails
+      );
+
+    if (!incident) {
+      return res.status(404).json({
+        error: 'Incident not found.'
+      });
+    }
+
+    res.json({ incident });
+  }
+);
+
+  // DELETE INCIDENT - CREATOR ONLY
+router.delete(
+  '/authority/incidents/:id',
+  async (req, res) => {
+    const currentIncident =
+      await store.findAuthorityIncident(
+        req.params.id
+      );
+
+    if (!currentIncident) {
+      return res.status(404).json({
+        error: 'Incident not found.'
+      });
+    }
+
+    const officerId =
+      String(req.user._id);
+
+    if (
+      currentIncident.createdBy !== officerId
+    ) {
+      return res.status(403).json({
+        error:
+          'Only the officer who created this incident can delete it.'
+      });
+    }
+
+    const deleted =
+      await store.deleteAuthorityIncident(
+        officerId,
+        req.params.id
+      );
+
+    if (!deleted) {
+      return res.status(404).json({
+        error: 'Incident not found.'
+      });
+    }
+
+    res.status(204).end();
+  }
+);
 
   // SHORT-LIVED TOKEN FOR WEB AUTHORITY DASHBOARD
   router.post(

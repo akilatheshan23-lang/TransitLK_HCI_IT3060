@@ -18,6 +18,7 @@ export async function createMongoStore(db) {
   await authorityIncidents.createIndex({createdAt: -1});
   await authorityIncidents.createIndex({status: 1});
   await authorityIncidents.createIndex({severity: 1});
+  await authorityIncidents.createIndex({createdBy: 1});
   await auditLogs.createIndex({createdAt: -1});
   const savedView=d=>d&&({...d,id:String(d._id),_id:undefined,userId:undefined});
   const lostFoundView = d =>d && ({...d, id: String(d._id), _id: undefined});
@@ -203,7 +204,17 @@ async listAuthorityIncidents() {
       .toArray()
   ).map(authorityIncidentView);
 },
+async findAuthorityIncident(id) {
+  if (!ObjectId.isValid(id)) {
+    return null;
+  }
 
+  return authorityIncidentView(
+    await authorityIncidents.findOne({
+      _id: new ObjectId(id)
+    })
+  );
+},
 async createAuthorityIncident(
   officerId,
   officerName,
@@ -239,17 +250,23 @@ async createAuthorityIncident(
 async updateAuthorityIncident(
   officerId,
   id,
-  data
+  data,
+  requireOwner = false
 ) {
   if (!ObjectId.isValid(id)) {
     return null;
   }
 
+  const query = {
+    _id: new ObjectId(id),
+    ...(requireOwner
+      ? { createdBy: officerId }
+      : {})
+  };
+
   const incident =
     await authorityIncidents.findOneAndUpdate(
-      {
-        _id: new ObjectId(id)
-      },
+      query,
       {
         $set: {
           ...data,
@@ -264,7 +281,9 @@ async updateAuthorityIncident(
   if (incident) {
     await auditLogs.insertOne({
       actorId: officerId,
-      action: 'authority.incident.update',
+      action: requireOwner
+        ? 'authority.incident.edit'
+        : 'authority.incident.status.update',
       objectId: id,
       createdAt: new Date()
     });
@@ -283,7 +302,8 @@ async deleteAuthorityIncident(
 
   const result =
     await authorityIncidents.deleteOne({
-      _id: new ObjectId(id)
+      _id: new ObjectId(id),
+      createdBy: officerId
     });
 
   if (result.deletedCount === 1) {
