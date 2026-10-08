@@ -6,7 +6,9 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DeviceFrame } from './src/components/DeviceFrame';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -16,7 +18,8 @@ import { BusOwnerLoginScreen } from './src/screens/BusOwnerLoginScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import FleetTrackingScreen from './src/FleetTrackingScreen';
 import TransitApp from './src/TransitApp';
-import { api, UserProfile } from './src/services/api';
+import AppNavigator from './src/navigation/AppNavigator';
+import { api, UserProfile, BusSearchResult } from './src/services/api';
 
 export type ScreenType =
   | 'home'
@@ -26,7 +29,10 @@ export type ScreenType =
   | 'authority-login'
   | 'bus-owner-login'
   | 'dashboard'
-  | 'fleet';
+  | 'fleet'
+  | 'payment'
+  | 'tickets'
+  | 'conductor';
 
 const defaultGuestUser: UserProfile = {
   id: 'guest',
@@ -50,7 +56,10 @@ export default function App() {
         hash === 'dashboard' ||
         hash === 'transit' ||
         hash === 'fleet' ||
-        hash === 'home'
+        hash === 'home' ||
+        hash === 'payment' ||
+        hash === 'tickets' ||
+        hash === 'conductor'
       ) {
         return hash as ScreenType;
       }
@@ -80,7 +89,10 @@ export default function App() {
           hash === 'dashboard' ||
           hash === 'transit' ||
           hash === 'fleet' ||
-          hash === 'home'
+          hash === 'home' ||
+          hash === 'payment' ||
+          hash === 'tickets' ||
+          hash === 'conductor'
         ) {
           setCurrentScreen(hash as ScreenType);
         }
@@ -98,6 +110,28 @@ export default function App() {
     }
   };
 
+  const handleSelectBusAndPay = async (bus?: BusSearchResult) => {
+    if (bus) {
+      const pendingTicket = {
+        id: String(bus.id || bus.busRegNumber),
+        bus: bus.busRegNumber,
+        type: `${bus.busType || 'Standard'} service`,
+        from: bus.fromStop,
+        fromTime: bus.departureTime,
+        to: bus.toStop,
+        toTime: bus.arrivalTime || '--:--',
+        price: bus.fare || 250,
+        date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      };
+      try {
+        await AsyncStorage.setItem('@pending_ticket', JSON.stringify(pendingTicket));
+      } catch {
+        // Continue with navigation even if local storage fails
+      }
+    }
+    navigateTo('payment');
+  };
+
   const activeUser = currentUser || defaultGuestUser;
 
   const renderScreen = () => {
@@ -112,6 +146,27 @@ export default function App() {
           />
         );
 
+      case 'payment':
+        return (
+          <NavigationContainer>
+            <AppNavigator initialRouteName="PaymentCheckout" />
+          </NavigationContainer>
+        );
+
+      case 'tickets':
+        return (
+          <NavigationContainer>
+            <AppNavigator initialRouteName="SavedTickets" />
+          </NavigationContainer>
+        );
+
+      case 'conductor':
+        return (
+          <NavigationContainer>
+            <AppNavigator initialRouteName="ConductorDashboard" />
+          </NavigationContainer>
+        );
+
       case 'login':
         return (
           <LoginScreen
@@ -120,7 +175,13 @@ export default function App() {
             onNavigateToBusOwner={() => navigateTo('bus-owner-login')}
             onLoginSuccess={(user) => {
               setCurrentUser(user);
-              navigateTo(user.role === 'passenger' ? 'home' : 'dashboard');
+              if (user.role === 'conductor') {
+                navigateTo('conductor');
+              } else if (user.role === 'bus_owner' || user.role === 'authority' || user.role === 'admin') {
+                navigateTo('dashboard');
+              } else {
+                navigateTo('home');
+              }
             }}
           />
         );
@@ -189,6 +250,9 @@ export default function App() {
             onNavigateBack={() => navigateTo('transit')}
             onNavigateToTransit={() => navigateTo('transit')}
             onNavigateToCommunity={() => navigateTo('transit')}
+            onNavigateToPayment={handleSelectBusAndPay}
+            onNavigateToTickets={() => navigateTo('tickets')}
+            onNavigateToConductor={() => navigateTo('conductor')}
           />
         );
     }

@@ -3,6 +3,7 @@ import { lostFoundRouter } from './lostFound.js';
 import { authRouter } from './routes/auth.js';
 import { adminRouter } from './routes/admin.js';
 import { busesRouter } from './routes/buses.js';
+import { paymentsRouter } from './routes/payments.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -110,6 +111,7 @@ export function createApp(store, { origins = ['http://localhost:8081', 'http://1
   app.use('/api/auth', authRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api/buses', busesRouter);
+  app.use('/api/payments', paymentsRouter);
   app.use('/api', lostFoundRouter(store, authenticate));
   app.use('/api', transitRouter(store, authenticate));
   app.use((_req, res) => res.status(404).json({ error: 'This endpoint does not exist.' }));

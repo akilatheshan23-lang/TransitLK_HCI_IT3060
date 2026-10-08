@@ -36,6 +36,9 @@ interface HomeScreenProps {
   onNavigateBack?: () => void;
   onNavigateToTransit?: () => void;
   onNavigateToCommunity?: () => void;
+  onNavigateToPayment?: (bus?: BusSearchResult) => void;
+  onNavigateToTickets?: () => void;
+  onNavigateToConductor?: () => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -44,6 +47,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onNavigateBack,
   onNavigateToTransit,
   onNavigateToCommunity,
+  onNavigateToPayment,
+  onNavigateToTickets,
+  onNavigateToConductor,
 }) => {
   const [transitType, setTransitType] = useState<'bus' | 'train'>('bus');
   const [fromTown, setFromTown] = useState('Horana');
@@ -164,7 +170,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     if (tab === 'profile') {
       onNavigateToProfile();
     } else if (tab === 'tickets') {
-      if (onNavigateToTransit) {
+      if (onNavigateToTickets) {
+        onNavigateToTickets();
+      } else if (onNavigateToTransit) {
         onNavigateToTransit();
       } else {
         showAlert('My Tickets', 'Digital tickets for your journeys will appear here.');
@@ -643,7 +651,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               style={styles.confirmTicketButton}
               onPress={() => {
                 setShowBookingSuccess(false);
-                showAlert('Digital Ticket Ready', `Your seat on ${selectedBus?.busRegNumber} has been reserved. You can view QR code under Tickets tab.`);
+                if (onNavigateToPayment && selectedBus) {
+                  onNavigateToPayment(selectedBus);
+                } else {
+                  showAlert('Digital Ticket Ready', `Your seat on ${selectedBus?.busRegNumber} has been reserved. You can view QR code under Tickets tab.`);
+                }
               }}
               activeOpacity={0.8}
             >

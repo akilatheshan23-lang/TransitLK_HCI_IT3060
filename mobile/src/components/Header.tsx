@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { ArrowLeftIcon, BellIcon } from './Icons';
 import { colors } from '../theme/colors';
 
-interface HeaderProps {
+export interface HeaderProps {
   title: string;
   onBackPress?: () => void;
   showBack?: boolean;
@@ -18,17 +20,35 @@ export const Header: React.FC<HeaderProps> = ({
   showBell = false,
   onBellPress,
 }) => {
+  let nav: any = null;
+  try {
+    nav = useNavigation();
+  } catch {
+    // Navigation container may not wrap this screen in standalone mode
+  }
+
+  const handleBack = () => {
+    if (onBackPress) {
+      onBackPress();
+    } else if (nav && typeof nav.goBack === 'function' && nav.canGoBack?.()) {
+      nav.goBack();
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.leftGroup}>
         {showBack ? (
           <TouchableOpacity
-            onPress={onBackPress}
+            onPress={handleBack}
             style={styles.backButton}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
           >
-            <ArrowLeftIcon size={22} color={colors.neutral.title} />
+            {/* Render modern chevron back */}
+            <Ionicons name="chevron-back" size={24} color={colors.neutral.title} />
           </TouchableOpacity>
         ) : (
           <View style={styles.placeholder} />
@@ -44,6 +64,8 @@ export const Header: React.FC<HeaderProps> = ({
           style={styles.bellButton}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Notifications"
         >
           <BellIcon size={22} color={colors.neutral.title} />
         </TouchableOpacity>
@@ -54,23 +76,35 @@ export const Header: React.FC<HeaderProps> = ({
   );
 };
 
+export default Header;
+
 const styles = StyleSheet.create({
   container: {
     height: 52,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     backgroundColor: 'transparent',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
   },
   leftGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 12,
     flex: 1,
   },
   backButton: {
-    padding: 4,
+    padding: 6,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -86,6 +120,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   placeholder: {
-    width: 28,
+    width: 32,
   },
 });
