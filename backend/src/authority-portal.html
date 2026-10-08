@@ -1,0 +1,4256 @@
+<!doctype html>
+
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8" />
+
+  <meta
+
+    name="viewport"
+
+    content="width=device-width, initial-scale=1"
+
+  />
+
+  <title>TransitLK Authority Portal</title>
+
+  <style>
+
+    * {
+
+      box-sizing: border-box;
+
+    }
+
+    :root {
+
+      --navy: #0f2f49;
+
+      --navy-light: #173f5d;
+
+      --blue: #415fb4;
+
+      --blue-light: #e8edff;
+
+      --teal: #139b91;
+
+      --teal-light: #dcf5ef;
+
+      --background: #f4f7fb;
+
+      --white: #ffffff;
+
+      --border: #e2e8ef;
+
+      --muted: #75889a;
+
+      --danger: #cf5757;
+
+      --warning: #d99322;
+
+      --success: #17957e;
+
+    }
+
+    body {
+
+      margin: 0;
+
+      font-family:
+
+        Inter,
+
+        -apple-system,
+
+        BlinkMacSystemFont,
+
+        "Segoe UI",
+
+        sans-serif;
+
+      background: var(--background);
+
+      color: var(--navy);
+
+    }
+
+    button,
+
+    input,
+
+    textarea,
+
+    select {
+
+      font: inherit;
+
+    }
+
+    button {
+
+      cursor: pointer;
+
+    }
+
+    .hidden {
+
+      display: none !important;
+
+    }
+
+    /* ---------- LOGIN ---------- */
+
+    .login-page {
+
+      min-height: 100vh;
+
+      display: grid;
+
+      grid-template-columns: 1.05fr 0.95fr;
+
+      background: var(--background);
+
+    }
+
+    .login-art {
+
+      background: var(--navy);
+
+      padding: 54px;
+
+      display: flex;
+
+      flex-direction: column;
+
+      justify-content: space-between;
+
+      color: white;
+
+    }
+
+    .login-brand {
+
+      font-size: 26px;
+
+      font-weight: 800;
+
+    }
+
+    .login-brand span {
+
+      color: #66d6ca;
+
+    }
+
+    .login-art h1 {
+
+      max-width: 520px;
+
+      font-size: 46px;
+
+      line-height: 1.12;
+
+      margin: 0 0 18px;
+
+    }
+
+    .login-art p {
+
+      color: #c7d7e3;
+
+      max-width: 500px;
+
+      line-height: 1.7;
+
+    }
+
+    .login-form-wrap {
+
+      display: grid;
+
+      place-items: center;
+
+      padding: 32px;
+
+    }
+
+    .login-card {
+
+      width: 100%;
+
+      max-width: 430px;
+
+    }
+
+    .login-card .eyebrow {
+
+      margin-bottom: 12px;
+
+    }
+
+    .login-card h2 {
+
+      font-size: 30px;
+
+      margin: 0 0 8px;
+
+    }
+
+    .login-card p {
+
+      color: var(--muted);
+
+      margin: 0 0 28px;
+
+      line-height: 1.6;
+
+    }
+
+    .field {
+
+      margin-bottom: 18px;
+
+    }
+
+    .field label {
+
+      display: block;
+
+      color: var(--muted);
+
+      font-size: 12px;
+
+      margin-bottom: 8px;
+
+    }
+
+    input,
+
+    textarea,
+
+    select {
+
+      width: 100%;
+
+      border: 1px solid var(--border);
+
+      border-radius: 12px;
+
+      padding: 13px 14px;
+
+      background: var(--white);
+
+      color: var(--navy);
+
+      outline: none;
+
+    }
+
+    input:focus,
+
+    textarea:focus,
+
+    select:focus {
+
+      border-color: var(--blue);
+
+      box-shadow: 0 0 0 3px rgba(65, 95, 180, 0.08);
+
+    }
+
+    textarea {
+
+      min-height: 105px;
+
+      resize: vertical;
+
+    }
+
+    /* ---------- MAIN ---------- */
+
+    .portal {
+
+      min-height: 100vh;
+
+      display: flex;
+
+    }
+
+    .sidebar {
+
+      width: 230px;
+
+      flex-shrink: 0;
+
+      background: var(--navy);
+
+      color: white;
+
+      padding: 28px 18px 20px;
+
+      display: flex;
+
+      flex-direction: column;
+
+    }
+
+    .brand {
+
+      font-size: 24px;
+
+      font-weight: 800;
+
+      padding: 0 12px 30px;
+
+    }
+
+    .brand span {
+
+      color: #63d2c6;
+
+    }
+
+    .nav-label {
+
+      padding: 0 12px 8px;
+
+      color: #8198aa;
+
+      font-size: 10px;
+
+      font-weight: 800;
+
+      letter-spacing: 1px;
+
+    }
+
+    .nav {
+
+      width: 100%;
+
+      border: 0;
+
+      background: transparent;
+
+      color: #c5d2dd;
+
+      text-align: left;
+
+      border-radius: 10px;
+
+      padding: 12px 13px;
+
+      margin-bottom: 5px;
+
+    }
+
+    .nav:hover {
+
+      background: rgba(255, 255, 255, 0.06);
+
+    }
+
+    .nav.active {
+
+      color: white;
+
+      background: var(--navy-light);
+
+      font-weight: 700;
+
+    }
+
+    .sidebar-bottom {
+
+      margin-top: auto;
+
+      padding-top: 24px;
+
+    }
+
+    .officer-card {
+
+      padding: 14px 12px;
+
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+
+    }
+
+    .officer-role {
+
+      color: #90a7b8;
+
+      font-size: 10px;
+
+      margin-bottom: 5px;
+
+    }
+
+    .officer-name {
+
+      font-size: 13px;
+
+      font-weight: 700;
+
+      margin-bottom: 12px;
+
+    }
+
+    .logout {
+
+      width: 100%;
+
+      border: 1px solid #58738a;
+
+      border-radius: 9px;
+
+      padding: 10px;
+
+      background: transparent;
+
+      color: white;
+
+    }
+
+    .main {
+
+      flex: 1;
+
+      min-width: 0;
+
+      padding: 30px 34px;
+
+    }
+
+    .topbar {
+
+      display: flex;
+
+      align-items: flex-start;
+
+      justify-content: space-between;
+
+      gap: 20px;
+
+      margin-bottom: 26px;
+
+    }
+
+    .eyebrow {
+
+      color: var(--blue);
+
+      font-size: 10px;
+
+      font-weight: 800;
+
+      letter-spacing: 0.9px;
+
+      margin-bottom: 8px;
+
+    }
+
+    .page-title {
+
+      font-size: 28px;
+
+      margin: 0;
+
+      font-weight: 800;
+
+    }
+
+    .page-subtitle {
+
+      color: var(--muted);
+
+      font-size: 13px;
+
+      margin-top: 7px;
+
+    }
+
+    .status-pill {
+
+      padding: 9px 13px;
+
+      border-radius: 22px;
+
+      background: var(--teal-light);
+
+      color: var(--success);
+
+      font-size: 11px;
+
+      font-weight: 800;
+
+      white-space: nowrap;
+
+    }
+
+    /* ---------- CARDS ---------- */
+
+    .metric-grid {
+
+      display: grid;
+
+      grid-template-columns:
+
+        repeat(4, minmax(0, 1fr));
+
+      gap: 15px;
+
+      margin-bottom: 20px;
+
+    }
+
+    .card {
+
+      background: var(--white);
+
+      border: 1px solid var(--border);
+
+      border-radius: 14px;
+
+      padding: 18px;
+
+    }
+
+    .metric-card {
+
+      min-height: 112px;
+
+    }
+
+    .metric-label {
+
+      color: var(--muted);
+
+      font-size: 11px;
+
+      margin-bottom: 12px;
+
+    }
+
+    .metric-value {
+
+      color: var(--navy);
+
+      font-size: 25px;
+
+      font-weight: 800;
+
+    }
+
+    .metric-note {
+
+      color: var(--muted);
+
+      font-size: 10px;
+
+      margin-top: 8px;
+
+    }
+
+    .positive {
+
+      color: var(--success);
+
+    }
+
+    .dashboard-row {
+
+      display: grid;
+
+      grid-template-columns: 1.7fr 1fr;
+
+      gap: 18px;
+
+      margin-bottom: 20px;
+
+    }
+
+    .section-heading {
+
+      display: flex;
+
+      justify-content: space-between;
+
+      align-items: center;
+
+      margin-bottom: 16px;
+
+    }
+
+    .section-title {
+
+      font-size: 17px;
+
+      font-weight: 800;
+
+      margin: 0;
+
+    }
+
+    .section-link {
+
+      border: 0;
+
+      background: transparent;
+
+      color: var(--blue);
+
+      font-size: 11px;
+
+      font-weight: 700;
+
+    }
+
+    /* ---------- MAP ---------- */
+
+    .network-map {
+
+      height: 280px;
+
+      border-radius: 12px;
+
+      background:
+
+        linear-gradient(
+
+          rgba(231, 241, 239, 0.78),
+
+          rgba(231, 241, 239, 0.78)
+
+        ),
+
+        #e7f1ef;
+
+      position: relative;
+
+      overflow: hidden;
+
+    }
+
+    .river {
+
+      position: absolute;
+
+      right: 22%;
+
+      top: -35px;
+
+      width: 52px;
+
+      height: 370px;
+
+      background: #b8dce8;
+
+      transform: rotate(8deg);
+
+    }
+
+    .road {
+
+      position: absolute;
+
+      height: 8px;
+
+      background: #fff;
+
+      border-radius: 8px;
+
+      box-shadow: 0 0 0 1px #dbe7e6;
+
+    }
+
+    .road.a {
+
+      width: 80%;
+
+      top: 42%;
+
+      left: -5%;
+
+      transform: rotate(9deg);
+
+    }
+
+    .road.b {
+
+      width: 70%;
+
+      top: 66%;
+
+      left: 12%;
+
+      transform: rotate(-15deg);
+
+    }
+
+    .road.c {
+
+      width: 55%;
+
+      top: 24%;
+
+      right: -8%;
+
+      transform: rotate(-8deg);
+
+    }
+
+    .route-line {
+
+      position: absolute;
+
+      height: 5px;
+
+      border-radius: 5px;
+
+      background: var(--blue);
+
+    }
+
+    .route-line.a {
+
+      width: 43%;
+
+      left: 12%;
+
+      top: 55%;
+
+      transform: rotate(-20deg);
+
+    }
+
+    .route-line.b {
+
+      width: 35%;
+
+      left: 48%;
+
+      top: 45%;
+
+      transform: rotate(-28deg);
+
+    }
+
+    .node {
+
+      position: absolute;
+
+      width: 15px;
+
+      height: 15px;
+
+      border-radius: 50%;
+
+      background: var(--blue);
+
+      border: 3px solid white;
+
+      box-shadow: 0 1px 5px rgba(0, 0, 0, 0.12);
+
+    }
+
+    .node.n1 {
+
+      left: 12%;
+
+      top: 59%;
+
+    }
+
+    .node.n2 {
+
+      left: 37%;
+
+      top: 42%;
+
+    }
+
+    .node.n3 {
+
+      left: 57%;
+
+      top: 45%;
+
+    }
+
+    .node.n4 {
+
+      right: 14%;
+
+      top: 23%;
+
+    }
+
+    .map-label {
+
+      position: absolute;
+
+      font-size: 10px;
+
+      color: var(--navy);
+
+    }
+
+    .map-label.l1 {
+
+      left: 8%;
+
+      top: 69%;
+
+    }
+
+    .map-label.l2 {
+
+      left: 32%;
+
+      top: 30%;
+
+    }
+
+    .map-label.l3 {
+
+      right: 9%;
+
+      top: 13%;
+
+    }
+
+    /* ---------- PERFORMANCE ---------- */
+
+    .performance-item {
+
+      margin-bottom: 17px;
+
+    }
+
+    .performance-head {
+
+      display: flex;
+
+      justify-content: space-between;
+
+      font-size: 12px;
+
+      margin-bottom: 8px;
+
+    }
+
+    .performance-head span:first-child {
+
+      color: var(--muted);
+
+    }
+
+    .performance-head strong {
+
+      font-size: 12px;
+
+    }
+
+    .track {
+
+      height: 7px;
+
+      border-radius: 6px;
+
+      background: #edf1f5;
+
+      overflow: hidden;
+
+    }
+
+    .progress {
+
+      height: 100%;
+
+      border-radius: 6px;
+
+      background: var(--blue);
+
+    }
+
+    /* ---------- TABLE ---------- */
+
+    .table-card {
+
+      overflow: hidden;
+
+    }
+
+    .table-wrap {
+
+      overflow-x: auto;
+
+    }
+
+    table {
+
+      width: 100%;
+
+      border-collapse: collapse;
+
+    }
+
+    th,
+
+    td {
+
+      text-align: left;
+
+      padding: 13px 12px;
+
+      border-bottom: 1px solid #edf1f4;
+
+      font-size: 12px;
+
+    }
+
+    th {
+
+      color: var(--muted);
+
+      font-size: 10px;
+
+      font-weight: 700;
+
+    }
+
+    tr:last-child td {
+
+      border-bottom: 0;
+
+    }
+
+    .good {
+
+      color: var(--success);
+
+      font-weight: 700;
+
+    }
+
+    .warning {
+
+      color: var(--warning);
+
+      font-weight: 700;
+
+    }
+
+    .danger {
+
+      color: var(--danger);
+
+      font-weight: 700;
+
+    }
+
+    /* ---------- OTHER VIEWS ---------- */
+
+    .content-grid-2 {
+
+      display: grid;
+
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+
+      gap: 18px;
+
+    }
+
+    .content-grid-3 {
+
+      display: grid;
+
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+
+      gap: 18px;
+
+    }
+
+    .service {
+
+      margin-bottom: 20px;
+
+    }
+
+    .service:last-child {
+
+      margin-bottom: 0;
+
+    }
+
+    .service-head {
+
+      display: flex;
+
+      justify-content: space-between;
+
+      margin-bottom: 9px;
+
+      font-size: 12px;
+
+    }
+
+    .form-grid {
+
+      display: grid;
+
+      grid-template-columns:
+
+        repeat(2, minmax(0, 1fr));
+
+      gap: 12px;
+
+    }
+
+    .wide {
+
+      grid-column: 1 / -1;
+
+    }
+
+    .incident-card {
+
+      margin-bottom: 12px;
+
+    }
+
+    .incident-head {
+
+      display: flex;
+
+      justify-content: space-between;
+
+      gap: 14px;
+
+      margin-bottom: 9px;
+
+    }
+
+    .incident-title {
+
+      font-weight: 800;
+
+    }
+
+    .incident-text {
+
+      color: #42586c;
+
+      line-height: 1.55;
+
+      font-size: 12px;
+
+    }
+
+    .incident-meta {
+
+      color: var(--muted);
+
+      font-size: 10px;
+
+      margin-top: 8px;
+
+    }
+
+    .incident-actions {
+
+      display: flex;
+
+      gap: 8px;
+
+      flex-wrap: wrap;
+
+      margin-top: 13px;
+
+    }
+
+    .btn {
+
+      border: 0;
+
+      border-radius: 9px;
+
+      padding: 10px 14px;
+
+      font-size: 11px;
+
+      font-weight: 700;
+
+    }
+
+    .btn-primary {
+
+      background: var(--blue);
+
+      color: white;
+
+    }
+
+    .btn-secondary {
+
+      background: var(--blue-light);
+
+      color: var(--blue);
+
+    }
+
+    .btn-delete {
+
+      border: 1px solid var(--danger);
+
+      background: white;
+
+      color: var(--danger);
+
+    }
+
+    .btn-edit {
+
+      border: 1px solid var(--blue);
+
+      background: white;
+
+      color: var(--blue);
+
+    }
+
+    .btn-danger-solid {
+
+      background: var(--danger);
+
+      color: white;
+
+      border: 1px solid var(--danger);
+
+    }
+
+    .modal-overlay {
+
+      position: fixed;
+
+      inset: 0;
+
+      z-index: 9999;
+
+      background: rgba(15, 47, 73, 0.5);
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content: center;
+
+      padding: 20px;
+
+    }
+
+    .modal-card {
+
+      width: 100%;
+
+      max-width: 520px;
+
+      max-height: calc(100vh - 40px);
+
+      overflow-y: auto;
+
+      background: var(--white);
+
+      border-radius: 18px;
+
+      border: 1px solid var(--border);
+
+      box-shadow: 0 24px 70px rgba(15, 47, 73, 0.22);
+
+      padding: 24px;
+
+    }
+
+    .modal-small {
+
+      max-width: 440px;
+
+    }
+
+    .modal-heading {
+
+      font-size: 20px;
+
+      font-weight: 800;
+
+      margin: 0 0 8px;
+
+      color: var(--navy);
+
+    }
+
+    .modal-text {
+
+      color: var(--muted);
+
+      font-size: 13px;
+
+      line-height: 1.6;
+
+      margin: 0 0 20px;
+
+    }
+
+    .modal-actions {
+
+      display: flex;
+
+      justify-content: flex-end;
+
+      gap: 10px;
+
+      margin-top: 20px;
+
+    }
+
+    .modal-actions .btn {
+
+      min-width: 110px;
+
+    }
+
+    .edit-form {
+
+      display: grid;
+
+      gap: 14px;
+
+    }
+
+    .edit-form label {
+
+      display: block;
+
+      font-size: 11px;
+
+      font-weight: 700;
+
+      color: var(--muted);
+
+      margin-bottom: 7px;
+
+    }
+
+    @media (max-width: 520px) {
+
+      .modal-actions {
+
+        flex-direction: column-reverse;
+
+      }
+
+      .modal-actions .btn {
+
+        width: 100%;
+
+      }
+
+    }
+
+    .error {
+
+      padding: 12px 14px;
+
+      border-radius: 10px;
+
+      background: #fce9e4;
+
+      color: var(--danger);
+
+      margin-bottom: 16px;
+
+      font-size: 12px;
+
+    }
+
+    .report-summary {
+
+      color: #41566a;
+
+      line-height: 1.7;
+
+      font-size: 13px;
+
+    }
+
+    /* ---------- RESPONSIVE ---------- */
+
+    @media (max-width: 1050px) {
+
+      .metric-grid {
+
+        grid-template-columns:
+
+          repeat(2, minmax(0, 1fr));
+
+      }
+
+      .dashboard-row {
+
+        grid-template-columns: 1fr;
+
+      }
+
+    }
+
+    @media (max-width: 760px) {
+
+      .login-page {
+
+        grid-template-columns: 1fr;
+
+      }
+
+      .login-art {
+
+        display: none;
+
+      }
+
+      .portal {
+
+        display: block;
+
+      }
+
+      .sidebar {
+
+        width: 100%;
+
+        padding: 12px;
+
+        flex-direction: row;
+
+        overflow-x: auto;
+
+      }
+
+      .sidebar .brand,
+
+      .nav-label,
+
+      .sidebar-bottom {
+
+        display: none;
+
+      }
+
+      .nav {
+
+        width: auto;
+
+        white-space: nowrap;
+
+        margin: 0 4px;
+
+      }
+
+      .main {
+
+        padding: 20px;
+
+      }
+
+      .metric-grid {
+
+        grid-template-columns:
+
+          repeat(2, minmax(0, 1fr));
+
+      }
+
+      .content-grid-2,
+
+      .content-grid-3,
+
+      .form-grid {
+
+        grid-template-columns: 1fr;
+
+      }
+
+      .wide {
+
+        grid-column: auto;
+
+      }
+
+      table {
+
+        min-width: 650px;
+
+      }
+
+      .topbar {
+
+        align-items: center;
+
+      }
+
+    }
+
+    @media (max-width: 480px) {
+
+      .metric-grid {
+
+        grid-template-columns: 1fr 1fr;
+
+      }
+
+      .page-title {
+
+        font-size: 23px;
+
+      }
+
+      .main {
+
+        padding: 16px;
+
+      }
+
+    }
+
+  </style>
+
+</head>
+
+<body>
+
+<!-- LOGIN -->
+
+<div id="login" class="login-page">
+
+  <section class="login-art">
+
+    <div class="login-brand">
+
+      Transit<span>LK</span>
+
+    </div>
+
+    <div>
+
+      <div class="eyebrow" style="color:#7fa7ff">
+
+        AUTHORITY MONITORING
+
+      </div>
+
+      <h1>
+
+        See the network.
+
+        Keep it moving.
+
+      </h1>
+
+      <p>
+
+        Monitor national transport performance,
+
+        services, users and operational incidents
+
+        from one secure Authority Officer portal.
+
+      </p>
+
+    </div>
+
+    <small style="color:#7890a2">
+
+      Authorized personnel only
+
+    </small>
+
+  </section>
+
+  <section class="login-form-wrap">
+
+    <div class="login-card">
+
+      <div class="eyebrow">
+
+        TRANSITLK / AUTHORITY
+
+      </div>
+
+      <h2>
+
+        Authority Officer
+
+      </h2>
+
+      <p>
+
+        Sign in using your provisioned
+
+        Authority Officer account.
+
+      </p>
+
+      <div id="loginError"></div>
+
+      <div class="field">
+
+        <label>
+
+          Official email
+
+        </label>
+
+        <input
+
+          id="email"
+
+          type="email"
+
+          placeholder="officer@transport.lk"
+
+        />
+
+      </div>
+
+      <div class="field">
+
+        <label>
+
+          Password
+
+        </label>
+
+        <input
+
+          id="password"
+
+          type="password"
+
+          placeholder="••••••••"
+
+        />
+
+      </div>
+
+      <button
+
+        class="btn btn-primary"
+
+        style="
+
+          width:100%;
+
+          min-height:48px;
+
+          font-size:13px;
+
+        "
+
+        onclick="login()"
+
+      >
+
+        Sign in as Authority Officer
+
+      </button>
+
+    </div>
+
+  </section>
+
+</div>
+
+<!-- PORTAL -->
+
+<div id="application" class="portal hidden">
+
+  <aside class="sidebar">
+
+    <div class="brand">
+
+      Transit<span>LK</span>
+
+    </div>
+
+    <div class="nav-label">
+
+      AUTHORITY PORTAL
+
+    </div>
+
+    <button
+
+      class="nav active"
+
+      data-view="dashboard"
+
+      onclick="showView('dashboard')"
+
+    >
+
+      Dashboard
+
+    </button>
+
+    <button
+
+      class="nav"
+
+      data-view="map"
+
+      onclick="showView('map')"
+
+    >
+
+      Live Map
+
+    </button>
+
+    <button
+
+      class="nav"
+
+      data-view="revenue"
+
+      onclick="showView('revenue')"
+
+    >
+
+      Revenue
+
+    </button>
+
+    <button
+
+      class="nav"
+
+      data-view="users"
+
+      onclick="showView('users')"
+
+    >
+
+      Users
+
+    </button>
+
+    <button
+
+      class="nav"
+
+      data-view="reports"
+
+      onclick="showView('reports')"
+
+    >
+
+      Reports
+
+    </button>
+
+    <button
+
+      class="nav"
+
+      data-view="incidents"
+
+      onclick="showView('incidents')"
+
+    >
+
+      Incidents
+
+    </button>
+
+    <div class="sidebar-bottom">
+
+      <div class="officer-card">
+
+        <div class="officer-role">
+
+          SIGNED IN AS
+
+        </div>
+
+        <div
+
+          id="officerName"
+
+          class="officer-name"
+
+        >
+
+          Authority Officer
+
+        </div>
+
+        <button
+
+          class="logout"
+
+          onclick="logout()"
+
+        >
+
+          Sign out
+
+        </button>
+
+      </div>
+
+    </div>
+
+  </aside>
+
+  <main class="main">
+
+    <div class="topbar">
+
+      <div>
+
+        <div class="eyebrow">
+
+          TRANSITLK NETWORK
+
+        </div>
+
+        <h1
+
+          id="pageTitle"
+
+          class="page-title"
+
+        >
+
+          Authority Dashboard
+
+        </h1>
+
+        <div
+
+          id="pageSubtitle"
+
+          class="page-subtitle"
+
+        >
+
+          National transport performance overview
+
+        </div>
+
+      </div>
+
+      <div
+
+        id="networkPill"
+
+        class="status-pill"
+
+      >
+
+        Loading...
+
+      </div>
+
+    </div>
+
+    <div id="error"></div>
+
+    <!-- DASHBOARD -->
+
+    <section id="dashboardView">
+
+      <div
+
+        id="metrics"
+
+        class="metric-grid"
+
+      ></div>
+
+      <div class="dashboard-row">
+
+        <div class="card">
+
+          <div class="section-heading">
+
+            <h2 class="section-title">
+
+              Network status
+
+            </h2>
+
+            <button
+
+              class="section-link"
+
+              onclick="showView('map')"
+
+            >
+
+              View live map
+
+            </button>
+
+          </div>
+
+          <div class="network-map">
+
+            <div class="river"></div>
+
+            <div class="road a"></div>
+
+            <div class="road b"></div>
+
+            <div class="road c"></div>
+
+            <div class="route-line a"></div>
+
+            <div class="route-line b"></div>
+
+            <div class="node n1"></div>
+
+            <div class="node n2"></div>
+
+            <div class="node n3"></div>
+
+            <div class="node n4"></div>
+
+            <div class="map-label l1">
+
+              West
+
+            </div>
+
+            <div class="map-label l2">
+
+              Central
+
+            </div>
+
+            <div class="map-label l3">
+
+              North
+
+            </div>
+
+          </div>
+
+        </div>
+
+        <div class="card">
+
+          <div class="section-heading">
+
+            <h2 class="section-title">
+
+              Performance
+
+            </h2>
+
+          </div>
+
+          <div id="performancePanel"></div>
+
+        </div>
+
+      </div>
+
+      <div class="card table-card">
+
+        <div class="section-heading">
+
+          <h2 class="section-title">
+
+            Route performance
+
+          </h2>
+
+          <button
+
+            class="section-link"
+
+            onclick="showView('incidents')"
+
+          >
+
+            View incidents
+
+          </button>
+
+        </div>
+
+        <div class="table-wrap">
+
+          <table>
+
+            <thead>
+
+              <tr>
+
+                <th>ROUTE</th>
+
+                <th>JOURNEY</th>
+
+                <th>ACTIVE BUSES</th>
+
+                <th>STATUS</th>
+
+                <th>PERFORMANCE</th>
+
+              </tr>
+
+            </thead>
+
+            <tbody id="routeRows"></tbody>
+
+          </table>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- MAP -->
+
+    <section
+
+      id="mapView"
+
+      class="hidden"
+
+    >
+
+      <div class="dashboard-row">
+
+        <div class="card">
+
+          <div class="section-heading">
+
+            <h2 class="section-title">
+
+              Live network
+
+            </h2>
+
+          </div>
+
+          <div class="network-map">
+
+            <div class="river"></div>
+
+            <div class="road a"></div>
+
+            <div class="road b"></div>
+
+            <div class="road c"></div>
+
+            <div class="route-line a"></div>
+
+            <div class="route-line b"></div>
+
+            <div class="node n1"></div>
+
+            <div class="node n2"></div>
+
+            <div class="node n3"></div>
+
+            <div class="node n4"></div>
+
+            <div class="map-label l1">
+
+              West
+
+            </div>
+
+            <div class="map-label l2">
+
+              Central
+
+            </div>
+
+            <div class="map-label l3">
+
+              North
+
+            </div>
+
+          </div>
+
+        </div>
+
+        <div class="card">
+
+          <h2 class="section-title">
+
+            Service coverage
+
+          </h2>
+
+          <div
+
+            id="services"
+
+            style="margin-top:18px"
+
+          ></div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- REVENUE -->
+
+    <section
+
+      id="revenueView"
+
+      class="hidden"
+
+    >
+
+      <div class="content-grid-3">
+
+        <div class="card metric-card">
+
+          <div class="metric-label">
+
+            Monthly revenue
+
+          </div>
+
+          <div
+
+            id="revenueValue"
+
+            class="metric-value"
+
+          ></div>
+
+          <div class="metric-note positive">
+
+            Current month
+
+          </div>
+
+        </div>
+
+        <div class="card metric-card">
+
+          <div class="metric-label">
+
+            Digital adoption
+
+          </div>
+
+          <div
+
+            id="digitalValue"
+
+            class="metric-value"
+
+          ></div>
+
+          <div class="metric-note">
+
+            Digital ticket usage
+
+          </div>
+
+        </div>
+
+        <div class="card metric-card">
+
+          <div class="metric-label">
+
+            Network utilization
+
+          </div>
+
+          <div
+
+            id="utilizationValue"
+
+            class="metric-value"
+
+          ></div>
+
+          <div class="metric-note">
+
+            Fleet utilization
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <div
+
+        class="card"
+
+        style="margin-top:18px"
+
+      >
+
+        <h2 class="section-title">
+
+          Revenue monitoring
+
+        </h2>
+
+        <p class="report-summary">
+
+          Revenue values currently use the
+
+          supplied demonstration monitoring data.
+
+          This view is ready to connect to live
+
+          payment analytics later.
+
+        </p>
+
+      </div>
+
+    </section>
+
+    <!-- USERS -->
+
+    <section
+
+      id="usersView"
+
+      class="hidden"
+
+    >
+
+      <div
+
+        id="userMetrics"
+
+        class="content-grid-3"
+
+      ></div>
+
+    </section>
+
+    <!-- REPORTS -->
+
+    <section
+
+      id="reportsView"
+
+      class="hidden"
+
+    >
+
+      <div class="card">
+
+        <div class="eyebrow">
+
+          NETWORK REPORT
+
+        </div>
+
+        <h2 class="section-title">
+
+          Operational summary
+
+        </h2>
+
+        <p
+
+          id="reportText"
+
+          class="report-summary"
+
+        ></p>
+
+        <button
+
+          class="btn btn-primary"
+
+          onclick="window.print()"
+
+        >
+
+          Print / Save report
+
+        </button>
+
+      </div>
+
+    </section>
+
+    <!-- INCIDENTS -->
+
+    <section
+
+      id="incidentsView"
+
+      class="hidden"
+
+    >
+
+      <div
+
+        class="content-grid-2"
+
+        style="align-items:start"
+
+      >
+
+        <div class="card">
+
+          <div class="eyebrow">
+
+            INCIDENT MANAGEMENT
+
+          </div>
+
+          <h2 class="section-title">
+
+            Report incident
+
+          </h2>
+
+          <div
+
+            class="form-grid"
+
+            style="margin-top:18px"
+
+          >
+
+            <input
+
+              id="incidentTitle"
+
+              placeholder="Incident title"
+
+            />
+
+            <input
+
+              id="incidentRoute"
+
+              placeholder="Route"
+
+            />
+
+            <textarea
+
+              id="incidentDescription"
+
+              class="wide"
+
+              placeholder="Description"
+
+            ></textarea>
+
+            <select id="incidentSeverity">
+
+              <option value="low">
+
+                Low severity
+
+              </option>
+
+              <option
+
+                value="medium"
+
+                selected
+
+              >
+
+                Medium severity
+
+              </option>
+
+              <option value="high">
+
+                High severity
+
+              </option>
+
+            </select>
+
+            <button
+
+              class="btn btn-primary"
+
+              onclick="createIncident()"
+
+            >
+
+              Create incident
+
+            </button>
+
+          </div>
+
+        </div>
+
+        <div>
+
+          <div class="section-heading">
+
+            <h2 class="section-title">
+
+              Current incidents
+
+            </h2>
+
+          </div>
+
+          <div id="incidentList"></div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+</div>
+
+<!-- EDIT INCIDENT MODAL -->
+
+<div
+  id="incidentEditModal"
+  class="modal-overlay hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="incidentEditModalTitle"
+>
+  <div class="modal-card">
+
+    <div class="eyebrow">
+      INCIDENT MANAGEMENT
+    </div>
+
+    <h2
+      id="incidentEditModalTitle"
+      class="modal-heading"
+    >
+      Edit incident
+    </h2>
+
+    <p class="modal-text">
+      Update the incident details below.
+      Status changes are handled separately.
+    </p>
+
+    <div id="editIncidentError"></div>
+
+    <div class="edit-form">
+
+      <div>
+        <label for="editIncidentTitleInput">
+          Incident title
+        </label>
+
+        <input
+          id="editIncidentTitleInput"
+          type="text"
+          placeholder="Incident title"
+        />
+      </div>
+
+      <div>
+        <label for="editIncidentRouteInput">
+          Route
+        </label>
+
+        <input
+          id="editIncidentRouteInput"
+          type="text"
+          placeholder="Route"
+        />
+      </div>
+
+      <div>
+        <label for="editIncidentDescriptionInput">
+          Description
+        </label>
+
+        <textarea
+          id="editIncidentDescriptionInput"
+          placeholder="Description"
+        ></textarea>
+      </div>
+
+      <div>
+        <label for="editIncidentSeverityInput">
+          Severity
+        </label>
+
+        <select id="editIncidentSeverityInput">
+          <option value="low">Low severity</option>
+          <option value="medium">Medium severity</option>
+          <option value="high">High severity</option>
+        </select>
+      </div>
+
+    </div>
+
+    <div class="modal-actions">
+      <button
+        class="btn btn-secondary"
+        onclick="closeEditIncident()"
+      >
+        Cancel
+      </button>
+
+      <button
+        class="btn btn-primary"
+        onclick="saveIncidentEdit()"
+      >
+        Save changes
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- DELETE CONFIRMATION MODAL -->
+
+<div
+  id="incidentDeleteModal"
+  class="modal-overlay hidden"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="incidentDeleteModalTitle"
+>
+  <div class="modal-card modal-small">
+
+    <div
+      class="eyebrow"
+      style="color:var(--danger)"
+    >
+      CONFIRM DELETE
+    </div>
+
+    <h2
+      id="incidentDeleteModalTitle"
+      class="modal-heading"
+    >
+      Delete this incident?
+    </h2>
+
+    <p class="modal-text">
+      You are about to permanently delete
+      <strong id="deleteIncidentName">this incident</strong>.
+      This action cannot be undone.
+    </p>
+
+    <div class="modal-actions">
+      <button
+        class="btn btn-secondary"
+        onclick="closeDeleteConfirm()"
+      >
+        Cancel
+      </button>
+
+      <button
+        class="btn btn-danger-solid"
+        onclick="confirmDeleteIncident()"
+      >
+        Delete incident
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+
+  let token =
+
+    sessionStorage.getItem(
+
+      'transitlk-authority-token'
+
+    );
+
+  let overview = null;
+
+  let services = [];
+
+  let incidents = [];
+
+  let userSummary = null;
+
+  let currentUser = null;
+
+  let editingIncidentId = null;
+
+  let pendingDeleteId = null;
+
+  function headers() {
+
+    return {
+
+      'Content-Type': 'application/json',
+
+      Authorization: `Bearer ${token}`
+
+    };
+
+  }
+
+  async function request(
+
+    path,
+
+    options = {}
+
+  ) {
+
+    const response = await fetch(
+
+      `/api${path}`,
+
+      {
+
+        ...options,
+
+        headers: {
+
+          ...headers(),
+
+          ...(options.headers || {})
+
+        }
+
+      }
+
+    );
+
+    if (response.status === 204) {
+
+      return null;
+
+    }
+
+    const data = await response.json();
+
+    if (!response.ok) {
+
+      throw new Error(
+
+        data.error || 'Request failed.'
+
+      );
+
+    }
+
+    return data;
+
+  }
+
+  async function login() {
+
+    const email =
+
+      document
+
+        .getElementById('email')
+
+        .value
+
+        .trim();
+
+    const password =
+
+      document
+
+        .getElementById('password')
+
+        .value;
+
+    setLoginError('');
+
+    try {
+
+      const response = await fetch(
+
+        '/api/auth/login',
+
+        {
+
+          method: 'POST',
+
+          headers: {
+
+            'Content-Type':
+
+              'application/json'
+
+          },
+
+          body: JSON.stringify({
+
+            email,
+
+            password
+
+          })
+
+        }
+
+      );
+
+      const data =
+
+        await response.json();
+
+      if (!response.ok) {
+
+        throw new Error(
+
+          data.error ||
+
+          'Sign in failed.'
+
+        );
+
+      }
+
+      if (
+
+        data.user.role !== 'officer'
+
+      ) {
+
+        throw new Error(
+
+          'Authority Officer access required.'
+
+        );
+
+      }
+
+      token = data.token;
+
+      sessionStorage.setItem(
+
+        'transitlk-authority-token',
+
+        token
+
+      );
+
+      await start();
+
+    } catch (error) {
+
+      setLoginError(error.message);
+
+    }
+
+  }
+
+  function setLoginError(message) {
+
+    document.getElementById(
+
+      'loginError'
+
+    ).innerHTML = message
+
+      ? `<div class="error">${escapeHtml(message)}</div>`
+
+      : '';
+
+  }
+
+  function setError(message) {
+
+    document.getElementById(
+
+      'error'
+
+    ).innerHTML = message
+
+      ? `<div class="error">${escapeHtml(message)}</div>`
+
+      : '';
+
+  }
+
+  function escapeHtml(value) {
+
+    return String(value)
+
+      .replaceAll('&', '&amp;')
+
+      .replaceAll('<', '&lt;')
+
+      .replaceAll('>', '&gt;')
+
+      .replaceAll('"', '&quot;')
+
+      .replaceAll("'", '&#039;');
+
+  }
+
+  function money(value) {
+
+    if (value >= 1_000_000) {
+
+      return (
+
+        'Rs. ' +
+
+        (value / 1_000_000).toFixed(1) +
+
+        'M'
+
+      );
+
+    }
+
+    return (
+
+      'Rs. ' +
+
+      Number(value).toLocaleString()
+
+    );
+
+  }
+
+  async function start() {
+
+    try {
+
+      const me = await request('/me');
+
+      currentUser = me.user;
+
+      if (
+
+        currentUser.role !== 'officer'
+
+      ) {
+
+        throw new Error(
+
+          'Authority Officer access required.'
+
+        );
+
+      }
+
+      document
+
+        .getElementById('officerName')
+
+        .textContent =
+
+          currentUser.name;
+
+      document
+
+        .getElementById('login')
+
+        .classList
+
+        .add('hidden');
+
+      document
+
+        .getElementById('application')
+
+        .classList
+
+        .remove('hidden');
+
+      await loadAll();
+
+    } catch {
+
+      token = null;
+
+      sessionStorage.removeItem(
+
+        'transitlk-authority-token'
+
+      );
+
+      document
+
+        .getElementById('login')
+
+        .classList
+
+        .remove('hidden');
+
+      document
+
+        .getElementById('application')
+
+        .classList
+
+        .add('hidden');
+
+    }
+
+  }
+
+  async function loadAll() {
+
+    setError('');
+
+    try {
+
+      const [
+
+        overviewData,
+
+        networkData,
+
+        incidentData,
+
+        usersData
+
+      ] = await Promise.all([
+
+        request('/authority/overview'),
+
+        request('/authority/network'),
+
+        request('/authority/incidents'),
+
+        request('/authority/users')
+
+      ]);
+
+      overview = overviewData;
+
+      services = networkData.services;
+
+      incidents = incidentData.incidents;
+
+      userSummary = usersData.summary;
+
+      render();
+
+    } catch (error) {
+
+      setError(error.message);
+
+    }
+
+  }
+
+  function render() {
+
+    const m = overview.metrics;
+
+    document.getElementById(
+
+      'networkPill'
+
+    ).textContent =
+
+      overview.networkStatus;
+
+    const metrics = [
+
+      [
+
+        'Monthly revenue',
+
+        money(m.monthlyRevenue),
+
+        'This month'
+
+      ],
+
+      [
+
+        'Active buses',
+
+        `${m.activeBuses}/${m.totalBuses}`,
+
+        'Operational fleet'
+
+      ],
+
+      [
+
+        'On-time performance',
+
+        `${m.onTimePerformance}%`,
+
+        'Network average'
+
+      ],
+
+      [
+
+        'Open incidents',
+
+        m.openIncidents,
+
+        'Requires attention'
+
+      ]
+
+    ];
+
+    document.getElementById(
+
+      'metrics'
+
+    ).innerHTML =
+
+      metrics
+
+        .map(
+
+          ([label, value, note]) => `
+
+          <div class="card metric-card">
+
+            <div class="metric-label">
+
+              ${escapeHtml(label)}
+
+            </div>
+
+            <div class="metric-value">
+
+              ${escapeHtml(value)}
+
+            </div>
+
+            <div class="metric-note">
+
+              ${escapeHtml(note)}
+
+            </div>
+
+          </div>
+
+        `
+
+        )
+
+        .join('');
+
+    document.getElementById(
+
+      'performancePanel'
+
+    ).innerHTML = `
+
+      ${performanceItem(
+
+        'On-time performance',
+
+        m.onTimePerformance
+
+      )}
+
+      ${performanceItem(
+
+        'Route utilization',
+
+        m.utilization
+
+      )}
+
+      ${performanceItem(
+
+        'Digital adoption',
+
+        m.digitalAdoption
+
+      )}
+
+      ${performanceItem(
+
+        'Active fleet',
+
+        Math.round(
+
+          (m.activeBuses /
+
+            m.totalBuses) *
+
+            100
+
+        )
+
+      )}
+
+    `;
+
+    document.getElementById(
+
+      'routeRows'
+
+    ).innerHTML =
+
+      overview.routes
+
+        .map(route => `
+
+          <tr>
+
+            <td>
+
+              <strong>
+
+                ${escapeHtml(route.route)}
+
+              </strong>
+
+            </td>
+
+            <td>
+
+              ${escapeHtml(route.from)}
+
+              →
+
+              ${escapeHtml(route.to)}
+
+            </td>
+
+            <td>
+
+              ${route.buses}
+
+            </td>
+
+            <td class="${
+
+              route.status === 'On-time'
+
+                ? 'good'
+
+                : 'warning'
+
+            }">
+
+              ${escapeHtml(route.status)}
+
+            </td>
+
+            <td>
+
+              ${route.performance}%
+
+            </td>
+
+          </tr>
+
+        `)
+
+        .join('');
+
+    document.getElementById(
+
+      'services'
+
+    ).innerHTML =
+
+      services
+
+        .map(service => `
+
+          <div class="service">
+
+            <div class="service-head">
+
+              <strong>
+
+                ${escapeHtml(service.name)}
+
+              </strong>
+
+              <span class="${
+
+                service.status ===
+
+                'operational'
+
+                  ? 'good'
+
+                  : 'warning'
+
+              }">
+
+                ${escapeHtml(service.status)}
+
+              </span>
+
+            </div>
+
+            <div class="track">
+
+              <div
+
+                class="progress"
+
+                style="
+
+                  width:${service.coverage}%;
+
+                "
+
+              ></div>
+
+            </div>
+
+            <div
+
+              class="metric-note"
+
+              style="margin-top:7px"
+
+            >
+
+              ${service.coverage}% coverage
+
+            </div>
+
+          </div>
+
+        `)
+
+        .join('');
+
+    document.getElementById(
+
+      'revenueValue'
+
+    ).textContent =
+
+      money(m.monthlyRevenue);
+
+    document.getElementById(
+
+      'digitalValue'
+
+    ).textContent =
+
+      `${m.digitalAdoption}%`;
+
+    document.getElementById(
+
+      'utilizationValue'
+
+    ).textContent =
+
+      `${m.utilization}%`;
+
+    const users = [
+
+      [
+
+        'Total users',
+
+        userSummary.total,
+
+        'All registered accounts'
+
+      ],
+
+      [
+
+        'Passengers',
+
+        userSummary.passenger,
+
+        'Passenger accounts'
+
+      ],
+
+      [
+
+        'Owners',
+
+        userSummary.owner,
+
+        'Bus-owner accounts'
+
+      ],
+
+      [
+
+        'Authority officers',
+
+        userSummary.officer,
+
+        'Authorized officers'
+
+      ]
+
+    ];
+
+    document.getElementById(
+
+      'userMetrics'
+
+    ).innerHTML =
+
+      users
+
+        .map(
+
+          ([label, value, note]) => `
+
+          <div class="card metric-card">
+
+            <div class="metric-label">
+
+              ${escapeHtml(label)}
+
+            </div>
+
+            <div class="metric-value">
+
+              ${escapeHtml(value)}
+
+            </div>
+
+            <div class="metric-note">
+
+              ${escapeHtml(note)}
+
+            </div>
+
+          </div>
+
+        `
+
+        )
+
+        .join('');
+
+    document.getElementById(
+
+      'reportText'
+
+    ).textContent =
+
+      `Network status is ${overview.networkStatus}. ` +
+
+      `${m.activeBuses} of ${m.totalBuses} buses are currently active. ` +
+
+      `On-time performance is ${m.onTimePerformance}%, ` +
+
+      `route utilization is ${m.utilization}% and ` +
+
+      `digital ticket adoption is ${m.digitalAdoption}%. ` +
+
+      `${m.openIncidents} incidents currently remain open.`;
+
+    renderIncidents();
+
+  }
+
+  function performanceItem(
+
+    label,
+
+    value
+
+  ) {
+
+    return `
+
+      <div class="performance-item">
+
+        <div class="performance-head">
+
+          <span>
+
+            ${escapeHtml(label)}
+
+          </span>
+
+          <strong>
+
+            ${value}%
+
+          </strong>
+
+        </div>
+
+        <div class="track">
+
+          <div
+
+            class="progress"
+
+            style="width:${value}%"
+
+          ></div>
+
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+  function renderIncidents() {
+
+    const container =
+
+      document.getElementById(
+
+        'incidentList'
+
+      );
+
+    if (!incidents.length) {
+
+      container.innerHTML = `
+
+        <div class="card">
+
+          <div class="metric-label">
+
+            No incidents reported.
+
+          </div>
+
+        </div>
+
+      `;
+
+      return;
+
+    }
+
+    container.innerHTML =
+
+      incidents
+
+        .map(incident => {
+
+          const isCreator =
+
+            currentUser &&
+
+            incident.createdBy ===
+
+              currentUser.id;
+
+          return `
+
+            <div class="card incident-card">
+
+              <div class="incident-head">
+
+                <div class="incident-title">
+
+                  ${escapeHtml(incident.title)}
+
+                </div>
+
+                <span class="${
+
+                  incident.severity === 'high'
+
+                    ? 'danger'
+
+                    : incident.severity ===
+
+                      'medium'
+
+                      ? 'warning'
+
+                      : 'good'
+
+                }">
+
+                  ${escapeHtml(
+
+                    incident.severity
+
+                  )}
+
+                </span>
+
+              </div>
+
+              <div class="incident-text">
+
+                ${escapeHtml(
+
+                  incident.description
+
+                )}
+
+              </div>
+
+              <div class="incident-meta">
+
+                Route
+
+                ${escapeHtml(incident.route)}
+
+                ·
+
+                ${escapeHtml(
+
+                  incident.status
+
+                )}
+
+              </div>
+
+              <div class="incident-meta">
+
+                Reported by
+
+                ${escapeHtml(
+
+                  incident.createdByName
+
+                )}
+
+                ${isCreator ? ' · You' : ''}
+
+              </div>
+
+              <div class="incident-actions">
+
+                ${
+
+                  incident.status === 'open'
+
+                    ? `
+
+                      <button
+
+                        class="btn btn-secondary"
+
+                        onclick="
+
+                          updateIncident(
+
+                            '${incident.id}',
+
+                            'acknowledged'
+
+                          )
+
+                        "
+
+                      >
+
+                        Acknowledge
+
+                      </button>
+
+                    `
+
+                    : ''
+
+                }
+
+                ${
+
+                  incident.status !== 'resolved'
+
+                    ? `
+
+                      <button
+
+                        class="btn btn-primary"
+
+                        onclick="
+
+                          updateIncident(
+
+                            '${incident.id}',
+
+                            'resolved'
+
+                          )
+
+                        "
+
+                      >
+
+                        Resolve
+
+                      </button>
+
+                    `
+
+                    : ''
+
+                }
+
+                ${
+
+                  isCreator
+
+                    ? `
+
+                      <button
+
+                        class="btn btn-edit"
+
+                        onclick="
+
+                          openEditIncident(
+
+                            '${incident.id}'
+
+                          )
+
+                        "
+
+                      >
+
+                        Edit
+
+                      </button>
+
+                      <button
+
+                        class="btn btn-delete"
+
+                        onclick="
+
+                          openDeleteConfirm(
+
+                            '${incident.id}'
+
+                          )
+
+                        "
+
+                      >
+
+                        Delete
+
+                      </button>
+
+                    `
+
+                    : ''
+
+                }
+
+              </div>
+
+            </div>
+
+          `;
+
+        })
+
+        .join('');
+
+  }
+
+  async function createIncident() {
+
+    const title =
+
+      document
+
+        .getElementById(
+
+          'incidentTitle'
+
+        )
+
+        .value
+
+        .trim();
+
+    const route =
+
+      document
+
+        .getElementById(
+
+          'incidentRoute'
+
+        )
+
+        .value
+
+        .trim();
+
+    const description =
+
+      document
+
+        .getElementById(
+
+          'incidentDescription'
+
+        )
+
+        .value
+
+        .trim();
+
+    const severity =
+
+      document
+
+        .getElementById(
+
+          'incidentSeverity'
+
+        )
+
+        .value;
+
+    if (
+
+      !title ||
+
+      !route ||
+
+      !description
+
+    ) {
+
+      setError(
+
+        'Complete all incident fields.'
+
+      );
+
+      return;
+
+    }
+
+    try {
+
+      await request(
+
+        '/authority/incidents',
+
+        {
+
+          method: 'POST',
+
+          body: JSON.stringify({
+
+            title,
+
+            route,
+
+            description,
+
+            severity
+
+          })
+
+        }
+
+      );
+
+      document.getElementById(
+
+        'incidentTitle'
+
+      ).value = '';
+
+      document.getElementById(
+
+        'incidentRoute'
+
+      ).value = '';
+
+      document.getElementById(
+
+        'incidentDescription'
+
+      ).value = '';
+
+      await loadAll();
+
+    } catch (error) {
+
+      setError(error.message);
+
+    }
+
+  }
+
+  async function updateIncident(
+
+    id,
+
+    status
+
+  ) {
+
+    try {
+
+      await request(
+
+        `/authority/incidents/${id}`,
+
+        {
+
+          method: 'PATCH',
+
+          body: JSON.stringify({
+
+            status
+
+          })
+
+        }
+
+      );
+
+      await loadAll();
+
+    } catch (error) {
+
+      setError(error.message);
+
+    }
+
+  }
+
+  function setEditIncidentError(message) {
+
+    document.getElementById(
+
+      'editIncidentError'
+
+    ).innerHTML = message
+
+      ? `<div class="error">${escapeHtml(
+
+          message
+
+        )}</div>`
+
+      : '';
+
+  }
+
+  function openEditIncident(id) {
+
+    const incident =
+
+      incidents.find(
+
+        item => item.id === id
+
+      );
+
+    if (!incident) {
+
+      setError('Incident not found.');
+
+      return;
+
+    }
+
+    if (
+
+      !currentUser ||
+
+      incident.createdBy !== currentUser.id
+
+    ) {
+
+      setError(
+
+        'Only the officer who created this incident can edit it.'
+
+      );
+
+      return;
+
+    }
+
+    editingIncidentId = id;
+
+    document.getElementById(
+
+      'editIncidentTitleInput'
+
+    ).value = incident.title;
+
+    document.getElementById(
+
+      'editIncidentRouteInput'
+
+    ).value = incident.route;
+
+    document.getElementById(
+
+      'editIncidentDescriptionInput'
+
+    ).value = incident.description;
+
+    document.getElementById(
+
+      'editIncidentSeverityInput'
+
+    ).value = incident.severity;
+
+    setEditIncidentError('');
+
+    document.getElementById(
+
+      'incidentEditModal'
+
+    ).classList.remove('hidden');
+
+  }
+
+  function closeEditIncident() {
+
+    editingIncidentId = null;
+
+    setEditIncidentError('');
+
+    document.getElementById(
+
+      'incidentEditModal'
+
+    ).classList.add('hidden');
+
+  }
+
+  async function saveIncidentEdit() {
+
+    if (!editingIncidentId) {
+
+      return;
+
+    }
+
+    const incident =
+
+      incidents.find(
+
+        item =>
+
+          item.id === editingIncidentId
+
+      );
+
+    if (
+
+      !incident ||
+
+      !currentUser ||
+
+      incident.createdBy !== currentUser.id
+
+    ) {
+
+      closeEditIncident();
+
+      setError(
+
+        'Only the officer who created this incident can edit it.'
+
+      );
+
+      return;
+
+    }
+
+    const title =
+
+      document
+
+        .getElementById(
+
+          'editIncidentTitleInput'
+
+        )
+
+        .value
+
+        .trim();
+
+    const route =
+
+      document
+
+        .getElementById(
+
+          'editIncidentRouteInput'
+
+        )
+
+        .value
+
+        .trim();
+
+    const description =
+
+      document
+
+        .getElementById(
+
+          'editIncidentDescriptionInput'
+
+        )
+
+        .value
+
+        .trim();
+
+    const severity =
+
+      document.getElementById(
+
+        'editIncidentSeverityInput'
+
+      ).value;
+
+    if (!title || !route || !description) {
+
+      setEditIncidentError(
+
+        'Complete all incident fields.'
+
+      );
+
+      return;
+
+    }
+
+    try {
+
+      await request(
+
+        `/authority/incidents/${editingIncidentId}`,
+
+        {
+
+          method: 'PATCH',
+
+          body: JSON.stringify({
+
+            title,
+
+            route,
+
+            description,
+
+            severity
+
+          })
+
+        }
+
+      );
+
+      closeEditIncident();
+
+      await loadAll();
+
+    } catch (error) {
+
+      setEditIncidentError(error.message);
+
+    }
+
+  }
+
+  function openDeleteConfirm(id) {
+
+    const incident =
+
+      incidents.find(
+
+        item => item.id === id
+
+      );
+
+    if (!incident) {
+
+      setError('Incident not found.');
+
+      return;
+
+    }
+
+    if (
+
+      !currentUser ||
+
+      incident.createdBy !== currentUser.id
+
+    ) {
+
+      setError(
+
+        'Only the officer who created this incident can delete it.'
+
+      );
+
+      return;
+
+    }
+
+    pendingDeleteId = id;
+
+    document.getElementById(
+
+      'deleteIncidentName'
+
+    ).textContent =
+
+      `“${incident.title}”`;
+
+    document.getElementById(
+
+      'incidentDeleteModal'
+
+    ).classList.remove('hidden');
+
+  }
+
+  function closeDeleteConfirm() {
+
+    pendingDeleteId = null;
+
+    document.getElementById(
+
+      'incidentDeleteModal'
+
+    ).classList.add('hidden');
+
+  }
+
+  async function confirmDeleteIncident() {
+
+    if (!pendingDeleteId) {
+
+      return;
+
+    }
+
+    const id = pendingDeleteId;
+
+    try {
+
+      await request(
+
+        `/authority/incidents/${id}`,
+
+        {
+
+          method: 'DELETE'
+
+        }
+
+      );
+
+      closeDeleteConfirm();
+
+      await loadAll();
+
+    } catch (error) {
+
+      closeDeleteConfirm();
+
+      setError(error.message);
+
+    }
+
+  }
+
+  function showView(view) {
+
+    const views = [
+
+      'dashboard',
+
+      'map',
+
+      'revenue',
+
+      'users',
+
+      'reports',
+
+      'incidents'
+
+    ];
+
+    views.forEach(value => {
+
+      document
+
+        .getElementById(
+
+          `${value}View`
+
+        )
+
+        .classList
+
+        .toggle(
+
+          'hidden',
+
+          value !== view
+
+        );
+
+    });
+
+    document
+
+      .querySelectorAll('.nav')
+
+      .forEach(button => {
+
+        button.classList.toggle(
+
+          'active',
+
+          button.dataset.view === view
+
+        );
+
+      });
+
+    const names = {
+
+      dashboard: {
+
+        title: 'Authority Dashboard',
+
+        subtitle:
+
+          'National transport performance overview'
+
+      },
+
+      map: {
+
+        title: 'Live Network Map',
+
+        subtitle:
+
+          'Monitor service health and network coverage'
+
+      },
+
+      revenue: {
+
+        title: 'Revenue',
+
+        subtitle:
+
+          'Revenue and digital ticket performance'
+
+      },
+
+      users: {
+
+        title: 'Users',
+
+        subtitle:
+
+          'Registered platform account overview'
+
+      },
+
+      reports: {
+
+        title: 'Reports',
+
+        subtitle:
+
+          'Operational network summary'
+
+      },
+
+      incidents: {
+
+        title: 'Incident Management',
+
+        subtitle:
+
+          'Record and resolve operational issues'
+
+      }
+
+    };
+
+    document.getElementById(
+
+      'pageTitle'
+
+    ).textContent =
+
+      names[view].title;
+
+    document.getElementById(
+
+      'pageSubtitle'
+
+    ).textContent =
+
+      names[view].subtitle;
+
+  }
+
+  function logout() {
+
+    token = null;
+
+    sessionStorage.removeItem(
+
+      'transitlk-authority-token'
+
+    );
+
+    location.reload();
+
+  }
+
+  if (token) {
+
+    void start();
+
+  }
+
+</script>
+
+</body>
+
+</html>

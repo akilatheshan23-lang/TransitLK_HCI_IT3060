@@ -1,5 +1,6 @@
 import { transitRouter } from './transit.js';
 import { lostFoundRouter } from './lostFound.js';
+import { authorityRouter } from './authority.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -10,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { hashPassword, verifyPassword, newToken, tokenHash, publicUser } from './auth.js';
 
 const ownerPortalFile = fileURLToPath(new URL('owner-portal.html', import.meta.url));
+const authorityPortalFile = fileURLToPath(new URL('authority-portal.html',import.meta.url));
 const language = z.enum(['en', 'ta', 'si']);
 const credentials = z.object({ email: z.string().trim().toLowerCase().email().max(254), password: z.string().min(8).max(128) }).strict();
 const registration = credentials.extend({ name: z.string().trim().min(2).max(80), language: language.default('en') });
@@ -22,6 +24,18 @@ export function createApp(store, { origins = ['http://localhost:8081'], limit = 
   app.use(express.json({ limit: '16kb' }));
   const uploadsDirectory = fileURLToPath(
   new URL('../uploads/', import.meta.url)
+);
+
+app.get(
+  ['/authority', '/authority-portal'],
+  async (_req, res) => {
+    const html = await readFile(
+      authorityPortalFile,
+      'utf8'
+    );
+
+    res.type('html').send(html);
+  }
 );
 
 app.use(
@@ -115,6 +129,7 @@ app.use(
   });
   app.use('/api', lostFoundRouter(store, authenticate));
   app.use('/api', transitRouter(store, authenticate));
+  app.use('/api',authorityRouter(store, authenticate));
   app.use((_req, res) => res.status(404).json({ error: 'This endpoint does not exist.' }));
   app.use((error, _req, res, _next) => {
     if (error.type === 'entity.parse.failed') return res.status(400).json({ error: 'Invalid JSON.' });
