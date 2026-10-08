@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -7,9 +8,13 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { Icon } from '../Artwork';
 import { TransitIcon } from '../TransitIcon';
 import { colors as c } from '../theme';
+
+import { getLostFoundPosts } from './lostFoundApi';
+import type { LostFoundPost } from './lostFoundApi';
 
 type CommunityScreenProps = {
   onBack: () => void;
@@ -21,38 +26,34 @@ type CommunityScreenProps = {
   onNotifications: () => void;
 };
 
-type CommunityPost = {
-  id: string;
-  type: 'lost' | 'found';
-  title: string;
-  author: string;
-  timeAgo: string;
-  route?: string;
-  travelTime?: string;
-  likes?: number;
-  comments?: number;
-};
+function getTimeAgo(dateValue: string) {
+  const created = new Date(dateValue).getTime();
 
-const demoPosts: CommunityPost[] = [
-  {
-    id: 'umbrella-125',
-    type: 'found',
-    title: 'Umbrella on Route 125',
-    author: 'Kamal Perera',
-    timeAgo: '2h ago',
-    route: 'Horana → Colombo',
-    travelTime: '08:30 AM',
-    likes: 5,
-    comments: 2,
-  },
-  {
-    id: 'wallet-ravi',
-    type: 'lost',
-    title: 'Black wallet · Ravi Silva',
-    author: 'Ravi Silva',
-    timeAgo: '1h ago',
-  },
-];
+  if (Number.isNaN(created)) {
+    return '';
+  }
+
+  const difference = Date.now() - created;
+  const minutes = Math.floor(difference / 60000);
+
+  if (minutes < 1) {
+    return 'Just now';
+  }
+
+  if (minutes < 60) {
+    return `${minutes}m ago`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+
+  if (hours < 24) {
+    return `${hours}h ago`;
+  }
+
+  const days = Math.floor(hours / 24);
+
+  return `${days}d ago`;
+}
 
 export default function CommunityScreen({
   onBack,
@@ -64,6 +65,28 @@ export default function CommunityScreen({
   onNotifications,
 }: CommunityScreenProps) {
   const insets = useSafeAreaInsets();
+
+  const [posts, setPosts] = useState<LostFoundPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  async function loadPosts() {
+    setLoading(true);
+    setError('');
+
+    try {
+      const result = await getLostFoundPosts();
+      setPosts(result.posts);
+    } catch {
+      setError('Could not load community posts.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadPosts();
+  }, []);
 
   return (
     <View style={styles.stage}>
@@ -103,6 +126,7 @@ export default function CommunityScreen({
           showsVerticalScrollIndicator={false}
         >
           <Text style={styles.title}>A little help goes far</Text>
+
           <Text style={styles.subtitle}>
             Lost something? Let’s find it together.
           </Text>
@@ -122,67 +146,107 @@ export default function CommunityScreen({
             <Text style={styles.plus}>＋</Text>
           </Pressable>
 
-          {demoPosts.map((post) => (
+          {loading ? (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator color={c.teal} />
+
+              <Text style={styles.loadingText}>
+                Loading community posts...
+              </Text>
+            </View>
+          ) : error ? (
             <Pressable
-              key={post.id}
               accessibilityRole="button"
-              onPress={() => onOpenPost(post.id)}
-              style={({ pressed }) => [
-                styles.card,
-                pressed && styles.pressed,
-              ]}
+              onPress={() => void loadPosts()}
+              style={styles.errorBox}
             >
-              <View style={styles.metaRow}>
-                <View
-                  style={[
-                    styles.badge,
-                    post.type === 'found'
-                      ? styles.foundBadge
-                      : styles.lostBadge,
-                  ]}
-                >
-                  <Text
+              <Text style={styles.errorText}>
+                {error}
+              </Text>
+
+              <Text style={styles.retryText}>
+                Tap to retry
+              </Text>
+            </Pressable>
+          ) : posts.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <Text style={styles.emptyTitle}>
+                No posts yet
+              </Text>
+
+              <Text style={styles.emptyText}>
+                Be the first to post a lost or found item.
+              </Text>
+            </View>
+          ) : (
+            posts.map((post) => (
+              <Pressable
+                key={post.id}
+                accessibilityRole="button"
+                onPress={() => onOpenPost(post.id)}
+                style={({ pressed }) => [
+                  styles.card,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={styles.metaRow}>
+                  <View
                     style={[
-                      styles.badgeText,
+                      styles.badge,
                       post.type === 'found'
-                        ? styles.foundText
-                        : styles.lostText,
+                        ? styles.foundBadge
+                        : styles.lostBadge,
                     ]}
                   >
-                    {post.type.toUpperCase()}
-                  </Text>
-                </View>
-
-                <Text style={styles.meta}>
-                  {post.author} · {post.timeAgo}
-                </Text>
-              </View>
-
-              <Text style={styles.cardTitle}>{post.title}</Text>
-
-              {post.type === 'found' && (
-                <View style={styles.artwork}>
-                  <View style={styles.umbrellaTop} />
-                  <View style={styles.umbrellaHandle}>
-                    <View style={styles.umbrellaHook} />
+                    <Text
+                      style={[
+                        styles.badgeText,
+                        post.type === 'found'
+                          ? styles.foundText
+                          : styles.lostText,
+                      ]}
+                    >
+                      {post.type.toUpperCase()}
+                    </Text>
                   </View>
-                </View>
-              )}
 
-              {post.route && (
-                <Text style={styles.route}>
-                  {post.route} · {post.travelTime}
-                </Text>
-              )}
-
-              {typeof post.likes === 'number' &&
-                typeof post.comments === 'number' && (
-                  <Text style={styles.engagement}>
-                    {post.likes} likes {post.comments} comments
+                  <Text style={styles.meta}>
+                    {post.authorName}
+                    {post.createdAt
+                      ? ` · ${getTimeAgo(post.createdAt)}`
+                      : ''}
                   </Text>
+                </View>
+
+                <Text style={styles.cardTitle}>
+                  {post.item}
+                </Text>
+
+                {post.type === 'found' && (
+                  <View style={styles.artwork}>
+                    <View style={styles.umbrellaTop} />
+
+                    <View style={styles.umbrellaHandle}>
+                      <View style={styles.umbrellaHook} />
+                    </View>
+                  </View>
                 )}
-            </Pressable>
-          ))}
+
+                <Text style={styles.description}>
+                  {post.description}
+                </Text>
+
+                <Text style={styles.route}>
+                  {post.routeTime}
+                </Text>
+
+                <Text style={styles.engagement}>
+                  {post.likes ?? 0} likes{' '}
+                  {post.comments?.length ?? 0} comments
+                </Text>
+              </Pressable>
+            ))
+          )}
 
           <View style={{ height: 20 }} />
         </ScrollView>
@@ -195,26 +259,71 @@ export default function CommunityScreen({
             },
           ]}
         >
-          <Pressable style={styles.navItem} onPress={onHome}>
-            <TransitIcon name="home" size={21} color={c.muted} />
-            <Text style={styles.navText}>Home</Text>
+          <Pressable
+            style={styles.navItem}
+            onPress={onHome}
+          >
+            <TransitIcon
+              name="home"
+              size={21}
+              color={c.muted}
+            />
+
+            <Text style={styles.navText}>
+              Home
+            </Text>
           </Pressable>
 
-          <Pressable style={styles.navItem} onPress={onTickets}>
-            <TransitIcon name="ticket" size={21} color={c.muted} />
-            <Text style={styles.navText}>Tickets</Text>
+          <Pressable
+            style={styles.navItem}
+            onPress={onTickets}
+          >
+            <TransitIcon
+              name="ticket"
+              size={21}
+              color={c.muted}
+            />
+
+            <Text style={styles.navText}>
+              Tickets
+            </Text>
           </Pressable>
 
-          <Pressable style={[styles.navItem, styles.navActive]}>
-            <TransitIcon name="community" size={21} color={c.teal} />
-            <Text style={[styles.navText, styles.navActiveText]}>
+          <Pressable
+            style={[
+              styles.navItem,
+              styles.navActive,
+            ]}
+          >
+            <TransitIcon
+              name="community"
+              size={21}
+              color={c.teal}
+            />
+
+            <Text
+              style={[
+                styles.navText,
+                styles.navActiveText,
+              ]}
+            >
               Community
             </Text>
           </Pressable>
 
-          <Pressable style={styles.navItem} onPress={onProfile}>
-            <TransitIcon name="profile" size={21} color={c.muted} />
-            <Text style={styles.navText}>Profile</Text>
+          <Pressable
+            style={styles.navItem}
+            onPress={onProfile}
+          >
+            <TransitIcon
+              name="profile"
+              size={21}
+              color={c.muted}
+            />
+
+            <Text style={styles.navText}>
+              Profile
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -362,7 +471,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontSize: 18,
     lineHeight: 23,
-    marginBottom: 13,
+    marginBottom: 10,
+  },
+
+  description: {
+    color: c.navy,
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 12,
   },
 
   artwork: {
@@ -412,6 +528,57 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: c.teal,
     fontWeight: '700',
+  },
+
+  loadingBox: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    gap: 12,
+  },
+
+  loadingText: {
+    color: c.muted,
+    fontSize: 13,
+  },
+
+  errorBox: {
+    padding: 20,
+    backgroundColor: c.white,
+    borderWidth: 1,
+    borderColor: c.border,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+
+  errorText: {
+    color: c.error,
+    fontSize: 13,
+    textAlign: 'center',
+  },
+
+  retryText: {
+    marginTop: 8,
+    color: c.teal,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  emptyBox: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+
+  emptyTitle: {
+    color: c.navy,
+    fontSize: 17,
+    fontWeight: '700',
+  },
+
+  emptyText: {
+    marginTop: 7,
+    color: c.muted,
+    fontSize: 13,
+    textAlign: 'center',
   },
 
   pressed: {
