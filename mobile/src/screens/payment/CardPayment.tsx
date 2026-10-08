@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PaymentStackParamList } from '../../navigation/AppNavigator';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import Header from '../../components/Header';
+import { api } from '../../services/api';
 
 type NavigationProp = NativeStackNavigationProp<PaymentStackParamList, 'CardPayment'>;
 
@@ -77,34 +78,88 @@ export default function CardPayment() {
   };
 
   const handlePayment = async () => {
+    if (isLoading) return; // Prevent duplicate payment taps
     setIsLoading(true);
 
     if (cardNumber.replace(/\s/g, '') === '0000000000000000' || cardNumber === '0000') {
       setTimeout(() => {
         setIsLoading(false);
         navigation.navigate('PaymentFailed');
-      }, 1000);
+      }, 800);
       return;
     }
 
-    setTimeout(async () => {
-      setIsLoading(false);
-
+    try {
       if (isTopUpMode) {
-        try {
-          const balanceStr = await AsyncStorage.getItem('@wallet_balance');
-          const currentBalance = balanceStr ? parseFloat(balanceStr) : 1250.00;
-          await AsyncStorage.setItem('@wallet_balance', (currentBalance + totalFare).toString());
-          await AsyncStorage.removeItem('@pending_topup');
-
-          navigation.navigate('EWalletPayment');
-        } catch (e) {
-          Alert.alert('Error', 'Something went wrong. Please try again.');
-        }
-      } else {
-        navigation.navigate('TicketSummary');
+        const balanceStr = await AsyncStorage.getItem('@wallet_balance');
+        const currentBalance = balanceStr ? parseFloat(balanceStr) : 1250.00;
+        await AsyncStorage.setItem('@wallet_balance', (currentBalance + totalFare).toString());
+        await AsyncStorage.removeItem('@pending_topup');
+        setIsLoading(false);
+        navigation.navigate('EWalletPayment');
+        return;
       }
-    }, 1500);
+
+      const stored = await AsyncStorage.getItem('@pending_ticket');
+      const pendingTicket = stored ? JSON.parse(stored) : {};
+
+      // Privacy & Security: Only send last 4 digits, NEVER full card number or CVV
+      const cleanLast4 = cardNumber.replace(/\D/g, '').slice(-4) || '3456';
+
+      const res = await api.processPayment({
+        amount: totalFare || pendingTicket.totalFare || pendingTicket.price || 250,
+        method: 'card',
+        details: {
+          cardType,
+          last4: cleanLast4,
+          cardholderName: cardName.trim() || 'PASSENGER',
+        },
+        routeData: {
+          bus: pendingTicket.bus || 'BUS 125',
+          type: pendingTicket.type || 'Standard service',
+          from: pendingTicket.from || 'Horana',
+          to: pendingTicket.to || 'Colombo',
+          fromTime: pendingTicket.fromTime || '08:30 AM',
+          date: pendingTicket.date || new Date().toLocaleDateString('en-GB'),
+        },
+        ticketCount: pendingTicket.ticketCount || 1,
+      });
+
+      if (res && res.success && res.ticket) {
+        const serverTicket = {
+          id: res.ticket.ticketId,
+          ticketId: res.ticket.ticketId,
+          verificationCode: res.ticket.verificationCode,
+          from: res.ticket.route.from,
+          to: res.ticket.route.to,
+          date: res.ticket.route.date,
+          time: res.ticket.route.departureTime,
+          price: `Rs. ${res.ticket.amount.toFixed(2)}`,
+          ticketCount: res.ticket.numberOfTickets || 1,
+          bus: res.ticket.route.bus,
+          savedAt: new Date().toLocaleDateString('en-GB'),
+          qrData: res.qrData,
+          isDemo: true,
+          status: 'valid',
+        };
+
+        await AsyncStorage.setItem('@current_ticket', JSON.stringify(serverTicket));
+
+        // Save to offline wallet list
+        const offlineStr = await AsyncStorage.getItem('@offline_tickets');
+        const offlineTickets = offlineStr ? JSON.parse(offlineStr) : [];
+        await AsyncStorage.setItem('@offline_tickets', JSON.stringify([serverTicket, ...offlineTickets]));
+
+        setIsLoading(false);
+        navigation.navigate('TicketSummary');
+      } else {
+        setIsLoading(false);
+        Alert.alert('Payment Error', res.message || 'Payment simulation failed. Please try again.');
+      }
+    } catch (err: any) {
+      setIsLoading(false);
+      Alert.alert('Payment Failed', err.message || 'Could not connect to payment backend.');
+    }
   };
 
   const getCardIcon = (type = cardType) => {

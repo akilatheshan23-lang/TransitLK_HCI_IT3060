@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ActivityIndicator, Alert } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PaymentStackParamList } from '../../navigation/AppNavigator';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../../components/Header';
+import { api } from '../../services/api';
 
 type NavigationProp = NativeStackNavigationProp<PaymentStackParamList, 'EWalletPayment'>;
 export default function EWalletPayment() {
@@ -41,17 +42,82 @@ export default function EWalletPayment() {
   );
 
   const handlePayment = async () => {
+    // Prevent accidental duplicate payment submissions
+    if (isLoading) return;
+    if (newBalance < 0) {
+      Alert.alert('Insufficient Balance', 'Please top up your wallet to proceed.');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      if (newBalance >= 0) {
-        await AsyncStorage.setItem('@wallet_balance', newBalance.toString());
-      }
-    } catch (e) {}
+      let pendingTicket: any = null;
+      try {
+        const stored = await AsyncStorage.getItem('@pending_ticket');
+        if (stored) pendingTicket = JSON.parse(stored);
+      } catch (e) {}
 
-    setTimeout(() => {
+      const fareAmount = totalFare > 0 ? totalFare : (pendingTicket?.totalFare || pendingTicket?.price || 150);
+      const fromStation = routeInfo.from !== '...' ? routeInfo.from : (pendingTicket?.from || 'Colombo Fort');
+      const toStation = routeInfo.to !== '...' ? routeInfo.to : (pendingTicket?.to || 'Kandy');
+
+      // Process payment with backend server
+      const paymentRes = await api.processPayment({
+        amount: fareAmount,
+        method: 'wallet',
+        routeData: {
+          from: fromStation,
+          to: toStation,
+          bus: pendingTicket?.bus || 'BUS 125',
+          fromTime: pendingTicket?.fromTime || '08:30 AM',
+          departureTime: pendingTicket?.fromTime || '08:30 AM',
+          date: pendingTicket?.date || new Date().toLocaleDateString('en-GB'),
+        },
+        ticketCount: pendingTicket?.ticketCount || 1,
+      });
+
+      if (paymentRes && paymentRes.success && paymentRes.ticket) {
+        // Authoritative server-issued ticket ID & verification code
+        const authoritativeTicket = {
+          ticketId: paymentRes.ticket.ticketId,
+          verificationCode: paymentRes.ticket.verificationCode,
+          from: paymentRes.ticket.route?.from || fromStation,
+          to: paymentRes.ticket.route?.to || toStation,
+          busId: paymentRes.ticket.route?.bus || 'BUS 125',
+          date: paymentRes.ticket.route?.date || new Date().toLocaleDateString('en-GB'),
+          time: paymentRes.ticket.route?.departureTime || '08:30 AM',
+          totalFare: fareAmount,
+          method: 'TransitLK Wallet',
+          status: paymentRes.ticket.status || 'valid',
+          isDemo: true,
+          qrData: paymentRes.qrData,
+        };
+
+        // Deduct wallet balance
+        await AsyncStorage.setItem('@wallet_balance', newBalance.toString());
+        setWalletBalance(newBalance);
+
+        // Save server-issued ticket as current active ticket
+        await AsyncStorage.setItem('@current_ticket', JSON.stringify(authoritativeTicket));
+
+        // Append to offline wallet history
+        try {
+          const history = await AsyncStorage.getItem('@offline_tickets');
+          const parsedHistory = history ? JSON.parse(history) : [];
+          parsedHistory.unshift(authoritativeTicket);
+          await AsyncStorage.setItem('@offline_tickets', JSON.stringify(parsedHistory));
+        } catch (e) {}
+
+        setIsLoading(false);
+        navigation.navigate('TicketSummary');
+      } else {
+        setIsLoading(false);
+        Alert.alert('Payment Failed', paymentRes?.message || 'Unable to process demo payment');
+      }
+    } catch (err: any) {
       setIsLoading(false);
-      navigation.navigate('TicketSummary');
-    }, 1500);
+      Alert.alert('Payment Error', err.message || 'Network error processing demo payment');
+    }
   };
   return (
     <SafeAreaView style={styles.container}>
@@ -59,7 +125,7 @@ export default function EWalletPayment() {
 
       <View style={styles.content}>
         <Text style={styles.title}>Pay with your wallet</Text>
-        <Text style={styles.subtitle}>Confirm your journey payment.</Text>
+        <Text style={styles.subtitle}>Confirm your journey payment (DEMO).</Text>
 
         <View style={styles.walletCard}>
           <View style={styles.walletHeader}>

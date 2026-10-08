@@ -1,24 +1,51 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 export type User = { id:string; name:string; email:string; language:'en'|'ta'|'si'; role:'passenger'|'owner'|'officer' };
 const base = process.env.EXPO_PUBLIC_API_URL || (Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000');
 export const API_BASE_URL = base;
 let token: string | null = null;
 export class ApiError extends Error { constructor(message:string, public status:number) { super(message); } }
+
 export async function restoreSession() {
+  if (token) return token;
+  try {
+    const sharedToken = await AsyncStorage.getItem('@transitlk_auth_token');
+    if (sharedToken) {
+      token = sharedToken;
+      return token;
+    }
+  } catch {}
   // Web preview uses tab-scoped sessionStorage; native uses OS-backed secure storage.
   token = Platform.OS === 'web' ? globalThis.sessionStorage?.getItem('transitlk-session') || null : await SecureStore.getItemAsync('transitlk-session');
   return token;
 }
+
 export async function saveSession(value:string|null) {
+  token = value;
+  try {
+    if (value) {
+      await AsyncStorage.setItem('@transitlk_auth_token', value);
+    } else {
+      await AsyncStorage.removeItem('@transitlk_auth_token');
+    }
+  } catch {}
   if (Platform.OS === 'web') {
-    if (value) globalThis.sessionStorage.setItem('transitlk-session',value);
-    else globalThis.sessionStorage.removeItem('transitlk-session');
-  } else if (value) await SecureStore.setItemAsync('transitlk-session',value);
-  else await SecureStore.deleteItemAsync('transitlk-session');
-  token=value;
+    if (value) globalThis.sessionStorage?.setItem('transitlk-session', value);
+    else globalThis.sessionStorage?.removeItem('transitlk-session');
+  } else {
+    try {
+      if (value) await SecureStore.setItemAsync('transitlk-session', value);
+      else await SecureStore.deleteItemAsync('transitlk-session');
+    } catch {}
+  }
 }
+
 export async function api<T>(path:string, method='GET', body?:unknown):Promise<T> {
+  if (!token) {
+    await restoreSession();
+  }
   const controller=new AbortController();
   const timeout=setTimeout(()=>controller.abort(),12000);
   try {

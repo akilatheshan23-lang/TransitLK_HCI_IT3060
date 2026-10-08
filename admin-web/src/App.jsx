@@ -120,32 +120,46 @@ export default function App() {
     setTimeout(() => setToastMessage(''), 4500);
   };
 
+  const getAuthHeaders = () => {
+    try {
+      const saved = localStorage.getItem('transitlk_portal_session');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.token) {
+          return { Authorization: `Bearer ${parsed.token}` };
+        }
+      }
+    } catch {}
+    return {};
+  };
+
   // Fetch all admin data (ONLY if authenticated as admin)
   const fetchAdminData = async () => {
     if (!currentUser || currentUser.role !== 'admin') return;
     setLoading(true);
+    const authHeaders = getAuthHeaders();
     try {
-      const statsRes = await fetch(`${API_BASE}/admin/stats`).then((r) => r.json()).catch(() => null);
+      const statsRes = await fetch(`${API_BASE}/admin/stats`, { headers: authHeaders }).then((r) => r.json()).catch(() => null);
       if (statsRes && statsRes.stats) {
         setStats(statsRes.stats);
       }
 
-      const pendingRes = await fetch(`${API_BASE}/admin/pending`).then((r) => r.json()).catch(() => null);
+      const pendingRes = await fetch(`${API_BASE}/admin/pending`, { headers: authHeaders }).then((r) => r.json()).catch(() => null);
       if (pendingRes && pendingRes.users) {
         setPendingList(pendingRes.users);
       }
 
-      const officersRes = await fetch(`${API_BASE}/admin/users?role=authority`).then((r) => r.json()).catch(() => null);
+      const officersRes = await fetch(`${API_BASE}/admin/users?role=authority`, { headers: authHeaders }).then((r) => r.json()).catch(() => null);
       if (officersRes && officersRes.users) {
         setOfficersList(officersRes.users);
       }
 
-      const ownersRes = await fetch(`${API_BASE}/admin/users?role=bus_owner`).then((r) => r.json()).catch(() => null);
+      const ownersRes = await fetch(`${API_BASE}/admin/users?role=bus_owner`, { headers: authHeaders }).then((r) => r.json()).catch(() => null);
       if (ownersRes && ownersRes.users) {
         setOwnersList(ownersRes.users);
       }
 
-      const allRes = await fetch(`${API_BASE}/admin/users`).then((r) => r.json()).catch(() => null);
+      const allRes = await fetch(`${API_BASE}/admin/users`, { headers: authHeaders }).then((r) => r.json()).catch(() => null);
       if (allRes && allRes.users) {
         setAllUsersList(allRes.users);
       }
@@ -255,6 +269,7 @@ export default function App() {
     try {
       const res = await fetch(`${API_BASE}/admin/approve/${userId}`, {
         method: 'POST',
+        headers: getAuthHeaders(),
       }).then((r) => r.json());
 
       if (res.success) {
@@ -276,7 +291,10 @@ export default function App() {
     try {
       const res = await fetch(`${API_BASE}/admin/reject/${userId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify({ reason }),
       }).then((r) => r.json());
 
@@ -296,12 +314,15 @@ export default function App() {
     try {
       const res = await fetch(`${API_BASE}/admin/seed-demo-pending`, {
         method: 'POST',
+        headers: getAuthHeaders(),
       }).then((r) => r.json());
 
       if (res.success) {
         showToast('Seeded 2 sample pending applicants into MongoDB! Check the queue.');
         setActiveTab('pending');
         fetchAdminData();
+      } else {
+        alert(res.message || 'Could not seed pending users');
       }
     } catch {
       alert('Could not seed pending users');

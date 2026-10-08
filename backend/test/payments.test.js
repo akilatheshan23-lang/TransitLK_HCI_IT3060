@@ -179,3 +179,28 @@ test('7. Repeated redemption is rejected (prevents duplicate scans across conduc
   assert.equal(secondScan.data.status, 'redeemed');
   assert.match(secondScan.data.message, /already been redeemed/i);
 });
+
+test('8. Invalid payment requests with non-positive amount are rejected (400)', async () => {
+  const resZero = await api('/process', 'POST', { amount: 0 });
+  assert.equal(resZero.status, 400);
+  assert.equal(resZero.data.success, false);
+
+  const resNegative = await api('/process', 'POST', { amount: -150 });
+  assert.equal(resNegative.status, 400);
+  assert.equal(resNegative.data.success, false);
+
+  const resNan = await api('/process', 'POST', { amount: 'not-a-number' });
+  assert.equal(resNan.status, 400);
+  assert.equal(resNan.data.success, false);
+});
+
+test('9. Repeat payment submissions produce distinct, unpredictable ticket IDs', async () => {
+  const res1 = await api('/process', 'POST', { amount: 200 });
+  const res2 = await api('/process', 'POST', { amount: 200 });
+
+  assert.equal(res1.status, 201);
+  assert.equal(res2.status, 201);
+  assert.notEqual(res1.data.ticket.ticketId, res2.data.ticket.ticketId);
+  assert.notEqual(res1.data.ticket.verificationCode, res2.data.ticket.verificationCode);
+  assert.notEqual(res1.data.data.transactionId, res2.data.data.transactionId);
+});

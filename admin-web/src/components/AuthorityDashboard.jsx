@@ -39,7 +39,13 @@ export function AuthorityDashboard({ currentUser, onLogout }) {
   // Fetch all approved officers ONLY if admin or not restricted
   useEffect(() => {
     if (!currentUser || currentUser.role === 'admin') {
-      fetch(`${API_BASE}/admin/users?role=authority`)
+      let headers = {};
+      try {
+        const saved = localStorage.getItem('transitlk_portal_session');
+        const token = saved ? JSON.parse(saved).token : null;
+        if (token) headers = { Authorization: `Bearer ${token}` };
+      } catch {}
+      fetch(`${API_BASE}/admin/users?role=authority`, { headers })
         .then((r) => r.json())
         .then((data) => {
           if (data && data.users) {

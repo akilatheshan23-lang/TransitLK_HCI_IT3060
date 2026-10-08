@@ -16,31 +16,47 @@ export default function TicketSummary() {
   useEffect(() => {
     const finalizeTicket = async () => {
       try {
+        // Prioritize authoritative server-issued ticket from payment flow
+        const currentStr = await AsyncStorage.getItem('@current_ticket');
+        if (currentStr) {
+          const current = JSON.parse(currentStr);
+          const finalTicket = {
+            id: current.ticketId || current.id,
+            verificationCode: current.verificationCode,
+            from: current.from,
+            to: current.to,
+            date: current.date,
+            time: current.time,
+            price: typeof current.totalFare === 'number' ? `Rs. ${current.totalFare.toFixed(2)}` : (current.price || 'Rs. 150.00'),
+            method: current.method || 'Card',
+            ticketCount: current.ticketCount || 1,
+            bus: current.busId || current.bus || 'BUS 125',
+            savedAt: current.savedAt || new Date().toLocaleDateString(),
+            isDemo: true,
+          };
+          setTicketData(finalTicket);
+          return;
+        }
+
+        // Fallback for direct preview
         const pendingStr = await AsyncStorage.getItem('@pending_ticket');
         if (pendingStr) {
           const route = JSON.parse(pendingStr);
           const finalTicket = {
-            id: `TKT${Math.floor(Math.random() * 10000)}`,
-            verificationCode: Math.floor(10000 + Math.random() * 90000).toString(),
-            from: route.from,
-            to: route.to,
-            date: route.date,
-            time: route.fromTime,
-            price: `Rs. ${route.totalFare ? route.totalFare.toFixed(2) : route.price.toFixed(2)}`,
+            id: 'TKT-PENDING',
+            verificationCode: '00000',
+            from: route.from || 'Colombo',
+            to: route.to || 'Kandy',
+            date: route.date || new Date().toLocaleDateString('en-GB'),
+            time: route.fromTime || '08:30 AM',
+            price: `Rs. ${route.totalFare ? route.totalFare.toFixed(2) : (route.price ? route.price.toFixed(2) : '150.00')}`,
+            method: 'Card',
             ticketCount: route.ticketCount || 1,
-            bus: route.bus,
-            savedAt: new Date().toLocaleDateString()
+            bus: route.bus || 'BUS 125',
+            savedAt: new Date().toLocaleDateString(),
+            isDemo: true,
           };
           setTicketData(finalTicket);
-
-          // Save as current for MyETicket
-          await AsyncStorage.setItem('@current_ticket', JSON.stringify(finalTicket));
-
-          // Save to offline wallet
-          const offlineStr = await AsyncStorage.getItem('@offline_tickets');
-          const offlineTickets = offlineStr ? JSON.parse(offlineStr) : [];
-          // Prepend new ticket
-          await AsyncStorage.setItem('@offline_tickets', JSON.stringify([finalTicket, ...offlineTickets]));
         }
       } catch (e) {}
     };
@@ -70,7 +86,7 @@ export default function TicketSummary() {
         </View>
 
         <Text style={styles.title}>You are ready to ride!</Text>
-        <Text style={styles.subtitle}>Your payment was successful.</Text>
+        <Text style={styles.subtitle}>Your payment was successful (DEMO).</Text>
 
         <View style={styles.ticketCard}>
           <Text style={styles.route}>{ticketData.from} → {ticketData.to}</Text>
@@ -85,7 +101,7 @@ export default function TicketSummary() {
 
           <View style={styles.ticketDetailsRow}>
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>PAID</Text>
+              <Text style={styles.badgeText}>DEMO PAID</Text>
             </View>
             <TouchableOpacity onPress={() => navigation.navigate('MyETicket')}>
               <Text style={styles.viewTicketText}>View ticket</Text>
@@ -100,7 +116,7 @@ export default function TicketSummary() {
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Payment</Text>
-            <Text style={styles.summaryValue}>Card •••• 3456</Text>
+            <Text style={styles.summaryValue}>{ticketData.method ? `${ticketData.method} (Demo)` : 'Demo Payment'}</Text>
           </View>
         </View>
 

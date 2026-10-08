@@ -43,7 +43,13 @@ export function BusOwnerDashboard({ currentUser, onLogout }) {
   // Fetch all approved owners to allow switching/viewing ONLY if not restricted
   useEffect(() => {
     if (!currentUser || currentUser.role === 'admin') {
-      fetch(`${API_BASE}/admin/users?role=bus_owner`)
+      let headers = {};
+      try {
+        const saved = localStorage.getItem('transitlk_portal_session');
+        const token = saved ? JSON.parse(saved).token : null;
+        if (token) headers = { Authorization: `Bearer ${token}` };
+      } catch {}
+      fetch(`${API_BASE}/admin/users?role=bus_owner`, { headers })
         .then((r) => r.json())
         .then((data) => {
           if (data && data.users) {

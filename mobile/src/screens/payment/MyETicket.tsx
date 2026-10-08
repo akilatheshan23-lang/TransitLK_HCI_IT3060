@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Platform, ActivityIndicator, ScrollView } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import QRCode from 'react-native-qrcode-svg';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,11 +8,25 @@ import Header from '../../components/Header';
 
 export default function MyETicket() {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const [ticketData, setTicketData] = useState<any>(null);
 
   useEffect(() => {
     const loadTicket = async () => {
       try {
+        const paramTicketId = route.params?.ticketId;
+        if (paramTicketId) {
+          const offlineTicketsStr = await AsyncStorage.getItem('@offline_tickets');
+          if (offlineTicketsStr) {
+            const list = JSON.parse(offlineTicketsStr);
+            const found = list.find((t: any) => (t.ticketId === paramTicketId || t.id === paramTicketId));
+            if (found) {
+              setTicketData(found);
+              return;
+            }
+          }
+        }
+
         const currentTicketStr = await AsyncStorage.getItem('@current_ticket');
         if (currentTicketStr) {
           setTicketData(JSON.parse(currentTicketStr));
@@ -20,15 +34,15 @@ export default function MyETicket() {
           const now = new Date();
           const formattedDate = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
           const formattedTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-          // Fallback if accessed without flow
+          // Fallback if accessed directly in demo
           setTicketData({
-            id: 'TKT001', from: 'Horana', to: 'Colombo', date: formattedDate, time: formattedTime, price: 'Rs. 250', bus: 'BUS 125'
+            id: 'TKT-DEMO-01', ticketId: 'TKT-DEMO-01', verificationCode: '12345', from: 'Horana', to: 'Colombo', date: formattedDate, time: formattedTime, price: 'Rs. 250', bus: 'BUS 125', isDemo: true
           });
         }
       } catch (e) {}
     };
     loadTicket();
-  }, []);
+  }, [route.params?.ticketId]);
 
   if (!ticketData) {
     return (
@@ -41,8 +55,19 @@ export default function MyETicket() {
     );
   }
 
-  // Inject isValid for ValidationResult to parse easily later
-  const qrValue = JSON.stringify({ ...ticketData, isValid: true });
+  // Use authoritative server QR data if present; never client-inject trusted isValid flags
+  const qrValue = ticketData.qrData || JSON.stringify({
+    ticketId: ticketData.ticketId || ticketData.id,
+    verificationCode: ticketData.verificationCode,
+    from: ticketData.from,
+    to: ticketData.to,
+    date: ticketData.date,
+    time: ticketData.time,
+    isDemo: true,
+  });
+
+  const displayId = ticketData.ticketId || ticketData.id || 'TKT-UNKNOWN';
+  const displayPrice = ticketData.price || (ticketData.totalFare ? `Rs. ${Number(ticketData.totalFare).toFixed(2)}` : 'Rs. 250.00');
 
   return (
     <SafeAreaView style={styles.container}>
@@ -52,7 +77,7 @@ export default function MyETicket() {
         <View style={styles.ticketContainer}>
 
           <View style={styles.offlineBadge}>
-            <Text style={styles.offlineBadgeText}>AVAILABLE OFFLINE</Text>
+            <Text style={styles.offlineBadgeText}>AVAILABLE OFFLINE (DEMO)</Text>
           </View>
 
           <View style={styles.qrSection}>
@@ -65,7 +90,7 @@ export default function MyETicket() {
                 backgroundColor="#fff"
               />
             </View>
-            <Text style={styles.ticketIdText}>{ticketData.id}</Text>
+            <Text style={styles.ticketIdText}>{displayId}</Text>
 
             {ticketData.verificationCode ? (
               <View style={styles.verificationCodeBox}>
@@ -99,9 +124,9 @@ export default function MyETicket() {
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Fare</Text>
               <View style={styles.fareContainer}>
-                <Text style={styles.detailValue}>{ticketData.price}</Text>
+                <Text style={styles.detailValue}>{displayPrice}</Text>
                 <Text style={styles.bulletPoint}> • </Text>
-                <Text style={styles.paidText}>PAID</Text>
+                <Text style={styles.paidText}>PAID (DEMO)</Text>
               </View>
             </View>
           </View>

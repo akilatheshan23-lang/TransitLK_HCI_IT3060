@@ -95,6 +95,15 @@ async function request(endpoint: string, options: RequestInit = {}): Promise<Aut
     ...(options.headers as Record<string, string>),
   };
 
+  if (!headers.Authorization) {
+    try {
+      const token = await AsyncStorage.getItem(STORAGE_KEY_TOKEN);
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+    } catch {}
+  }
+
   try {
     const response = await fetch(url, {
       ...options,
@@ -285,6 +294,9 @@ export const api = {
     try {
       await AsyncStorage.setItem(STORAGE_KEY_TOKEN, token);
       await AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        globalThis.sessionStorage?.setItem('transitlk-session', token);
+      }
     } catch (e) {
       console.error('Failed to save auth session:', e);
     }
@@ -305,6 +317,9 @@ export const api = {
     try {
       await AsyncStorage.removeItem(STORAGE_KEY_TOKEN);
       await AsyncStorage.removeItem(STORAGE_KEY_USER);
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        globalThis.sessionStorage?.removeItem('transitlk-session');
+      }
     } catch (e) {
       console.error('Failed to clear auth session:', e);
     }
@@ -354,6 +369,89 @@ export const api = {
     const res = await request('/buses', {
       method: 'POST',
       body: JSON.stringify(payload),
+    });
+    return res as any;
+  },
+
+  /**
+   * Process simulated payment and issue unpredictable ticket from backend
+   */
+  async processPayment(params: {
+    amount: number;
+    method?: 'card' | 'wallet';
+    details?: {
+      cardType?: string;
+      last4?: string;
+      cardholderName?: string;
+    };
+    routeData?: {
+      id?: string;
+      bus?: string;
+      type?: string;
+      from?: string;
+      to?: string;
+      fromTime?: string;
+      departureTime?: string;
+      date?: string;
+    };
+    ticketCount?: number;
+  }): Promise<{
+    success: boolean;
+    mode: string;
+    message: string;
+    data: any;
+    ticket: {
+      _id: string;
+      ticketId: string;
+      verificationCode: string;
+      amount: number;
+      status: string;
+      numberOfTickets: number;
+      route: {
+        bus: string;
+        type: string;
+        from: string;
+        to: string;
+        departureTime: string;
+        date: string;
+      };
+      isDemo: boolean;
+      issuedAt: string;
+    };
+    qrData: string;
+  }> {
+    const res = await request('/payments/process', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    return res as any;
+  },
+
+  /**
+   * Conductor ticket verification and atomic redemption
+   */
+  async verifyTicket(
+    params: {
+      ticketId?: string;
+      verificationCode?: string;
+      qrData?: string;
+    },
+    token?: string
+  ): Promise<{
+    success: boolean;
+    valid: boolean;
+    status: string;
+    message: string;
+    ticket?: any;
+  }> {
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await request('/payments/tickets/verify', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(params),
     });
     return res as any;
   },
