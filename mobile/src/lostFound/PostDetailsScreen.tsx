@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,6 +18,7 @@ import { colors as c } from '../theme';
 import {
   addLostFoundComment,
   deleteLostFoundPost,
+  getLostFoundImageUrl,
   getLostFoundPost,
   likeLostFoundPost,
   updateLostFoundPost,
@@ -425,24 +427,32 @@ export default function PostDetailsScreen({
                 {getTimeAgo(post.createdAt)}
               </Text>
 
-              <View
-                style={[
-                  styles.itemCard,
-                  found
-                    ? styles.foundItemCard
-                    : styles.lostItemCard,
-                ]}
-              >
-                <Text style={styles.itemCardLabel}>
-                  {found
-                    ? 'FOUND ITEM'
-                    : 'LOST ITEM'}
-                </Text>
+              {post.image ? (
+                <Image
+                    source={{
+                    uri: getLostFoundImageUrl(post.image),
+                    }}
+                    style={styles.postImage}
+                    resizeMode="cover"
+                />
+                ) : (
+                <View
+                    style={[
+                    styles.itemCard,
+                    found
+                        ? styles.foundItemCard
+                        : styles.lostItemCard,
+                    ]}
+                >
+                    <Text style={styles.itemCardLabel}>
+                    {found ? 'FOUND ITEM' : 'LOST ITEM'}
+                    </Text>
 
-                <Text style={styles.itemCardTitle}>
-                  {post.item}
-                </Text>
-              </View>
+                    <Text style={styles.itemCardTitle}>
+                    {post.item}
+                    </Text>
+                </View>
+                )}
 
               <Text style={styles.label}>
                 Description
@@ -912,4 +922,11 @@ const styles = StyleSheet.create({
     color: c.muted,
     fontSize: 13,
   },
+
+  postImage: {
+  width: '100%',
+  height: 190,
+  borderRadius: 18,
+  marginBottom: 22,
+},
 });
