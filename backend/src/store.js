@@ -25,9 +25,21 @@ export async function createMongoStore(db) {
     async deleteSaved(userId,id){if(!ObjectId.isValid(id))return false;return (await saved.deleteOne({_id:new ObjectId(id),userId})).deletedCount===1;},
     async createUser(user) { const result = await users.insertOne(user); return { ...user, _id: result.insertedId }; },
     findEmail: email => users.findOne({ email }),
-    findUser: id => users.findOne({ _id: new ObjectId(id) }),
+    findUser: id => {
+      if (id instanceof ObjectId) return users.findOne({ _id: id });
+      if (typeof id === 'string' && ObjectId.isValid(id)) {
+        return users.findOne({ $or: [{ _id: new ObjectId(id) }, { _id: id }] });
+      }
+      return users.findOne({ _id: id });
+    },
     async updateLanguage(id, language) {
-      return users.findOneAndUpdate({ _id: new ObjectId(id) }, { $set: { language, updatedAt: new Date() } }, { returnDocument: 'after' });
+      let filter = { _id: id };
+      if (id instanceof ObjectId) {
+        filter = { _id: id };
+      } else if (typeof id === 'string' && ObjectId.isValid(id)) {
+        filter = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
+      }
+      return users.findOneAndUpdate(filter, { $set: { language, updatedAt: new Date() } }, { returnDocument: 'after' });
     },
     createSession: session => sessions.insertOne(session),
     findSession: tokenHash => sessions.findOne({ tokenHash, expiresAt: { $gt: new Date() } }),

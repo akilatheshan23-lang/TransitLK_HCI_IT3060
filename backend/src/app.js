@@ -1,5 +1,8 @@
 import { transitRouter } from './transit.js';
 import { lostFoundRouter } from './lostFound.js';
+import { authRouter } from './routes/auth.js';
+import { adminRouter } from './routes/admin.js';
+import { busesRouter } from './routes/buses.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -14,12 +17,18 @@ const language = z.enum(['en', 'ta', 'si']);
 const credentials = z.object({ email: z.string().trim().toLowerCase().email().max(254), password: z.string().min(8).max(128) }).strict();
 const registration = credentials.extend({ name: z.string().trim().min(2).max(80), language: language.default('en') });
 
-export function createApp(store, { origins = ['http://localhost:8081'], limit = 20 } = {}) {
+export function createApp(store, { origins = ['http://localhost:8081', 'http://127.0.0.1:8081', 'http://localhost:3001', 'http://127.0.0.1:3001'], limit = 20 } = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.use(helmet({ contentSecurityPolicy: false }));
-  app.use(cors({ origin: (origin, cb) => cb(null, !origin || origins.includes(origin)) }));
+  app.use(cors({ origin: (origin, cb) => cb(null, !origin || origins.includes(origin) || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) }));
   app.use(express.json({ limit: '16kb' }));
+  app.get('/', (_req, res) => res.json({
+    status: 'online',
+    service: 'TransitLK Backend API',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+  }));
   app.get(['/owner', '/owner-portal'], async (_req, res) => {
     const html = await readFile(ownerPortalFile, 'utf8');
     const key = JSON.stringify(process.env.GEOAPIFY_API_KEY || '').replaceAll('<', '\\u003c');
@@ -45,7 +54,7 @@ export function createApp(store, { origins = ['http://localhost:8081'], limit = 
     ]
   }));
   app.get('/api/health', async (_req, res) => {
-    try { await store.ping(); res.json({ status: 'ok', database: 'connected' }); }
+    try { await store.ping(); res.json({ status: 'ok', database: 'connected', time: new Date().toISOString() }); }
     catch { res.status(503).json({ error: 'Service temporarily unavailable.' }); }
   });
   app.get('/api/home', (_req, res) => res.json({ name: 'TransitLK', languages: ['en', 'ta', 'si'], notifications: [] }));
@@ -56,7 +65,7 @@ export function createApp(store, { origins = ['http://localhost:8081'], limit = 
     await store.createSession({ tokenHash: tokenHash(token), userId: String(user._id), expiresAt: new Date(Date.now() + 7 * 86400000) });
     res.status(status).json({ token, user: publicUser(user) });
   }
-  app.post('/api/auth/register', async (req, res) => {
+  app.post('/api/auth/register', async (req, res, next) => {
     const result = registration.safeParse(req.body);
     if (!result.success) return res.status(400).json({ error: 'Enter a name, valid email and password of 8–128 characters.' });
     const { password, ...data } = result.data;
@@ -65,7 +74,7 @@ export function createApp(store, { origins = ['http://localhost:8081'], limit = 
       await issueSession(user, res, 201);
     } catch (error) {
       if (error.code === 11000) return res.status(409).json({ error: 'An account with this email already exists. Please sign in.' });
-      throw error;
+      next(error);
     }
   });
   app.post('/api/auth/login', async (req, res) => {
@@ -98,6 +107,9 @@ export function createApp(store, { origins = ['http://localhost:8081'], limit = 
     await store.deleteSession(req.sessionHash);
     res.status(204).end();
   });
+  app.use('/api/auth', authRouter);
+  app.use('/api/admin', adminRouter);
+  app.use('/api/buses', busesRouter);
   app.use('/api', lostFoundRouter(store, authenticate));
   app.use('/api', transitRouter(store, authenticate));
   app.use((_req, res) => res.status(404).json({ error: 'This endpoint does not exist.' }));
