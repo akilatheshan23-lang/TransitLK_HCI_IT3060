@@ -3,7 +3,7 @@
  * API Key configured from user credentials
  */
 
-export const GEOAPIFY_API_KEY = process.env.EXPO_PUBLIC_GEOAPIFY_API_KEY || '';
+export const GEOAPIFY_API_KEY = process.env.EXPO_PUBLIC_GEOAPIFY_API_KEY || '7c57a9788fae45d5a6464a8cc910fc1a';
 
 export type GeocodeResult = {
   formatted: string;
