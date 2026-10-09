@@ -2,8 +2,8 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type User = { id:string; name:string; email:string; language:'en'|'ta'|'si'; role:'passenger'|'owner'|'officer' };
-const base = process.env.EXPO_PUBLIC_API_URL || (Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000');
+export type User = { id:string; name:string; email:string; language:'en'|'ta'|'si'; role:'passenger'|'owner'|'officer'|'bus_owner'|'authority'|'conductor'|'admin' };
+const base = (process.env.EXPO_PUBLIC_API_URL || (Platform.OS === 'web' && typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.hostname}:4000` : Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000')).replace(/\/+$/, '').replace(/\/api$/, '');
 export const API_BASE_URL = base;
 let token: string | null = null;
 export class ApiError extends Error { constructor(message:string, public status:number) { super(message); } }
@@ -55,4 +55,37 @@ export async function api<T>(path:string, method='GET', body?:unknown):Promise<T
     if(!res.ok) throw new ApiError(data.error || 'Request failed.',res.status);
     return data;
   } finally {clearTimeout(timeout);}
+}
+export async function uploadImage(
+  path: string,
+  formData: FormData
+) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+
+  try {
+    const res = await fetch(`${base}/api${path}`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        ...(token
+          ? { Authorization: `Bearer ${token}` }
+          : {}),
+      },
+      body: formData,
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new ApiError(
+        data.error || 'Image upload failed.',
+        res.status
+      );
+    }
+
+    return data as { image: string };
+  } finally {
+    clearTimeout(timeout);
+  }
 }

@@ -11,10 +11,16 @@ const wifi = addresses.find(i => /wi-?fi|wireless/i.test(i.name));
 const host = process.env.TRANSITLK_HOST_IP || wifi?.address || addresses[0]?.address;
 
 async function main() {
-  if (!['frontend', 'mobile', 'android', 'backend', 'check'].includes(mode)) throw Error('Choose frontend, mobile, android, backend or check.');
+  if (!['frontend', 'mobile', 'android', 'backend', 'admin', 'check'].includes(mode)) throw Error('Choose frontend, mobile, android, backend or check.');
   if (mode === 'check') {
     console.log(JSON.stringify({ node: process.version, project: root, host, api: host && `http://${host}:4000`, expo: host && `exp://${host}:8081` }, null, 2));
     return;
+  }
+  if (mode === 'admin') {
+    process.chdir(path.join(root, 'admin-web'));
+    const { createServer } = await import(pathToFileURL(path.join(root, 'node_modules/vite/dist/node/index.js')).href);
+    const server = await createServer({ server: { host: '0.0.0.0', port: 3001 } });
+    await server.listen(); server.printUrls(); return;
   }
   if (mode === 'backend') {
     process.chdir(path.join(root, 'backend'));

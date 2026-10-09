@@ -1,28 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { API_BASE_URL, saveSession as saveSharedSession } from '../api';
 
 const STORAGE_KEY_TOKEN = '@transitlk_auth_token';
 const STORAGE_KEY_USER = '@transitlk_auth_user';
 
 // Determine the best API base URL depending on runtime environment
 export function getApiBaseUrl(): string {
-  // If explicitly specified in environment
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
-  }
-
-  // Web environment
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-      return 'http://localhost:4000/api';
-    }
-    return `http://${hostname}:4000/api`;
-  }
-
-  // Real Android device on the local Wi-Fi / hotspot
-  // 172.20.10.2 is the developer machine IP
-  return 'http://172.20.10.2:4000/api';
+  return `${API_BASE_URL}/api`;
 }
 
 export interface UserProfile {
@@ -110,6 +95,7 @@ async function request(endpoint: string, options: RequestInit = {}): Promise<Aut
       headers,
     });
 
+    if (response.status === 204) return { success: true };
     const data = await response.json().catch(() => ({
       success: false,
       message: `Invalid server response (${response.status})`,
@@ -119,7 +105,7 @@ async function request(endpoint: string, options: RequestInit = {}): Promise<Aut
       return {
         success: false,
         status: data.status,
-        message: data.message || `Request failed with status ${response.status}`,
+        message: data.message || data.error || `Request failed with status ${response.status}`,
       };
     }
 
@@ -263,7 +249,7 @@ export const api = {
    * Fetch current user profile with active session token
    */
   async getMe(token: string): Promise<AuthResponse> {
-    return request('/auth/me', {
+    return request('/me', {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -296,6 +282,7 @@ export const api = {
    * Local storage helpers
    */
   async saveSession(token: string, user: UserProfile): Promise<void> {
+    await saveSharedSession(token);
     try {
       await AsyncStorage.setItem(STORAGE_KEY_TOKEN, token);
       await AsyncStorage.setItem(STORAGE_KEY_USER, JSON.stringify(user));
@@ -319,6 +306,7 @@ export const api = {
   },
 
   async clearSession(): Promise<void> {
+    await saveSharedSession(null);
     try {
       await AsyncStorage.removeItem(STORAGE_KEY_TOKEN);
       await AsyncStorage.removeItem(STORAGE_KEY_USER);

@@ -165,70 +165,8 @@ authRouter.post('/login', async (req, res) => {
  * POST /api/auth/google
  * Google Sign-In & Single Sign-On (SSO)
  */
-authRouter.post('/google', async (req, res) => {
-  try {
-    const { email, name, googleId, avatarUrl } = req.body;
-
-    if (!email || typeof email !== 'string' || !email.includes('@')) {
-      return res.status(400).json({ success: false, message: 'Valid Google email is required' });
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-    const users = getUsersCollection();
-
-    let user = await users.findOne({ email: normalizedEmail });
-
-    if (!user) {
-      // Auto-provision user account from Google profile
-      user = {
-        _id: generateId(),
-        email: normalizedEmail,
-        name: (name && name.trim()) || normalizedEmail.split('@')[0],
-        googleId: googleId || generateId(),
-        avatarUrl: avatarUrl || null,
-        authProvider: 'google',
-        role: 'passenger',
-        language: 'en',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      await users.insertOne(user);
-      console.log(`[Google Auth] Created new user via Google: ${user.email}`);
-    } else {
-      if (!user.googleId && googleId) {
-        await users.updateOne(
-          { _id: user._id },
-          {
-            $set: {
-              googleId,
-              authProvider: user.authProvider || 'google',
-              updatedAt: new Date().toISOString(),
-            },
-          }
-        );
-      }
-      console.log(`[Google Auth] Authenticated user via Google: ${user.email}`);
-    }
-
-    const token = await createSession(user._id);
-
-    return res.json({
-      success: true,
-      message: 'Google Sign-In successful',
-      user: {
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        role: user.role || 'passenger',
-        language: user.language || 'en',
-        authProvider: 'google',
-      },
-      token,
-    });
-  } catch (error) {
-    console.error('Google auth error:', error);
-    return res.status(500).json({ success: false, message: 'Internal server error during Google sign-in' });
-  }
+authRouter.post('/google', (_req, res) => {
+  res.status(501).json({ success: false, message: 'Google sign-in requires verified OAuth credentials. Please use email and password.' });
 });
 
 /**

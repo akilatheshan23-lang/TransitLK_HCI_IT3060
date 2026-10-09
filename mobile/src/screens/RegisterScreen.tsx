@@ -46,8 +46,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       showAlert('Password Required', 'Please create a secure password.');
       return;
     }
-    if (password.length < 6) {
-      showAlert('Weak Password', 'Password must be at least 6 characters long.');
+    if (password.length < 8) {
+      showAlert('Weak Password', 'Password must be at least 8 characters long.');
       return;
     }
     if (password !== confirmPassword) {

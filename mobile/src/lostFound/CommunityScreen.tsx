@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +16,8 @@ import { colors as c } from '../theme';
 
 import { getLostFoundPosts } from './lostFoundApi';
 import type { LostFoundPost } from './lostFoundApi';
+
+import { getLostFoundImageUrl } from './lostFoundApi';
 
 type CommunityScreenProps = {
   onBack: () => void;
@@ -222,7 +225,15 @@ export default function CommunityScreen({
                   {post.item}
                 </Text>
 
-                {post.type === 'found' && (
+                {/* {post.image ? (
+                  <Image
+                    source={{
+                      uri: getLostFoundImageUrl(post.image),
+                    }}
+                    style={styles.postImage}
+                    resizeMode="cover"
+                  />
+                ) : post.type === 'found' ? (
                   <View style={styles.artwork}>
                     <View style={styles.umbrellaTop} />
 
@@ -230,7 +241,17 @@ export default function CommunityScreen({
                       <View style={styles.umbrellaHook} />
                     </View>
                   </View>
-                )}
+                ) : null} */}
+
+                              {post.image ? (
+                <Image
+                  source={{
+                    uri: getLostFoundImageUrl(post.image),
+                  }}
+                  style={styles.postImage}
+                  resizeMode="cover"
+                />
+              ) : null}
 
                 <Text style={styles.description}>
                   {post.description}
@@ -619,4 +640,11 @@ const styles = StyleSheet.create({
     color: c.teal,
     fontWeight: '700',
   },
+
+  postImage: {
+  width: '100%',
+  height: 170,
+  borderRadius: 14,
+  marginBottom: 14,
+},
 });

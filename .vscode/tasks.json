@@ -95,7 +95,8 @@
       "dependsOn": [
         "TransitLK: Backend",
         "TransitLK: Frontend (browser)",
-        "TransitLK: Mobile (Expo Go)"
+        "TransitLK: Mobile (Expo Go)",
+        "TransitLK: Admin dashboard"
       ],
       "problemMatcher": [],
       "group": {
@@ -111,6 +112,27 @@
         "TransitLK: Android (Pixel 7)"
       ],
       "problemMatcher": []
+    },
+    {
+      "label": "TransitLK: Admin dashboard",
+      "type": "shell",
+      "command": "${workspaceFolder}\\scripts\\run.cmd",
+      "args": [
+        "admin"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "transitlk"
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      }
     }
   ]
 }

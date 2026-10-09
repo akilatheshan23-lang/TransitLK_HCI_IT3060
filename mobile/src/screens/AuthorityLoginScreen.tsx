@@ -66,10 +66,6 @@ export const AuthorityLoginScreen: React.FC<AuthorityLoginScreenProps> = ({
           'Authority Access Granted',
           `Authenticated as ${res.user.name} (${res.user.email}). Opening Authority Officer Web Portal...`
         );
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          const webUrl = `http://localhost:3001/?role=authority&token=${encodeURIComponent(res.token)}`;
-          window.open(webUrl, '_blank');
-        }
         onLoginSuccess?.(res.user);
       } else {
         const msg = res.message || 'Authentication failed. Please verify official credentials.';

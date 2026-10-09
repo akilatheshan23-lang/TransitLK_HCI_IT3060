@@ -64,12 +64,8 @@ export const BusOwnerLoginScreen: React.FC<BusOwnerLoginScreenProps> = ({
         await api.saveSession(res.token, res.user);
         showAlert(
           'Bus Owner Access Granted',
-          `Authenticated as ${res.user.name} (${res.user.email}). Opening Bus Owner Web Dashboard...`
+          `Authenticated as ${res.user.name} (${res.user.email}). Opening your fleet dashboard...`
         );
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          const webUrl = `http://localhost:3001/?role=bus_owner&token=${encodeURIComponent(res.token)}`;
-          window.open(webUrl, '_blank');
-        }
         onLoginSuccess?.(res.user);
       } else {
         const msg = res.message || 'Authentication failed. Please verify owner credentials.';

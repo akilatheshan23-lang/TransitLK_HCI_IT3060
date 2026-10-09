@@ -15,8 +15,8 @@ import PostDetailsScreen from './lostFound/PostDetailsScreen';
 import type { LostFoundPost } from './lostFound/lostFoundApi';
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
 function Action({label,onPress,secondary=false,busy=false}:{label:string;onPress:()=>void;secondary?:boolean;busy?:boolean}){return <Pressable accessibilityRole="button" disabled={busy} onPress={onPress} style={[s.action,secondary&&s.secondary]}><Text style={[s.actionText,secondary&&{color:c.teal}]}>{label}</Text>{busy?<ActivityIndicator color={c.teal}/>:<Icon name="arrow" color={secondary?c.teal:'white'}/>}</Pressable>;}
-export default function TransitApp({user,onProfile,onWelcome,onNotifications,onBuyTicket,onTickets}:{user:User|null;onProfile:()=>void;onWelcome:()=>void;onNotifications:()=>void;onBuyTicket?:(ticket:any)=>void;onTickets?:()=>void}){
- const insets=useSafeAreaInsets();const [page,setPage]=useState<'home'|'results'|'tracking'|'community'| 'createPost'|'postPublished'|'postDetails'>('home');const [mode,setMode]=useState<'bus'|'train'>('bus');
+export default function TransitApp({user,onProfile,onWelcome,onNotifications,onBuyTicket,onTickets,initialPage='home'}:{user:User|null;onProfile:()=>void;onWelcome:()=>void;onNotifications:()=>void;onBuyTicket?:(ticket:any)=>void;onTickets?:()=>void;initialPage?:'home'|'community'}){
+ const insets=useSafeAreaInsets();const [page,setPage]=useState<'home'|'results'|'tracking'|'community'| 'createPost'|'postPublished'|'postDetails'>(initialPage);const [mode,setMode]=useState<'bus'|'train'>('bus');
  const [from,setFrom]=useState('Horana'),[to,setTo]=useState('Colombo'),[date,setDate]=useState(today());const [demo,setDemo]=useState(true);
  const [journeys,setJourneys]=useState<Journey[]>([]),[selected,setSelected]=useState<Journey|null>(null),[data,setData]=useState<Tracking|null>(null);
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[trackingError,setTrackingError]=useState(''),[saved,setSaved]=useState<SavedJourney[]>([]),[savedError,setSavedError]=useState('');
@@ -76,7 +76,7 @@ const back=()=>{
   else if(page==='postDetails') setPage('community');
   else onWelcome();
 };
- useEffect(()=>{const sub=BackHandler.addEventListener('hardwareBackPress',()=>{if(dialog){setDialog(null);return true;}back();return true;});return()=>sub.remove();},[page,dialog]);
+ useEffect(()=>{if(Platform.OS!=='android')return;const sub=BackHandler.addEventListener('hardwareBackPress',()=>{if(dialog){setDialog(null);return true;}back();return true;});return()=>sub.remove();},[page,dialog]);
  async function loadSaved(){if(!user)return;setSavedError('');try{const r=await api<{journeys:SavedJourney[]}>('/saved-journeys');setSaved(r.journeys);}catch{setSavedError('Could not load saved journeys. Tap to retry.');}}
  useEffect(()=>{void loadSaved();},[user?.id]);
  useEffect(()=>{if(page!=='tracking'||!selected)return;let active=true;let running=false;setData(null);setTrackingError('');
@@ -118,8 +118,15 @@ if (page === 'postDetails') {
   return (
     <PostDetailsScreen
       postId={selectedLostFoundPostId}
+      user={user}
       onBack={() => setPage('community')}
       onNotifications={onNotifications}
+      onProfile={onProfile}
+      onDeleted={() => {
+        setSelectedLostFoundPostId(null);
+        setPublishedPost(null);
+        setPage('community');
+      }}
     />
   );
 }

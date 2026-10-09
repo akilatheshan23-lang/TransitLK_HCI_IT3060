@@ -16,6 +16,8 @@ import { RegisterScreen } from './src/screens/RegisterScreen';
 import { AuthorityLoginScreen } from './src/screens/AuthorityLoginScreen';
 import { BusOwnerLoginScreen } from './src/screens/BusOwnerLoginScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
+import OwnerDashboard from './src/OwnerDashboard';
+import AuthorityDashboardScreen from './src/authority/AuthorityDashboardScreen';
 import FleetTrackingScreen from './src/FleetTrackingScreen';
 import TransitApp from './src/TransitApp';
 import AppNavigator from './src/navigation/AppNavigator';
@@ -24,6 +26,8 @@ import { api, UserProfile, BusSearchResult } from './src/services/api';
 export type ScreenType =
   | 'home'
   | 'transit'
+  | 'community'
+  | 'staff-management'
   | 'login'
   | 'register'
   | 'authority-login'
@@ -60,7 +64,7 @@ export default function App() {
         hash === 'authority-login' ||
         hash === 'bus-owner-login' ||
         hash === 'dashboard' ||
-        hash === 'transit' ||
+        hash === 'transit' || hash === 'community' || hash === 'staff-management' ||
         hash === 'fleet' ||
         hash === 'home' ||
         hash === 'payment' ||
@@ -93,7 +97,7 @@ export default function App() {
           hash === 'authority-login' ||
           hash === 'bus-owner-login' ||
           hash === 'dashboard' ||
-          hash === 'transit' ||
+          hash === 'transit' || hash === 'community' || hash === 'staff-management' ||
           hash === 'fleet' ||
           hash === 'home' ||
           hash === 'payment' ||
@@ -142,10 +146,11 @@ export default function App() {
 
   const renderScreen = () => {
     switch (currentScreen) {
+      case 'community':
       case 'transit':
         return (
-          <TransitApp
-            user={activeUser as any}
+          <TransitApp key={currentScreen} initialPage={currentScreen === 'community' ? 'community' : 'home'}
+            user={currentUser as any}
             onWelcome={() => navigateTo('home')}
             onProfile={() => navigateTo(currentUser ? 'dashboard' : 'login')}
             onNotifications={() => {}}
@@ -186,7 +191,7 @@ export default function App() {
                   setCurrentUser(user);
                   if (user.role === 'conductor') {
                     navigateTo('conductor');
-                  } else if (user.role === 'bus_owner' || user.role === 'authority' || user.role === 'admin') {
+                  } else if (['owner', 'bus_owner', 'officer', 'authority', 'admin'].includes(user.role)) {
                     navigateTo('dashboard');
                   } else {
                     navigateTo('home');
@@ -202,7 +207,7 @@ export default function App() {
                 onNavigateToProfile={() => navigateTo('dashboard')}
                 onNavigateBack={() => navigateTo('transit')}
                 onNavigateToTransit={() => navigateTo('transit')}
-                onNavigateToCommunity={() => navigateTo('transit')}
+                onNavigateToCommunity={() => navigateTo('community')}
                 onNavigateToPayment={handleSelectBusAndPay}
                 onNavigateToTickets={() => navigateTo('tickets')}
                 onNavigateToConductor={() => navigateTo('conductor')}
@@ -239,7 +244,7 @@ export default function App() {
               setCurrentUser(user);
               if (user.role === 'conductor') {
                 navigateTo('conductor');
-              } else if (user.role === 'bus_owner' || user.role === 'authority' || user.role === 'admin') {
+              } else if (['owner', 'bus_owner', 'officer', 'authority', 'admin'].includes(user.role)) {
                 navigateTo('dashboard');
               } else {
                 navigateTo('home');
@@ -282,6 +287,12 @@ export default function App() {
         );
 
       case 'dashboard':
+        if (currentUser && ['officer', 'authority'].includes(currentUser.role)) {
+          return <AuthorityDashboardScreen user={currentUser as any} onOpenWebDashboard={() => navigateTo('staff-management')} onBack={() => navigateTo('home')} onSignOut={() => { void api.logout().then(() => { setCurrentUser(null); navigateTo('login'); }); }} />;
+        }
+        if (currentUser && ['owner', 'bus_owner'].includes(currentUser.role)) {
+          return <OwnerDashboard user={currentUser as any} onOpenWebDashboard={() => navigateTo('staff-management')} onViewFleet={() => navigateTo('fleet')} onBack={() => navigateTo('home')} onSignOut={() => { void api.logout().then(() => { setCurrentUser(null); navigateTo('login'); }); }} />;
+        }
         return (
           <DashboardScreen
             user={activeUser}
@@ -296,6 +307,8 @@ export default function App() {
           />
         );
 
+      case 'staff-management':
+        return <DashboardScreen user={activeUser} onLogout={() => { void api.logout().then(() => { setCurrentUser(null); navigateTo('login'); }); }} onNavigateBack={() => navigateTo('dashboard')} onNavigateToHome={() => navigateTo('home')} />;
       case 'fleet':
         return (
           <FleetTrackingScreen
@@ -311,7 +324,7 @@ export default function App() {
             onNavigateToProfile={() => navigateTo(currentUser ? 'dashboard' : 'login')}
             onNavigateBack={() => navigateTo('transit')}
             onNavigateToTransit={() => navigateTo('transit')}
-            onNavigateToCommunity={() => navigateTo('transit')}
+            onNavigateToCommunity={() => navigateTo('community')}
             onNavigateToPayment={handleSelectBusAndPay}
             onNavigateToTickets={() => navigateTo('tickets')}
             onNavigateToConductor={() => navigateTo('conductor')}

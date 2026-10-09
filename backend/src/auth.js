@@ -7,6 +7,7 @@ export async function hashPassword(password) {
   return `${salt}:${key.toString('hex')}`;
 }
 export async function verifyPassword(password, stored) {
+  if (typeof stored !== 'string' || !/^[a-f0-9]{32}:[a-f0-9]{128}$/i.test(stored)) return false;
   const [salt, hash] = stored.split(':');
   const key = await scrypt(password, salt, 64);
   return timingSafeEqual(key, Buffer.from(hash, 'hex'));

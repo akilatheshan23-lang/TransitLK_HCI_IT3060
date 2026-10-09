@@ -4,6 +4,7 @@ import { authRouter } from './routes/auth.js';
 import { adminRouter } from './routes/admin.js';
 import { busesRouter } from './routes/buses.js';
 import { paymentsRouter } from './routes/payments.js';
+import { authorityRouter } from './authority.js';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -14,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { hashPassword, verifyPassword, newToken, tokenHash, publicUser } from './auth.js';
 
 const ownerPortalFile = fileURLToPath(new URL('owner-portal.html', import.meta.url));
+const authorityPortalFile = fileURLToPath(new URL('authority-portal.html',import.meta.url));
 const language = z.enum(['en', 'ta', 'si']);
 const credentials = z.object({ email: z.string().trim().toLowerCase().email().max(254), password: z.string().min(8).max(128) }).strict();
 const registration = credentials.extend({ name: z.string().trim().min(2).max(80), language: language.default('en') });
@@ -33,6 +35,33 @@ export function createApp(store, { origins = ['http://localhost:8081', 'http://1
     version: '1.0.0',
     timestamp: new Date().toISOString(),
   }));
+  const uploadsDirectory = fileURLToPath(
+  new URL('../uploads/', import.meta.url)
+);
+
+app.get(
+  ['/authority', '/authority-portal'],
+  async (_req, res) => {
+    const html = await readFile(
+      authorityPortalFile,
+      'utf8'
+    );
+
+    res.type('html').send(html);
+  }
+);
+
+app.use(
+  '/uploads',
+  (_req, res, next) => {
+    res.setHeader(
+      'Cross-Origin-Resource-Policy',
+      'cross-origin'
+    );
+    next();
+  },
+  express.static(uploadsDirectory)
+);
   app.get(['/owner', '/owner-portal'], async (_req, res) => {
     const html = await readFile(ownerPortalFile, 'utf8');
     const key = JSON.stringify(process.env.GEOAPIFY_API_KEY || '').replaceAll('<', '\\u003c');
@@ -67,7 +96,7 @@ export function createApp(store, { origins = ['http://localhost:8081', 'http://1
   async function issueSession(user, res, status = 200) {
     const token = newToken();
     await store.createSession({ tokenHash: tokenHash(token), userId: String(user._id), expiresAt: new Date(Date.now() + 7 * 86400000) });
-    res.status(status).json({ token, user: publicUser(user) });
+    res.status(status).json({ success: true, token, user: publicUser(user) });
   }
   app.post('/api/auth/register', async (req, res, next) => {
     const result = registration.safeParse(req.body);
@@ -89,6 +118,7 @@ export function createApp(store, { origins = ['http://localhost:8081', 'http://1
     const dummy = '00000000000000000000000000000000:' + '00'.repeat(64);
     const valid = await verifyPassword(result.data.password, user?.passwordHash || dummy);
     if (!user || !valid) return res.status(401).json({ error: 'Email or password is incorrect.' });
+    if (['authority', 'bus_owner'].includes(user.role) && user.status !== 'approved') return res.status(403).json({ error: 'Your staff account is awaiting approval.' });
     await issueSession(user, res);
   });
   async function authenticate(req, res, next) {
@@ -100,7 +130,7 @@ export function createApp(store, { origins = ['http://localhost:8081', 'http://1
     if (!req.user) return res.status(401).json({ error: 'Your session has expired. Please sign in again.' });
     next();
   }
-  app.get('/api/me', authenticate, (req, res) => res.json({ user: publicUser(req.user) }));
+  app.get('/api/me', authenticate, (req, res) => res.json({ success: true, user: publicUser(req.user) }));
   app.patch('/api/me/preferences', authenticate, async (req, res) => {
     const result = z.object({ language }).strict().safeParse(req.body);
     if (!result.success) return res.status(400).json({ error: 'Choose English, Tamil or Sinhala.' });
@@ -117,6 +147,7 @@ export function createApp(store, { origins = ['http://localhost:8081', 'http://1
   app.use('/api/payments', paymentsRouter);
   app.use('/api', lostFoundRouter(store, authenticate));
   app.use('/api', transitRouter(store, authenticate));
+  app.use('/api',authorityRouter(store, authenticate));
   app.use((_req, res) => res.status(404).json({ error: 'This endpoint does not exist.' }));
   app.use((error, _req, res, _next) => {
     if (error.type === 'entity.parse.failed') return res.status(400).json({ error: 'Invalid JSON.' });
