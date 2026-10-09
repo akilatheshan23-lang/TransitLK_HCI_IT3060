@@ -4,6 +4,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../../components/Header';
+import { platformShadow } from '../../theme/shadows';
 
 export default function TicketHistory() {
   const route = useRoute<any>();
@@ -104,7 +105,7 @@ const styles = StyleSheet.create({
   summaryBanner: { backgroundColor: '#e0f2fe', padding: 16, borderRadius: 12, marginBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   summaryText: { fontSize: 16, fontWeight: '700', color: '#0369a1' },
   summaryTotal: { fontSize: 16, fontWeight: '800', color: '#0284c7' },
-  historyCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 16, borderRadius: 12, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  historyCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 16, borderRadius: 12, marginBottom: 12, ...platformShadow({ color: '#000', width: 0, height: 2, opacity: 0.05, radius: 4, elevation: 2 }) },
   iconBox: { width: 40, height: 40, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
   details: { flex: 1 },
   ticketId: { fontSize: 16, fontWeight: '700', color: '#0f172a' },

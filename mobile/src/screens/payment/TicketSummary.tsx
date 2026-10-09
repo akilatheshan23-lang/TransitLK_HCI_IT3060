@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { PaymentStackParamList } from '../../navigation/AppNavigator';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { PaymentStackParamList } from '../../navigation/navigationTypes';
+import { platformShadow } from '../../theme/shadows';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../../components/Header';
 
@@ -138,10 +139,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
   content: { padding: 20, flex: 1, alignItems: 'center' },
   successIconContainer: { marginTop: 32, marginBottom: 20 },
-  successIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#d1fae5', justifyContent: 'center', alignItems: 'center', shadowColor: '#10b981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
+  successIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#d1fae5', justifyContent: 'center', alignItems: 'center', ...platformShadow({ color: '#10b981', width: 0, height: 4, opacity: 0.2, radius: 8, elevation: 4 }) },
   title: { fontSize: 26, fontWeight: '800', color: '#111827', marginBottom: 8, textAlign: 'center', letterSpacing: 0.5 },
   subtitle: { fontSize: 16, color: '#4b5563', marginBottom: 32, textAlign: 'center' },
-  ticketCard: { backgroundColor: '#fff', padding: 24, borderRadius: 20, width: '100%', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 6, marginBottom: 32 },
+  ticketCard: { backgroundColor: '#fff', padding: 24, borderRadius: 20, width: '100%', ...platformShadow({ color: '#000', width: 0, height: 6, opacity: 0.1, radius: 12, elevation: 6 }), marginBottom: 32 },
   route: { fontSize: 18, fontWeight: '700', color: '#1f2937', marginBottom: 6 },
   datetime: { fontSize: 14, color: '#6b7280', marginBottom: 20, fontWeight: '500' },
   divider: { height: 1, backgroundColor: '#e5e7eb', marginBottom: 20 },
@@ -156,6 +157,6 @@ const styles = StyleSheet.create({
   summaryLabel: { color: '#4b5563', fontSize: 15, fontWeight: '500' },
   summaryValue: { color: '#111827', fontSize: 15, fontWeight: '700' },
   footer: { marginTop: 'auto', paddingTop: 20, width: '100%' },
-  button: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#0f766e', padding: 20, borderRadius: 16, alignItems: 'center', width: '100%', shadowColor: '#0f766e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 6 },
+  button: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#0f766e', padding: 20, borderRadius: 16, alignItems: 'center', width: '100%', ...platformShadow({ color: '#0f766e', width: 0, height: 8, opacity: 0.3, radius: 16, elevation: 6 }) },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 0.5 }
 });

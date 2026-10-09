@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, TextInput, ActivityIndicator, Alert, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PaymentStackParamList } from '../../navigation/AppNavigator';
+import type { PaymentStackParamList } from '../../navigation/navigationTypes';
+import { platformShadow } from '../../theme/shadows';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import Header from '../../components/Header';
 import { api } from '../../services/api';
@@ -317,11 +318,7 @@ const styles = StyleSheet.create({
     padding: 24,
     borderRadius: 16,
     marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
+    ...platformShadow({ color: '#000', width: 0, height: 8, opacity: 0.3, radius: 12, elevation: 8 }),
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32, alignItems: 'center' },
   cardPreviewLogo: { color: '#94a3b8', fontSize: 13, fontWeight: '700', letterSpacing: 1 },
@@ -365,7 +362,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row' },
   inputGroup: { flex: 1 },
   footer: { marginTop: 'auto', paddingTop: 20 },
-  button: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#0f766e', padding: 20, borderRadius: 16, alignItems: 'center', shadowColor: '#0f766e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 6 },
-  buttonDisabled: { backgroundColor: '#94a3b8', shadowOpacity: 0 },
+  button: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#0f766e', padding: 20, borderRadius: 16, alignItems: 'center', ...platformShadow({ color: '#0f766e', width: 0, height: 8, opacity: 0.3, radius: 16, elevation: 6 }) },
+  buttonDisabled: { backgroundColor: '#94a3b8', ...Platform.select({ web: { boxShadow: 'none' } as any, default: { shadowOpacity: 0 } }) },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 0.5 }
 });

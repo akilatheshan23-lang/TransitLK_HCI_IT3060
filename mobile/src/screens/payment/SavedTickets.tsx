@@ -4,8 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../../components/Header';
-import { ScreenBackContext } from '../../navigation/AppNavigator';
-import { AppNavigationContext } from '../../../App';
+import { ScreenBackContext, AppNavigationContext } from '../../navigation/navigationTypes';
+import { platformShadow } from '../../theme/shadows';
 
 interface SavedTicket {
   id?: string;
@@ -152,10 +152,10 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, color: '#64748b', marginBottom: 24 },
   tabContainer: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 100, padding: 4, marginBottom: 24 },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 100 },
-  activeTab: { backgroundColor: '#0f766e', shadowColor: '#0f766e', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 2 },
+  activeTab: { backgroundColor: '#0f766e', ...platformShadow({ color: '#0f766e', width: 0, height: 2, opacity: 0.2, radius: 4, elevation: 2 }) },
   tabText: { fontSize: 14, fontWeight: '600', color: '#64748b' },
   activeTabText: { color: '#fff' },
-  ticketCard: { backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#e2e8f0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  ticketCard: { backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: '#e2e8f0', ...platformShadow({ color: '#000', width: 0, height: 2, opacity: 0.05, radius: 6, elevation: 2 }) },
   cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   routeText: { fontSize: 16, fontWeight: '700', color: '#0f172a', marginLeft: 8 },
   dateText: { fontSize: 13, color: '#64748b', marginBottom: 20, marginLeft: 26 },

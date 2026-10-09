@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import QRCode from 'react-native-qrcode-svg';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../../components/Header';
+import { platformShadow } from '../../theme/shadows';
 
 export default function MyETicket() {
   const navigation = useNavigation<any>();
@@ -148,12 +149,12 @@ export default function MyETicket() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f1f5f9' },
   content: { padding: 20, flex: 1, alignItems: 'center' },
-  ticketContainer: { backgroundColor: '#fff', borderRadius: 24, width: '100%', paddingVertical: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 10, marginTop: 12 },
+  ticketContainer: { backgroundColor: '#fff', borderRadius: 24, width: '100%', paddingVertical: 24, ...platformShadow({ color: '#000', width: 0, height: 10, opacity: 0.1, radius: 16, elevation: 10 }), marginTop: 12 },
   offlineBadge: { backgroundColor: '#cffafe', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginLeft: 24, marginBottom: 16 },
   offlineBadgeText: { color: '#0891b2', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
   qrSection: { alignItems: 'center', paddingHorizontal: 24 },
   scanText: { color: '#0f766e', fontSize: 13, fontWeight: '800', letterSpacing: 1, marginBottom: 16 },
-  qrCodeWrapper: { padding: 16, backgroundColor: '#fff', borderRadius: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 },
+  qrCodeWrapper: { padding: 16, backgroundColor: '#fff', borderRadius: 16, ...platformShadow({ color: '#000', width: 0, height: 4, opacity: 0.1, radius: 8, elevation: 4 }) },
   ticketIdText: { marginTop: 20, fontSize: 20, fontWeight: '800', color: '#0f172a' },
   verificationCodeBox: { marginTop: 12, paddingVertical: 8, paddingHorizontal: 16, backgroundColor: '#f1f5f9', borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#cbd5e1' },
   verificationCodeLabel: { fontSize: 11, color: '#64748b', fontWeight: '700', letterSpacing: 0.5, marginBottom: 2 },
@@ -170,6 +171,6 @@ const styles = StyleSheet.create({
   fareContainer: { flexDirection: 'row', alignItems: 'center' },
   bulletPoint: { color: '#94a3b8', fontSize: 14, fontWeight: '700', marginHorizontal: 4 },
   paidText: { color: '#0f766e', fontSize: 14, fontWeight: '800' },
-  saveBtn: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#0f766e', width: '100%', padding: 20, borderRadius: 16, marginTop: 'auto', marginBottom: 20, alignItems: 'center', shadowColor: '#0f766e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 6 },
+  saveBtn: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#0f766e', width: '100%', padding: 20, borderRadius: 16, marginTop: 'auto', marginBottom: 20, alignItems: 'center', ...platformShadow({ color: '#0f766e', width: 0, height: 8, opacity: 0.3, radius: 16, elevation: 6 }) },
   saveBtnText: { color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 0.5 }
 });

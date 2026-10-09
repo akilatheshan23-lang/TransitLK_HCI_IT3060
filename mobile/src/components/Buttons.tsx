@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { ArrowRightIcon } from './Icons';
 import { colors } from '../theme/colors';
+import { platformShadow } from '../theme/shadows';
 
 interface ButtonProps {
   title: string;
@@ -92,11 +93,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     width: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    ...platformShadow({ color: '#000', width: 0, height: 2, opacity: 0.04, radius: 4, elevation: 1 }),
   },
   googleBorder: {
     borderWidth: 1.2,

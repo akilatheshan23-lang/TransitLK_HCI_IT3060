@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { ArrowLeftIcon, BellIcon } from './Icons';
 import { colors } from '../theme/colors';
+import { platformShadow } from '../theme/shadows';
 
 export interface HeaderProps {
   title: string;
@@ -100,11 +101,7 @@ const styles = StyleSheet.create({
     padding: 6,
     backgroundColor: '#fff',
     borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    ...platformShadow({ color: '#000', width: 0, height: 1, opacity: 0.05, radius: 2, elevation: 1 }),
     justifyContent: 'center',
     alignItems: 'center',
   },

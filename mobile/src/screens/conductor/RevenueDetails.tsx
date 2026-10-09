@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../../components/Header';
 import { Ionicons } from '@expo/vector-icons';
+import { platformShadow } from '../../theme/shadows';
 
 export default function RevenueDetails({ route }: any) {
   const [stats, setStats] = useState<any>({ invalid: 0 });
@@ -131,9 +132,9 @@ export default function RevenueDetails({ route }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   content: { padding: 20, paddingBottom: 40 },
-  summaryCard: { backgroundColor: '#0f172a', borderRadius: 16, padding: 20, marginBottom: 24, shadowColor: '#0f172a', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  summaryCard: { backgroundColor: '#0f172a', borderRadius: 16, padding: 20, marginBottom: 24, ...platformShadow({ color: '#0f172a', width: 0, height: 4, opacity: 0.3, radius: 8, elevation: 6 }) },
   summaryTitle: { color: '#e2e8f0', fontSize: 15, fontWeight: '700', textAlign: 'center' },
-  tripCard: { backgroundColor: '#fff', borderRadius: 16, marginBottom: 16, borderWidth: 1, borderColor: '#e2e8f0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2, overflow: 'hidden' },
+  tripCard: { backgroundColor: '#fff', borderRadius: 16, marginBottom: 16, borderWidth: 1, borderColor: '#e2e8f0', ...platformShadow({ color: '#000', width: 0, height: 2, opacity: 0.05, radius: 4, elevation: 2 }), overflow: 'hidden' },
   tripHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20 },
   tripTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   tripTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a' },

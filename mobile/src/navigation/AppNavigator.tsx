@@ -17,42 +17,14 @@ import TicketHistory from '../screens/conductor/TicketHistory';
 import RevenueDetails from '../screens/conductor/RevenueDetails';
 import PaymentFailed from '../screens/payment/PaymentFailed';
 
-export type PaymentStackParamList = {
-  PaymentCheckout: {
-    routeData?: {
-      id: string;
-      bus: string;
-      type: string;
-      from: string;
-      fromTime: string;
-      to: string;
-      toTime: string;
-      price: number;
-      date: string;
-    };
-  } | undefined;
-  PaymentMethod: undefined;
-  CardPayment: undefined;
-  EWalletPayment: undefined;
-  WalletTopUp: undefined;
-  TicketSummary: undefined;
-  MyETicket: undefined;
-  SavedTickets: undefined;
-  PaymentFailed: undefined;
-  ConductorDashboard: undefined;
-  ScanTicket: undefined;
-  ManualCheck: undefined;
-  ValidationResult: { ticketData: string };
-  TicketHistory: { type: string };
-  RevenueDetails: undefined;
-};
+import {
+  PaymentStackParamList,
+  AppNavigatorProps,
+  ScreenBackContext,
+} from './navigationTypes';
 
-export interface AppNavigatorProps {
-  initialRouteName?: keyof PaymentStackParamList;
-  onBackToHome?: () => void;
-}
-
-export const ScreenBackContext = React.createContext<{ onBackToHome?: () => void }>({});
+export type { PaymentStackParamList, AppNavigatorProps };
+export { ScreenBackContext };
 
 const Stack = createNativeStackNavigator<PaymentStackParamList>();
 

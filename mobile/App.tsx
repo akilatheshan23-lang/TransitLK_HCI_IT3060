@@ -20,25 +20,9 @@ import FleetTrackingScreen from './src/FleetTrackingScreen';
 import TransitApp from './src/TransitApp';
 import AppNavigator from './src/navigation/AppNavigator';
 import { api, UserProfile, BusSearchResult } from './src/services/api';
-
-export type ScreenType =
-  | 'home'
-  | 'transit'
-  | 'login'
-  | 'register'
-  | 'authority-login'
-  | 'bus-owner-login'
-  | 'dashboard'
-  | 'fleet'
-  | 'payment'
-  | 'tickets'
-  | 'conductor';
-
-export const AppNavigationContext = React.createContext<{
-  navigateToScreen: (screen: ScreenType) => void;
-}>({
-  navigateToScreen: () => {},
-});
+import { ScreenType, AppNavigationContext } from './src/navigation/navigationTypes';
+export type { ScreenType };
+export { AppNavigationContext };
 
 const defaultGuestUser: UserProfile = {
   id: 'guest',

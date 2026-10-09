@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { BusPictogram } from './Icons';
 import { colors } from '../theme/colors';
+import { platformShadow } from '../theme/shadows';
 
 interface TransitLogoProps {
   size?: 'normal' | 'large';
@@ -33,11 +34,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.teal.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: colors.teal.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 3,
+    ...platformShadow({ color: colors.teal.primary, width: 0, height: 4, opacity: 0.15, radius: 8, elevation: 3 }),
   },
   badgeLarge: {
     width: 52,

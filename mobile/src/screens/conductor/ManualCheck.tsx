@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TextInput, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Header from '../../components/Header';
 import { Ionicons } from '@expo/vector-icons';
+import { platformShadow } from '../../theme/shadows';
 
 export default function ManualCheck() {
   const [ticketId, setTicketId] = useState('');
@@ -64,7 +65,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, color: '#64748b', textAlign: 'center', marginBottom: 32 },
   inputContainer: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#cbd5e1', marginBottom: 24, overflow: 'hidden' },
   input: { padding: 16, fontSize: 18, textAlign: 'center', fontWeight: '600', color: '#0f172a' },
-  button: { backgroundColor: '#0f766e', padding: 18, borderRadius: 12, alignItems: 'center', shadowColor: '#0f766e', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
-  buttonDisabled: { backgroundColor: '#94a3b8', shadowOpacity: 0, elevation: 0 },
+  button: { backgroundColor: '#0f766e', padding: 18, borderRadius: 12, alignItems: 'center', ...platformShadow({ color: '#0f766e', width: 0, height: 4, opacity: 0.3, radius: 8, elevation: 4 }) },
+  buttonDisabled: { backgroundColor: '#94a3b8', ...Platform.select({ web: { boxShadow: 'none' } as any, default: { shadowOpacity: 0, elevation: 0 } }) },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 }
 });
