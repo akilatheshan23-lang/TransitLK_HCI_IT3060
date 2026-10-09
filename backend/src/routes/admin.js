@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { ObjectId } from 'mongodb';
 import { getUsersCollection, getSessionsCollection } from '../db/connection.js';
+import { getSafeBusesCollection } from './buses.js';
 import {
   hashPassword,
   verifyPassword,
@@ -322,6 +323,7 @@ adminRouter.post('/login', async (req, res) => {
 adminRouter.get('/stats', requireAdmin, async (req, res) => {
   try {
     const users = getSafeUsersCollection();
+    const buses = getSafeBusesCollection();
 
     const [
       pendingOfficers,
@@ -330,6 +332,9 @@ adminRouter.get('/stats', requireAdmin, async (req, res) => {
       approvedOwners,
       totalPassengers,
       totalUsers,
+      pendingBuses,
+      approvedBuses,
+      totalBuses,
     ] = await Promise.all([
       users.countDocuments({ role: 'authority', status: 'pending' }),
       users.countDocuments({ role: 'bus_owner', status: 'pending' }),
@@ -337,6 +342,9 @@ adminRouter.get('/stats', requireAdmin, async (req, res) => {
       users.countDocuments({ role: 'bus_owner', status: 'approved' }),
       users.countDocuments({ role: 'passenger' }),
       users.countDocuments({}),
+      buses.countDocuments({ status: 'pending' }),
+      buses.countDocuments({ status: { $in: ['active', 'approved'] } }),
+      buses.countDocuments({}),
     ]);
 
     const totalPending = pendingOfficers + pendingOwners;
@@ -351,6 +359,9 @@ adminRouter.get('/stats', requireAdmin, async (req, res) => {
         approvedOwners,
         totalPassengers,
         totalUsers,
+        pendingBuses,
+        approvedBuses,
+        totalBuses,
       },
     });
   } catch (error) {
@@ -572,5 +583,209 @@ adminRouter.post('/seed-demo-pending', requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Seed demo pending error:', error);
     return res.status(500).json({ success: false, message: 'Could not seed demo pending users' });
+  }
+});
+
+/**
+ * POST /api/admin/seed-demo-pending-bus
+ * Seed a sample pending bus schedule submission for demonstration (Protected: Admin Only)
+ */
+adminRouter.post('/seed-demo-pending-bus', requireAdmin, async (req, res) => {
+  try {
+    const buses = getSafeBusesCollection();
+    const demoBus = {
+      _id: generateId(),
+      busRegNumber: `WP ND-${Math.floor(2000 + Math.random() * 7000)}`,
+      ownerId: 'owner_sample_01',
+      ownerName: 'Sunil Dharmadasa',
+      companyName: 'Lanka Super Express (Pvt) Ltd',
+      phone: '077 345 6789',
+      routeNumber: '120',
+      routeName: 'Horana - Colombo (Pettah)',
+      startPoint: 'Horana Central Terminal',
+      endPoint: 'Colombo (Pettah Bus Stand)',
+      departureTime: '06:15 AM',
+      arrivalTime: '07:35 AM',
+      journeyDuration: '1 hr 20 mins',
+      busType: 'Luxury AC',
+      totalSeats: 48,
+      availableSeats: 48,
+      baseFare: 240,
+      stops: [
+        'Horana',
+        'Pokunuwita',
+        'Gonapola',
+        'Kahathuduwa',
+        'Kesbewa',
+        'Piliyandala',
+        'Boralesgamuwa',
+        'Rattanapitiya',
+        'Pepiliyana',
+        'Kohuwala',
+        'Dutugemunu',
+        'Pamankada',
+        'Havelock Town',
+        'Thummulla',
+        'Town Hall',
+        'Maradana',
+        'Colombo',
+      ],
+      status: 'pending',
+      submissionType: 'new',
+      submittedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await buses.insertOne(demoBus);
+
+    return res.json({
+      success: true,
+      message: `Seeded sample pending bus submission ${demoBus.busRegNumber} (Route ${demoBus.routeNumber})!`,
+      bus: demoBus,
+    });
+  } catch (error) {
+    console.error('Seed demo pending bus error:', error);
+    return res.status(500).json({ success: false, message: 'Could not seed demo pending bus' });
+  }
+});
+
+/**
+ * GET /api/admin/pending-buses
+ * Retrieve all pending bus schedules submitted by owners awaiting approval (Protected: Admin Only)
+ */
+adminRouter.get('/pending-buses', requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.query;
+    const buses = getSafeBusesCollection();
+    const filter = status && status !== 'all' ? { status } : { status: 'pending' };
+    const pendingBuses = await buses.find(filter).toArray();
+
+    return res.json({
+      success: true,
+      count: pendingBuses.length,
+      buses: pendingBuses,
+    });
+  } catch (error) {
+    console.error('Admin pending buses error:', error);
+    return res.status(500).json({ success: false, message: 'Could not fetch pending bus submissions' });
+  }
+});
+
+/**
+ * GET /api/admin/buses
+ * Retrieve all fleet buses with optional status filter (Protected: Admin Only)
+ */
+adminRouter.get('/buses', requireAdmin, async (req, res) => {
+  try {
+    const { status, search } = req.query;
+    const query = {};
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+    const buses = getSafeBusesCollection();
+    let busList = await buses.find(query).toArray();
+    if (search && typeof search === 'string' && search.trim()) {
+      const q = search.trim().toLowerCase();
+      busList = busList.filter(b =>
+        (b.busRegNumber && b.busRegNumber.toLowerCase().includes(q)) ||
+        (b.routeNumber && String(b.routeNumber).includes(q)) ||
+        (b.ownerName && b.ownerName.toLowerCase().includes(q)) ||
+        (b.companyName && b.companyName.toLowerCase().includes(q)) ||
+        (b.startPoint && b.startPoint.toLowerCase().includes(q)) ||
+        (b.endPoint && b.endPoint.toLowerCase().includes(q))
+      );
+    }
+
+    return res.json({
+      success: true,
+      count: busList.length,
+      buses: busList,
+    });
+  } catch (error) {
+    console.error('Admin list buses error:', error);
+    return res.status(500).json({ success: false, message: 'Could not fetch bus list' });
+  }
+});
+
+/**
+ * POST /api/admin/buses/:id/approve
+ * Approve a pending bus submission (Protected: Admin Only)
+ */
+adminRouter.post('/buses/:id/approve', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const buses = getSafeBusesCollection();
+    const bus = await buses.findOne({ _id: id });
+    if (!bus) {
+      return res.status(404).json({ success: false, message: 'Bus submission not found' });
+    }
+
+    await buses.updateOne(
+      { _id: id },
+      {
+        $set: {
+          status: 'approved',
+          reviewedAt: new Date().toISOString(),
+          approvedAt: new Date().toISOString(),
+          rejectionReason: null,
+          adminFeedback: null,
+          updatedAt: new Date().toISOString(),
+        },
+      }
+    );
+
+    const updatedBus = await buses.findOne({ _id: id });
+    console.log(`[Admin] Approved bus schedule: ${bus.busRegNumber} (Route ${bus.routeNumber})`);
+
+    return res.json({
+      success: true,
+      message: `Bus ${bus.busRegNumber} schedule has been approved and published to active routes!`,
+      bus: updatedBus,
+    });
+  } catch (error) {
+    console.error('Admin approve bus error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to approve bus submission' });
+  }
+});
+
+/**
+ * POST /api/admin/buses/:id/reject
+ * Reject a pending bus submission with reason (Protected: Admin Only)
+ */
+adminRouter.post('/buses/:id/reject', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason = 'Timing or route requirements not met' } = req.body;
+    const buses = getSafeBusesCollection();
+    const bus = await buses.findOne({ _id: id });
+    if (!bus) {
+      return res.status(404).json({ success: false, message: 'Bus submission not found' });
+    }
+
+    await buses.updateOne(
+      { _id: id },
+      {
+        $set: {
+          status: 'rejected',
+          rejectionReason: reason,
+          adminFeedback: reason,
+          reviewedAt: new Date().toISOString(),
+          rejectedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      }
+    );
+
+    const updatedBus = await buses.findOne({ _id: id });
+    console.log(`[Admin] Rejected bus schedule: ${bus.busRegNumber} - Reason: ${reason}`);
+
+    return res.json({
+      success: true,
+      message: `Bus schedule for ${bus.busRegNumber} has been rejected. Owner notified.`,
+      bus: updatedBus,
+    });
+  } catch (error) {
+    console.error('Admin reject bus error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to reject bus submission' });
   }
 });

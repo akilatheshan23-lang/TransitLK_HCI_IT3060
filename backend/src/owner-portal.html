@@ -269,13 +269,51 @@
       display: none; align-items: center; justify-content: center; z-index: 2000;
     }
     .modal-box {
-      background: white; border-radius: 20px; max-width: 480px; width: 90%;
+      background: white; border-radius: 20px; max-width: 520px; width: 90%;
       padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-      display: flex; flex-direction: column; gap: 16px;
+      display: flex; flex-direction: column; gap: 14px;
+      max-height: 90vh; overflow-y: auto;
     }
     .modal-header { display: flex; justify-content: space-between; align-items: center; }
     .modal-title { font-size: 18px; font-weight: 800; color: var(--navy); }
     .close-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-muted); }
+    
+    .ntc-notice-box {
+      background: #FFFBEB;
+      border: 1px solid #FDE68A;
+      border-radius: 16px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 13px;
+      color: #92400E;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 10px; }
+    .form-group label { font-size: 12px; font-weight: 700; color: var(--navy); }
+    .form-group input, .form-group select {
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      font-size: 13px;
+      outline: none;
+    }
+    .form-group input:focus, .form-group select:focus {
+      border-color: var(--teal);
+    }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .tag-pending { background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
+    .tag-approved { background: #D1FAE5; color: #065F46; border: 1px solid #A7F3D0; }
+    .tag-rejected { background: #FEE2E2; color: #991B1B; border: 1px solid #FECACA; }
+    .action-btn-sm {
+      padding: 4px 8px; font-size: 11px; font-weight: 700; border-radius: 6px; cursor: pointer; border: 1px solid var(--border); background: white;
+      transition: all 0.15s ease;
+    }
+    .action-btn-sm:hover { background: #F1F5F9; }
+    .action-btn-edit { color: #007A74; border-color: #007A74; }
+    .action-btn-edit:hover { background: #E6F4F2; }
+    .action-btn-delete { color: #DC2626; border-color: #F87171; }
+    .action-btn-delete:hover { background: #FEE2E2; }
   </style>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
@@ -293,7 +331,7 @@
     <div class="header-actions">
       <div class="live-badge">
         <span class="pulse-dot"></span>
-        <span>5 / 5 Fleet Buses Live on GPS</span>
+        <span id="headerFleetCount">5 Fleet Buses Registered</span>
       </div>
       <div class="owner-profile">
         <div class="owner-avatar">OW</div>
@@ -310,12 +348,22 @@
     <!-- Welcome Banner -->
     <div class="overview-banner">
       <div>
-        <div class="eyebrow">TODAY'S OPERATIONS</div>
+        <div class="eyebrow">COMMERCIAL FLEET OPERATIONS</div>
         <h2 class="greeting">Good morning, Owner.</h2>
       </div>
       <div class="btn-group">
         <button class="btn btn-outline" onclick="exportReport()">📊 Export Revenue Report</button>
-        <button class="btn btn-primary" onclick="openDispatchModal()">➕ Dispatch Bus</button>
+        <button class="btn btn-primary" onclick="openAddBusModal()">➕ Add Bus & Schedule</button>
+        <button class="btn btn-outline" onclick="openDispatchModal()">⚡ Quick Dispatch</button>
+      </div>
+    </div>
+
+    <!-- Regulatory Notice Banner -->
+    <div class="ntc-notice-box">
+      <div style="font-size: 22px;">🛡️</div>
+      <div style="flex: 1;">
+        <strong>National Transport Commission Regulatory Notice:</strong>
+        <div>In accordance with official transit regulations, newly added buses and modified timetable schedules are submitted in <code>Pending Approval</code> status and require approval via the Administrator Dashboard before publishing to passenger live tracking.</div>
       </div>
     </div>
 
@@ -435,10 +483,13 @@
     <div class="panel-card">
       <div class="panel-header">
         <div>
-          <h3 class="panel-title">Fleet Vehicles & Status</h3>
-          <p class="panel-subtitle">Assigned buses and conductor details • Click 'View GPS' to track on map</p>
+          <h3 class="panel-title">Fleet Vehicles, Timetables & Approval Status</h3>
+          <p class="panel-subtitle">Manage assigned buses, departure/arrival schedules, and view Admin verification status</p>
         </div>
-        <span class="live-badge" style="background: #F1F5F9; color: var(--navy);">5 Active Lines</span>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-primary" style="padding: 6px 14px; font-size: 12px;" onclick="openAddBusModal()">➕ Add Bus & Schedule</button>
+          <span class="live-badge" style="background: #F1F5F9; color: var(--navy);" id="tableActiveBadge">Active Fleet</span>
+        </div>
       </div>
 
       <div class="table-responsive">
@@ -448,63 +499,208 @@
               <th>Route</th>
               <th>Origin → Destination</th>
               <th>Bus Plate</th>
-              <th>Status</th>
-              <th>Delay / ETA</th>
+              <th>Schedule (Timings)</th>
+              <th>Duration</th>
+              <th>Approval Status</th>
               <th>Today's Revenue</th>
-              <th>Action</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody id="fleetTableBody">
-            <tr>
-              <td><strong>177</strong></td>
-              <td>Kaduwela → Kollupitiya</td>
-              <td><code>NA-4402</code></td>
-              <td><span class="tag status-ontime">On-time</span></td>
-              <td>5 min</td>
-              <td><strong>Rs. 8,420</strong></td>
-              <td><button class="btn btn-outline" style="padding: 4px 10px; font-size: 11px;" onclick="focusBus('177')">📍 View GPS</button></td>
-            </tr>
-            <tr>
-              <td><strong>179</strong></td>
-              <td>Maharagama → Bambalapitiya</td>
-              <td><code>NB-8891</code></td>
-              <td><span class="tag status-delayed">Delayed</span></td>
-              <td>12 min</td>
-              <td><strong>Rs. 6,350</strong></td>
-              <td><button class="btn btn-outline" style="padding: 4px 10px; font-size: 11px;" onclick="focusBus('179')">📍 View GPS</button></td>
-            </tr>
-            <tr>
-              <td><strong>185</strong></td>
-              <td>Pettah → Nugegoda</td>
-              <td><code>NC-1204</code></td>
-              <td><span class="tag status-ontime">On-time</span></td>
-              <td>8 min</td>
-              <td><strong>Rs. 9,120</strong></td>
-              <td><button class="btn btn-outline" style="padding: 4px 10px; font-size: 11px;" onclick="focusBus('185')">📍 View GPS</button></td>
-            </tr>
-            <tr>
-              <td><strong>187</strong></td>
-              <td>Colombo Fort → Katunayake</td>
-              <td><code>ND-5541</code></td>
-              <td><span class="tag status-ontime">On-time</span></td>
-              <td>3 min</td>
-              <td><strong>Rs. 7,890</strong></td>
-              <td><button class="btn btn-outline" style="padding: 4px 10px; font-size: 11px;" onclick="focusBus('187')">📍 View GPS</button></td>
-            </tr>
-            <tr>
-              <td><strong>189</strong></td>
-              <td>Moratuwa → Rajagiriya</td>
-              <td><code>NE-7721</code></td>
-              <td><span class="tag status-delayed">Delayed</span></td>
-              <td>18 min</td>
-              <td><strong>Rs. 5,230</strong></td>
-              <td><button class="btn btn-outline" style="padding: 4px 10px; font-size: 11px;" onclick="focusBus('189')">📍 View GPS</button></td>
-            </tr>
+            <!-- Dynamic Fleet Rows Injected Here -->
           </tbody>
         </table>
       </div>
     </div>
   </main>
+
+  <!-- Modal for Adding New Bus & Schedule -->
+  <div class="modal-backdrop" id="addBusModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Register New Bus & Schedule</h3>
+        <button class="close-btn" onclick="closeAddBusModal()">&times;</button>
+      </div>
+      <p style="font-size: 13px; color: var(--text-muted);">
+        Submit bus number, corridor route, start & end terminals, and timetable. Requires Admin approval.
+      </p>
+
+      <div class="ntc-notice-box" style="padding: 10px 14px; font-size: 12px;">
+        <span>⏳</span>
+        <span>Newly submitted buses are placed in <strong>Pending Approval</strong> status until verified by the Administrator.</span>
+      </div>
+
+      <form id="addBusForm" onsubmit="submitAddBus(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Bus Registration Number *</label>
+            <input type="text" id="addPlate" placeholder="e.g. WP ND-4402" required />
+          </div>
+          <div class="form-group">
+            <label>Route Number *</label>
+            <select id="addRouteNumber" onchange="onAddRouteChange()">
+              <option value="120">120 • Horana - Colombo</option>
+              <option value="138">138 • Homagama - Pettah</option>
+              <option value="177" selected>177 • Kaduwela - Kollupitiya</option>
+              <option value="100">100 • Panadura - Fort</option>
+              <option value="185">185 • Pettah - Nugegoda</option>
+              <option value="187">187 • Fort - Katunayake</option>
+              <option value="189">189 • Moratuwa - Rajagiriya</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Route Full Name</label>
+          <input type="text" id="addRouteName" value="Kaduwela - Kollupitiya" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Starting Point *</label>
+            <input type="text" id="addStartPoint" value="Kaduwela Central" required />
+          </div>
+          <div class="form-group">
+            <label>Ending Point *</label>
+            <input type="text" id="addEndPoint" value="Kollupitiya Station" required />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Departure Time *</label>
+            <input type="text" id="addDepartureTime" value="06:30 AM" placeholder="06:30 AM" required />
+          </div>
+          <div class="form-group">
+            <label>Arrival Time *</label>
+            <input type="text" id="addArrivalTime" value="07:50 AM" placeholder="07:50 AM" required />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Journey Duration</label>
+            <input type="text" id="addJourneyDuration" value="1 hr 20 mins" placeholder="1 hr 20 mins" />
+          </div>
+          <div class="form-group">
+            <label>Bus Service Type</label>
+            <select id="addBusType">
+              <option value="Luxury AC">Luxury AC</option>
+              <option value="Semi-Luxury" selected>Semi-Luxury</option>
+              <option value="Normal">Normal</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Total Seats</label>
+            <input type="number" id="addTotalSeats" value="48" min="20" max="75" />
+          </div>
+          <div class="form-group">
+            <label>Base Fare (Rs.)</label>
+            <input type="number" id="addBaseFare" value="240" min="50" max="1500" />
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px;">
+          <button type="button" class="btn btn-outline" onclick="closeAddBusModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btnAddBusSubmit">Submit for Approval</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal for Editing Existing Bus & Schedule -->
+  <div class="modal-backdrop" id="editBusModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit Bus Details & Timetable</h3>
+        <button class="close-btn" onclick="closeEditBusModal()">&times;</button>
+      </div>
+      <p style="font-size: 13px; color: var(--text-muted);">
+        Update schedule timings, endpoints, or vehicle details. Changes require Administrator re-approval.
+      </p>
+
+      <div class="ntc-notice-box" style="padding: 10px 14px; font-size: 12px;">
+        <span>⚠️</span>
+        <span>Any timetable or route modification resets status to <strong>Pending Approval</strong> until re-verified.</span>
+      </div>
+
+      <form id="editBusForm" onsubmit="submitEditBus(event)">
+        <input type="hidden" id="editBusId" />
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label>Bus Registration Number *</label>
+            <input type="text" id="editPlate" required />
+          </div>
+          <div class="form-group">
+            <label>Route Number *</label>
+            <input type="text" id="editRouteNumber" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Route Full Name</label>
+          <input type="text" id="editRouteName" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Starting Point *</label>
+            <input type="text" id="editStartPoint" required />
+          </div>
+          <div class="form-group">
+            <label>Ending Point *</label>
+            <input type="text" id="editEndPoint" required />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Departure Time *</label>
+            <input type="text" id="editDepartureTime" required />
+          </div>
+          <div class="form-group">
+            <label>Arrival Time *</label>
+            <input type="text" id="editArrivalTime" required />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Journey Duration</label>
+            <input type="text" id="editJourneyDuration" />
+          </div>
+          <div class="form-group">
+            <label>Bus Service Type</label>
+            <select id="editBusType">
+              <option value="Luxury AC">Luxury AC</option>
+              <option value="Semi-Luxury">Semi-Luxury</option>
+              <option value="Normal">Normal</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Total Seats</label>
+            <input type="number" id="editTotalSeats" min="20" max="75" />
+          </div>
+          <div class="form-group">
+            <label>Base Fare (Rs.)</label>
+            <input type="number" id="editBaseFare" min="50" max="1500" />
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px;">
+          <button type="button" class="btn btn-outline" onclick="closeEditBusModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btnEditBusSubmit">Save & Resubmit</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- Modal for Dispatching -->
   <div class="modal-backdrop" id="dispatchModal">
@@ -690,29 +886,34 @@
     map.fitBounds(markersGroup.getBounds(), { padding: [50, 50] });
 
     function showBusDetail(route) {
-      const b = buses.find(x => x.route === route);
+      const b = (window.liveFleetBuses || buses).find(x => x.route === String(route) || x.routeNumber === String(route));
       if (!b) return;
-      document.getElementById('ttRouteTitle').innerText = `Route ${b.route} (${b.plate}) • ${b.area.split(',')[0]}`;
+      const plate = b.plate || b.busRegNumber;
+      const area = b.area || `${b.startPoint || 'Origin'} ➔ ${b.endPoint || 'Dest'}`;
+      document.getElementById('ttRouteTitle').innerText = `Route ${b.route || b.routeNumber} (${plate}) • ${area.split(',')[0]}`;
       const stEl = document.getElementById('ttStatus');
-      stEl.innerText = b.status;
-      stEl.style.color = b.ontime ? '#34D399' : '#FBBF24';
-      document.getElementById('ttSpeed').innerText = b.speed;
-      document.getElementById('ttRevenue').innerText = b.rev;
+      const isOntime = b.ontime !== false && b.status !== 'rejected';
+      stEl.innerText = b.status === 'pending' ? '⏳ Pending Approval' : b.status === 'rejected' ? '✕ Rejected' : (b.statusText || 'On-time (5 min)');
+      stEl.style.color = b.status === 'pending' ? '#F59E0B' : isOntime ? '#34D399' : '#EF4444';
+      document.getElementById('ttSpeed').innerText = b.speed || '32 km/h';
+      document.getElementById('ttRevenue').innerText = b.rev || (b.todayRevenue ? `Rs. ${b.todayRevenue}` : 'Rs. 7,450');
     }
 
     function focusBus(route) {
-      const b = buses.find(x => x.route === route);
+      const b = (window.liveFleetBuses || buses).find(x => x.route === String(route) || x.routeNumber === String(route));
       if (!b) return;
       showBusDetail(route);
-      map.flyTo([b.lat, b.lon], 15, { animate: true, duration: 1 });
-      const m = routeMarkers[route];
-      if (m) {
-        setTimeout(() => m.openPopup(), 650);
+      if (b.lat && b.lon) {
+        map.flyTo([b.lat, b.lon], 15, { animate: true, duration: 1 });
+        const m = routeMarkers[b.route || b.routeNumber];
+        if (m) setTimeout(() => m.openPopup(), 650);
       }
     }
 
     function recenterFleet() {
-      map.fitBounds(markersGroup.getBounds(), { padding: [50, 50] });
+      if (markersGroup.getLayers().length > 0) {
+        map.fitBounds(markersGroup.getBounds(), { padding: [50, 50] });
+      }
     }
 
     function openDispatchModal() {
@@ -728,8 +929,264 @@
       closeDispatchModal();
     }
 
+    // ==========================================
+    // BUS OWNER CRUD & APPROVAL WORKFLOW LOGIC
+    // ==========================================
+
+    const routeTemplates = {
+      '120': { name: 'Horana - Colombo (Pettah)', start: 'Horana Central', end: 'Colombo (Pettah)', dep: '06:15 AM', arr: '07:35 AM', dur: '1 hr 20 mins', fare: 240 },
+      '138': { name: 'Homagama - Colombo (Pettah)', start: 'Homagama Terminal', end: 'Colombo (Pettah)', dep: '07:00 AM', arr: '08:00 AM', dur: '1 hr 00 min', fare: 190 },
+      '177': { name: 'Kaduwela - Kollupitiya', start: 'Kaduwela Central', end: 'Kollupitiya Station', dep: '06:30 AM', arr: '07:50 AM', dur: '1 hr 20 mins', fare: 240 },
+      '100': { name: 'Panadura - Colombo Fort', start: 'Panadura Bus Stand', end: 'Colombo Fort Terminal', dep: '06:45 AM', arr: '07:55 AM', dur: '1 hr 10 mins', fare: 210 },
+      '185': { name: 'Pettah - Nugegoda', start: 'Pettah Central', end: 'Nugegoda Supermarket', dep: '07:30 AM', arr: '08:20 AM', dur: '50 mins', fare: 160 },
+      '187': { name: 'Colombo Fort - Katunayake Airport', start: 'Colombo Fort Terminal', end: 'Katunayake Airport', dep: '05:30 AM', arr: '06:20 AM', dur: '50 mins', fare: 350 },
+      '189': { name: 'Moratuwa - Rajagiriya', start: 'Moratuwa Cross', end: 'Rajagiriya Flyover', dep: '07:10 AM', arr: '08:15 AM', dur: '1 hr 05 mins', fare: 220 }
+    };
+
+    function onAddRouteChange() {
+      const routeNum = document.getElementById('addRouteNumber').value;
+      const t = routeTemplates[routeNum];
+      if (t) {
+        document.getElementById('addRouteName').value = t.name;
+        document.getElementById('addStartPoint').value = t.start;
+        document.getElementById('addEndPoint').value = t.end;
+        document.getElementById('addDepartureTime').value = t.dep;
+        document.getElementById('addArrivalTime').value = t.arr;
+        document.getElementById('addJourneyDuration').value = t.dur;
+        document.getElementById('addBaseFare').value = t.fare;
+      }
+    }
+
+    function openAddBusModal() {
+      onAddRouteChange();
+      document.getElementById('addPlate').value = '';
+      document.getElementById('addBusModal').style.display = 'flex';
+    }
+
+    function closeAddBusModal() {
+      document.getElementById('addBusModal').style.display = 'none';
+    }
+
+    async function submitAddBus(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btnAddBusSubmit');
+      btn.disabled = true;
+      btn.innerText = 'Submitting...';
+
+      const busPayload = {
+        busRegNumber: document.getElementById('addPlate').value.trim().toUpperCase(),
+        routeNumber: document.getElementById('addRouteNumber').value,
+        routeName: document.getElementById('addRouteName').value,
+        startPoint: document.getElementById('addStartPoint').value.trim(),
+        endPoint: document.getElementById('addEndPoint').value.trim(),
+        departureTime: document.getElementById('addDepartureTime').value.trim(),
+        arrivalTime: document.getElementById('addArrivalTime').value.trim(),
+        journeyDuration: document.getElementById('addJourneyDuration').value.trim() || '1 hr 20 mins',
+        busType: document.getElementById('addBusType').value,
+        totalSeats: Number(document.getElementById('addTotalSeats').value) || 48,
+        baseFare: Number(document.getElementById('addBaseFare').value) || 240
+      };
+
+      try {
+        const res = await fetch('/api/buses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(busPayload)
+        }).then(r => r.json());
+
+        btn.disabled = false;
+        btn.innerText = 'Submit for Approval';
+
+        if (res.success) {
+          alert(`✓ Bus ${busPayload.busRegNumber} registered successfully!\n\nStatus: Pending Approval (NTC Regulation)\nYour submission has been queued and requires approval from the Admin Dashboard before appearing live.`);
+          closeAddBusModal();
+          loadFleetFromBackend();
+        } else {
+          alert('Error: ' + (res.message || 'Could not register bus'));
+        }
+      } catch (err) {
+        btn.disabled = false;
+        btn.innerText = 'Submit for Approval';
+        alert('Network error while registering bus. Please check if the backend is running.');
+      }
+    }
+
+    function openEditBusModal(busId) {
+      const bus = (window.liveFleetBuses || []).find(b => (b._id === busId || b.id === busId));
+      if (!bus) return;
+
+      document.getElementById('editBusId').value = bus._id || bus.id;
+      document.getElementById('editPlate').value = bus.busRegNumber || bus.plate || '';
+      document.getElementById('editRouteNumber').value = bus.routeNumber || bus.route || '';
+      document.getElementById('editRouteName').value = bus.routeName || bus.name || '';
+      document.getElementById('editStartPoint').value = bus.startPoint || 'Origin';
+      document.getElementById('editEndPoint').value = bus.endPoint || 'Destination';
+      document.getElementById('editDepartureTime').value = bus.departureTime || '07:00 AM';
+      document.getElementById('editArrivalTime').value = bus.arrivalTime || '08:30 AM';
+      document.getElementById('editJourneyDuration').value = bus.journeyDuration || '1 hr 20 mins';
+      document.getElementById('editBusType').value = bus.busType || 'Semi-Luxury';
+      document.getElementById('editTotalSeats').value = bus.totalSeats || 48;
+      document.getElementById('editBaseFare').value = bus.baseFare || 240;
+
+      document.getElementById('editBusModal').style.display = 'flex';
+    }
+
+    function closeEditBusModal() {
+      document.getElementById('editBusModal').style.display = 'none';
+    }
+
+    async function submitEditBus(e) {
+      e.preventDefault();
+      const busId = document.getElementById('editBusId').value;
+      const btn = document.getElementById('btnEditBusSubmit');
+      btn.disabled = true;
+      btn.innerText = 'Updating...';
+
+      const updatePayload = {
+        busRegNumber: document.getElementById('editPlate').value.trim().toUpperCase(),
+        routeNumber: document.getElementById('editRouteNumber').value.trim(),
+        routeName: document.getElementById('editRouteName').value.trim(),
+        startPoint: document.getElementById('editStartPoint').value.trim(),
+        endPoint: document.getElementById('editEndPoint').value.trim(),
+        departureTime: document.getElementById('editDepartureTime').value.trim(),
+        arrivalTime: document.getElementById('editArrivalTime').value.trim(),
+        journeyDuration: document.getElementById('editJourneyDuration').value.trim(),
+        busType: document.getElementById('editBusType').value,
+        totalSeats: Number(document.getElementById('editTotalSeats').value) || 48,
+        baseFare: Number(document.getElementById('editBaseFare').value) || 240
+      };
+
+      try {
+        const res = await fetch(`/api/buses/${busId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatePayload)
+        }).then(r => r.json());
+
+        btn.disabled = false;
+        btn.innerText = 'Save & Resubmit';
+
+        if (res.success) {
+          alert(`✓ Bus ${updatePayload.busRegNumber} timetable updated!\n\nStatus: Pending Approval\nAs required by transit regulations, modifying route schedules requires Administrator approval.`);
+          closeEditBusModal();
+          loadFleetFromBackend();
+        } else {
+          alert('Error: ' + (res.message || 'Could not update bus'));
+        }
+      } catch (err) {
+        btn.disabled = false;
+        btn.innerText = 'Save & Resubmit';
+        alert('Network error while updating bus.');
+      }
+    }
+
+    async function deleteBus(busId, plate) {
+      if (!confirm(`Are you sure you want to delete bus ${plate} from your commercial fleet?`)) return;
+
+      try {
+        const res = await fetch(`/api/buses/${busId}`, { method: 'DELETE' }).then(r => r.json());
+        if (res.success) {
+          alert(`✓ Bus ${plate} has been deleted.`);
+          loadFleetFromBackend();
+        } else {
+          alert('Error: ' + (res.message || 'Could not delete bus'));
+        }
+      } catch (err) {
+        alert('Network error while deleting bus.');
+      }
+    }
+
+    // Render fleet table rows
+    function renderFleetTable(list) {
+      const tbody = document.getElementById('fleetTableBody');
+      if (!tbody) return;
+
+      tbody.innerHTML = list.map(b => {
+        const busId = b._id || b.id;
+        const plate = b.busRegNumber || b.plate;
+        const routeNum = b.routeNumber || b.route;
+        const start = b.startPoint || (b.name ? b.name.split('→')[0].trim() : 'Origin');
+        const end = b.endPoint || (b.name ? b.name.split('→')[1]?.trim() : 'Destination');
+        const dep = b.departureTime || '07:00 AM';
+        const arr = b.arrivalTime || '08:30 AM';
+        const dur = b.journeyDuration || '1 hr 20 mins';
+        const rev = b.rev || (b.todayRevenue ? `Rs. ${b.todayRevenue.toLocaleString()}` : 'Rs. 7,850');
+        const status = b.status || (b.ontime ? 'approved' : 'approved');
+
+        let statusBadge = '';
+        if (status === 'pending') {
+          statusBadge = '<span class="tag tag-pending">⏳ Pending Approval</span>';
+        } else if (status === 'rejected') {
+          statusBadge = '<span class="tag tag-rejected">✕ Rejected</span>';
+        } else {
+          statusBadge = '<span class="tag tag-approved">✓ Approved & Active</span>';
+        }
+
+        return `
+          <tr>
+            <td><strong>${routeNum}</strong></td>
+            <td>
+              <div><strong>${start} → ${end}</strong></div>
+              <div style="font-size: 11px; color: var(--text-muted);">${b.routeName || b.name || ''}</div>
+            </td>
+            <td><code>${plate}</code></td>
+            <td>
+              <div style="font-weight: 700; color: var(--teal); font-size: 12px;">${dep} → ${arr}</div>
+            </td>
+            <td><span style="font-weight: 600; font-size: 12px;">${dur}</span></td>
+            <td>${statusBadge}</td>
+            <td><strong>${rev}</strong></td>
+            <td>
+              <div style="display: flex; gap: 4px; align-items: center; flex-wrap: wrap;">
+                <button class="action-btn-sm action-btn-edit" onclick="openEditBusModal('${busId}')" title="Edit schedule and bus details">✏️ Edit</button>
+                <button class="action-btn-sm action-btn-delete" onclick="deleteBus('${busId}', '${plate}')" title="Remove bus from fleet">🗑️</button>
+                <button class="action-btn-sm" onclick="focusBus('${routeNum}')" title="View on GPS map">📍 GPS</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Live fleet fetch from backend
+    async function loadFleetFromBackend() {
+      try {
+        const res = await fetch('/api/buses/owner-dashboard').then(r => r.json()).catch(() => null);
+        if (res && res.success && res.busRevenueBreakdown && res.busRevenueBreakdown.length > 0) {
+          window.liveFleetBuses = res.busRevenueBreakdown;
+          renderFleetTable(res.busRevenueBreakdown);
+          const countBadge = document.getElementById('headerFleetCount');
+          if (countBadge) countBadge.innerText = `${res.busRevenueBreakdown.length} Fleet Buses Live`;
+          const activeKpi = document.getElementById('kpiActiveBuses');
+          const approvedCount = res.busRevenueBreakdown.filter(b => b.status === 'approved' || b.status === 'active').length;
+          if (activeKpi) activeKpi.innerText = `${approvedCount} / ${res.busRevenueBreakdown.length}`;
+          return;
+        }
+      } catch (err) {
+        console.warn('Could not load dynamic fleet:', err);
+      }
+
+      // Fallback to initial fleet list
+      window.liveFleetBuses = buses.map((b, i) => ({
+        ...b,
+        _id: 'default-bus-' + i,
+        busRegNumber: b.plate,
+        routeNumber: b.route,
+        startPoint: b.name.split('→')[0].trim(),
+        endPoint: b.name.split('→')[1]?.trim(),
+        departureTime: '07:00 AM',
+        arrivalTime: '08:20 AM',
+        journeyDuration: '1 hr 20 mins',
+        status: 'approved'
+      }));
+      renderFleetTable(window.liveFleetBuses);
+    }
+
+    loadFleetFromBackend();
+    setInterval(loadFleetFromBackend, 6000); // Poll every 6 seconds to reflect Admin Approvals
+
     function exportReport() {
-      const csv = "Route,Plate,Status,Revenue\n177,NA-4402,On-time,Rs. 8420\n179,NB-8891,Delayed,Rs. 6350\n185,NC-1204,On-time,Rs. 9120\n187,ND-5541,On-time,Rs. 7890\n189,NE-7721,Delayed,Rs. 5230\n";
+      const csv = "Route,Plate,Status,Departure,Arrival,Duration,Revenue\n177,NA-4402,Approved,06:30 AM,07:50 AM,1h 20m,Rs. 8420\n179,NB-8891,Approved,07:00 AM,08:30 AM,1h 30m,Rs. 6350\n185,NC-1204,Approved,07:15 AM,08:05 AM,50m,Rs. 9120\n187,ND-5541,Approved,05:30 AM,06:20 AM,50m,Rs. 7890\n189,NE-7721,Approved,07:10 AM,08:15 AM,1h 05m,Rs. 5230\n";
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
