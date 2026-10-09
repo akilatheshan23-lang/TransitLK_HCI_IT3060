@@ -28,6 +28,7 @@ import {
   CheckIcon,
 } from '../components/Icons';
 import { colors } from '../theme/colors';
+import { platformShadow } from '../theme/shadows';
 import { api, UserProfile, BusSearchResult } from '../services/api';
 
 interface HomeScreenProps {
@@ -823,11 +824,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
+    ...platformShadow({ color: '#000000', width: 0, height: 2, opacity: 0.04, radius: 8, elevation: 2 }),
     position: 'relative',
   },
   fieldBlock: {
@@ -924,11 +921,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    ...platformShadow({ color: '#000000', width: 0, height: 2, opacity: 0.04, radius: 6, elevation: 2 }),
   },
   busCardHeader: {
     flexDirection: 'row',

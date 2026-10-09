@@ -1,9 +1,10 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ActivityIndicator, Alert, Platform } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PaymentStackParamList } from '../../navigation/AppNavigator';
+import type { PaymentStackParamList } from '../../navigation/navigationTypes';
+import { platformShadow } from '../../theme/shadows';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../../components/Header';
 import { api } from '../../services/api';
@@ -190,7 +191,7 @@ const styles = StyleSheet.create({
   content: { padding: 20, flex: 1 },
   title: { fontSize: 24, fontWeight: '800', color: '#0f172a', marginBottom: 6 },
   subtitle: { fontSize: 14, color: '#64748b', marginBottom: 28 },
-  walletCard: { backgroundColor: '#0f172a', padding: 24, borderRadius: 16, marginBottom: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
+  walletCard: { backgroundColor: '#0f172a', padding: 24, borderRadius: 16, marginBottom: 24, ...platformShadow({ color: '#000', width: 0, height: 8, opacity: 0.3, radius: 12, elevation: 8 }) },
   walletHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 },
   walletLogo: { color: '#f8fafc', fontSize: 18, fontWeight: '700', letterSpacing: 0.5 },
   topUpBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ccfbf1', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
@@ -207,7 +208,7 @@ const styles = StyleSheet.create({
   errorContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fee2e2', padding: 12, borderRadius: 8, marginTop: 16 },
   errorText: { color: '#ef4444', marginLeft: 8, fontWeight: '600', fontSize: 14 },
   footer: { marginTop: 'auto', paddingTop: 20 },
-  button: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#0f766e', padding: 20, borderRadius: 16, alignItems: 'center', shadowColor: '#0f766e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 6 },
-  buttonDisabled: { backgroundColor: '#94a3b8', shadowOpacity: 0 },
+  button: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#0f766e', padding: 20, borderRadius: 16, alignItems: 'center', ...platformShadow({ color: '#0f766e', width: 0, height: 8, opacity: 0.3, radius: 16, elevation: 6 }) },
+  buttonDisabled: { backgroundColor: '#94a3b8', ...Platform.select({ web: { boxShadow: 'none' } as any, default: { shadowOpacity: 0 } }) },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 0.5 }
 });

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Platform, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors as c } from './theme';
+import { platformShadow } from './theme/shadows';
 import { Icon } from './Artwork';
 import { User, API_BASE_URL } from './api';
 
@@ -195,11 +196,7 @@ const s = StyleSheet.create({
     gap: 6,
     borderWidth: 1,
     borderColor: '#E7ECF0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    ...platformShadow({ color: '#0F172A', width: 0, height: 2, opacity: 0.04, radius: 6, elevation: 2 }),
   },
   cardLabel: {
     fontSize: 13,

@@ -4,8 +4,8 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../../components/Header';
-import { ScreenBackContext } from '../../navigation/AppNavigator';
-import { AppNavigationContext } from '../../../App';
+import { ScreenBackContext, AppNavigationContext } from '../../navigation/navigationTypes';
+import { platformShadow } from '../../theme/shadows';
 
 export default function ConductorDashboard() {
   const navigation = useNavigation<any>();
@@ -253,10 +253,10 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, color: '#64748b', marginBottom: 16 },
   tripSelector: { flexDirection: 'row', backgroundColor: '#e2e8f0', borderRadius: 12, padding: 4, marginBottom: 20 },
   tripTab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
-  tripTabActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 },
+  tripTabActive: { backgroundColor: '#fff', ...platformShadow({ color: '#000', width: 0, height: 2, opacity: 0.1, radius: 4, elevation: 2 }) },
   tripTabText: { fontSize: 13, fontWeight: '600', color: '#64748b' },
   tripTabTextActive: { color: '#0f172a', fontWeight: '800' },
-  journeyCard: { backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  journeyCard: { backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0', ...platformShadow({ color: '#000', width: 0, height: 2, opacity: 0.05, radius: 6, elevation: 2 }) },
   journeyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   busBadge: { backgroundColor: '#d1fae5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   busBadgeText: { color: '#059669', fontSize: 12, fontWeight: '800' },
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
   locationText: { flex: 1, fontSize: 16, fontWeight: '700', color: '#0f172a' },
   timeText: { fontSize: 14, color: '#64748b', fontWeight: '500' },
   actionButtons: { flexDirection: 'row', marginBottom: 32 },
-  actionBtn: { flex: 1, flexDirection: 'column', justifyContent: 'center', alignItems: 'center', paddingVertical: 16, borderRadius: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
+  actionBtn: { flex: 1, flexDirection: 'column', justifyContent: 'center', alignItems: 'center', paddingVertical: 16, borderRadius: 16, ...platformShadow({ color: '#000', width: 0, height: 4, opacity: 0.2, radius: 8, elevation: 4 }) },
   actionBtnText: { color: '#fff', fontSize: 14, fontWeight: '700', marginTop: 8 },
   activityTitle: { fontSize: 12, fontWeight: '800', color: '#94a3b8', letterSpacing: 1, marginBottom: 16 },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   footerText: { fontSize: 12, color: '#94a3b8', textAlign: 'center', marginTop: 8 },
   resetButton: { marginTop: 16, padding: 12, backgroundColor: '#fee2e2', borderRadius: 8, alignItems: 'center' },
   resetButtonText: { color: '#ef4444', fontWeight: '700' },
-  routeSelectorBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  routeSelectorBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 20, ...platformShadow({ color: '#000', width: 0, height: 2, opacity: 0.05, radius: 4, elevation: 2 }) },
   routeSelectorLabel: { fontSize: 12, color: '#64748b', fontWeight: '600', marginBottom: 4 },
   routeSelectorValue: { fontSize: 15, color: '#0f172a', fontWeight: '700' },
   modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },

@@ -13,6 +13,7 @@ import { InputField } from '../components/InputField';
 import { AppButton } from '../components/Buttons';
 import { RoleAccessBadge } from '../components/RoleAccessBadge';
 import { colors } from '../theme/colors';
+import { platformShadow } from '../theme/shadows';
 import { api, UserProfile } from '../services/api';
 
 interface AuthorityLoginScreenProps {
@@ -470,11 +471,7 @@ const styles = StyleSheet.create({
   },
   tabButtonActive: {
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    ...platformShadow({ color: '#000', width: 0, height: 2, opacity: 0.08, radius: 4, elevation: 2 }),
   },
   tabButtonText: {
     fontSize: 13,

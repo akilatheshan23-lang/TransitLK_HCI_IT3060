@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView } fr
 import { useNavigation } from '@react-navigation/native';
 import Header from '../../components/Header';
 import { Ionicons } from '@expo/vector-icons';
+import { platformShadow } from '../../theme/shadows';
 
 export default function PaymentFailed() {
   const navigation = useNavigation<any>();
@@ -55,7 +56,7 @@ const styles = StyleSheet.create({
   iconCircle: { width: 96, height: 96, borderRadius: 48, backgroundColor: '#fee2e2', justifyContent: 'center', alignItems: 'center', marginTop: 16, marginBottom: 24 },
   title: { fontSize: 24, fontWeight: '800', color: '#0f172a', marginBottom: 8 },
   subtitle: { fontSize: 15, color: '#64748b', marginBottom: 32 },
-  detailsCard: { backgroundColor: '#fff', width: '100%', borderRadius: 16, padding: 24, borderWidth: 1, borderColor: '#e2e8f0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2, marginBottom: 24 },
+  detailsCard: { backgroundColor: '#fff', width: '100%', borderRadius: 16, padding: 24, borderWidth: 1, borderColor: '#e2e8f0', ...platformShadow({ color: '#000', width: 0, height: 2, opacity: 0.05, radius: 6, elevation: 2 }), marginBottom: 24 },
   routeText: { fontSize: 16, fontWeight: '700', color: '#0f172a', marginBottom: 8 },
   dateText: { fontSize: 13, color: '#64748b', marginBottom: 16 },
   price: { fontSize: 18, color: '#0f172a', fontWeight: '800' },

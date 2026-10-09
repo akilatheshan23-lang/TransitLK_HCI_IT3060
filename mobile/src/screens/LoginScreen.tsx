@@ -17,6 +17,7 @@ import { InputField } from '../components/InputField';
 import { AppButton } from '../components/Buttons';
 import { UserIcon, LockIcon, GoogleColorIcon } from '../components/Icons';
 import { colors } from '../theme/colors';
+import { platformShadow } from '../theme/shadows';
 import { api, UserProfile } from '../services/api';
 
 interface LoginScreenProps {
@@ -452,11 +453,7 @@ const styles = StyleSheet.create({
     borderColor: '#EDF2F7',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    ...platformShadow({ color: '#000', width: 0, height: 1, opacity: 0.03, radius: 3, elevation: 1 }),
   },
   busOwnerText: {
     fontSize: 14,
@@ -486,11 +483,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 24,
     paddingBottom: 34,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 8,
+    ...platformShadow({ color: '#000', width: 0, height: -4, opacity: 0.1, radius: 16, elevation: 8 }),
   },
   googleModalHeader: {
     alignItems: 'center',

@@ -1,3 +1,7 @@
+import { ObjectId } from 'mongodb';
+import { getSessionsCollection } from '../db/connection.js';
+import { hashToken } from '../utils/security.js';
+import { getTestAuthFixture } from '../testAuthFixtures.js';
 import { Router } from 'express';
 import {
   getBusesCollection,
@@ -737,7 +741,26 @@ busesRouter.get('/search', async (req, res) => {
  * POST /api/buses
  * Register/Add a new bus with schedule details (Requires Admin Approval)
  */
-busesRouter.post('/', async (req, res) => {
+
+async function requireBusOwner(req, res, next) {
+ const token = (req.get('authorization') || '').replace(/^Bearer /, '');
+ let user = getTestAuthFixture(req, token);
+ if (!user && /^[a-f0-9]{64}$/.test(token)) {
+  try {
+   const session = await getSessionsCollection().findOne({tokenHash:hashToken(token),expiresAt:{$gt:new Date()}});
+   if (session) {
+    const id=session.userId;
+    const filter=typeof id==='string' && ObjectId.isValid(id)?{$or:[{_id:id},{_id:new ObjectId(id)}]}:{_id:id};
+    user=await getUsersCollection().findOne(filter);
+   }
+  } catch {}
+ }
+ if (!user) return res.status(401).json({success:false,message:'Please sign in.'});
+ if (!['bus_owner','owner','admin'].includes(user.role) || (user.role==='bus_owner' && user.status!=='approved')) return res.status(403).json({success:false,message:'Approved bus owner access required.'});
+ req.busOwnerUser=user;next();
+}
+
+busesRouter.post('/', requireBusOwner, async (req, res) => {
   try {
     const {
       ownerId,
@@ -786,6 +809,7 @@ busesRouter.post('/', async (req, res) => {
       };
     }
 
+    if (req.busOwnerUser.role !== 'admin') owner = req.busOwnerUser;
     // Find route template
     const routesCollection = getSafeRoutesCollection();
     const route = await routesCollection.findOne({ routeNumber });
@@ -847,7 +871,7 @@ busesRouter.post('/', async (req, res) => {
  * PUT /api/buses/:id
  * Edit/Update existing bus details & schedule (Resets status to 'pending' for Admin approval)
  */
-busesRouter.put('/:id', async (req, res) => {
+busesRouter.put('/:id', requireBusOwner, async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -871,6 +895,7 @@ busesRouter.put('/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Bus not found' });
     }
 
+    if (req.busOwnerUser.role !== 'admin' && String(existingBus.ownerId) !== String(req.busOwnerUser._id || req.busOwnerUser.id)) return res.status(403).json({success:false,message:'This bus belongs to another owner.'});
     const calculatedDep = departureTime || existingBus.departureTime || '07:00 AM';
     const calculatedArr = arrivalTime || existingBus.arrivalTime || '08:30 AM';
     const calculatedDuration = calculateJourneyDuration(calculatedDep, calculatedArr, journeyDuration || existingBus.journeyDuration);
@@ -917,7 +942,7 @@ busesRouter.put('/:id', async (req, res) => {
  * DELETE /api/buses/:id
  * Delete a bus from the fleet
  */
-busesRouter.delete('/:id', async (req, res) => {
+busesRouter.delete('/:id', requireBusOwner, async (req, res) => {
   try {
     const { id } = req.params;
     const busesCollection = getSafeBusesCollection();
@@ -926,6 +951,7 @@ busesRouter.delete('/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Bus not found' });
     }
 
+    if (req.busOwnerUser.role !== 'admin' && String(existingBus.ownerId) !== String(req.busOwnerUser._id || req.busOwnerUser.id)) return res.status(403).json({success:false,message:'This bus belongs to another owner.'});
     await busesCollection.deleteOne({ _id: id });
 
     return res.json({
@@ -942,7 +968,8 @@ busesRouter.delete('/:id', async (req, res) => {
  * GET /api/buses/:id
  * Retrieve details for a specific bus
  */
-busesRouter.get('/:id', async (req, res) => {
+busesRouter.get('/:id', async (req, res, next) => {
+  if(req.params.id==='owner-dashboard')return next();
   try {
     const { id } = req.params;
     const busesCollection = getSafeBusesCollection();

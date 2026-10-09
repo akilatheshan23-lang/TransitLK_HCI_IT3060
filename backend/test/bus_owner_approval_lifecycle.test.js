@@ -26,7 +26,7 @@ before(async () => {
   registerTestAuthFixture('test-admin-token', { username: 'admin', email: 'admin@transitlk.com', role: 'admin' });
   registerTestAuthFixture('test-passenger-token', { username: 'passenger', email: 'passenger@transitlk.com', role: 'passenger' });
 
-  const app = createApp(mockStore, { limit: 100 });
+  const app = createApp(mockStore, { limit: 100, testAuthFixtures: { 'test-admin-token': { role:'admin' }, 'test-passenger-token': { role:'passenger' }, 'test-owner-token': { _id:'default-owner-01',name:'Test Owner',email:'owner@example.test',role:'bus_owner',status:'approved' } } });
   server = app.listen(0, '127.0.0.1');
   await new Promise((resolve) => server.once('listening', resolve));
   base = `http://127.0.0.1:${server.address().port}/api`;
@@ -37,7 +37,7 @@ after(() => {
   return new Promise((resolve) => server.close(resolve));
 });
 
-async function api(path, method = 'GET', body = null, token = null) {
+async function api(path, method = 'GET', body = null, token = 'test-owner-token') {
   const headers = { 'Content-Type': 'application/json' };
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -182,4 +182,9 @@ test('7. Bus owner can delete bus from the fleet', async () => {
   // Verify bus is gone
   const getRes = await api(`/buses/${bus._id}`, 'GET');
   assert.equal(getRes.status, 404);
+});
+test('8. Unauthenticated callers cannot register, edit or delete buses', async () => {
+  assert.equal((await api('/buses', 'POST', {}, null)).status, 401);
+  assert.equal((await api('/buses/unknown', 'PUT', {}, null)).status, 401);
+  assert.equal((await api('/buses/unknown', 'DELETE', null, null)).status, 401);
 });

@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../../components/Header';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../services/api';
+import { platformShadow } from '../../theme/shadows';
 
 type ValidationStatusType = 'VALID' | 'ALREADY_REDEEMED' | 'INVALID_FORGED' | 'OFFLINE_PENDING' | 'UNAUTHORIZED';
 
@@ -325,7 +326,7 @@ const styles = StyleSheet.create({
   iconCircle: { width: 96, height: 96, borderRadius: 48, justifyContent: 'center', alignItems: 'center', marginTop: 16, marginBottom: 24 },
   title: { fontSize: 28, fontWeight: '800', color: '#0f172a', marginBottom: 8 },
   subtitle: { fontSize: 15, color: '#64748b', marginBottom: 32 },
-  detailsCard: { backgroundColor: '#fff', width: '100%', borderRadius: 16, padding: 24, borderWidth: 1, borderColor: '#e2e8f0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2, marginBottom: 32 },
+  detailsCard: { backgroundColor: '#fff', width: '100%', borderRadius: 16, padding: 24, borderWidth: 1, borderColor: '#e2e8f0', ...platformShadow({ color: '#000', width: 0, height: 2, opacity: 0.05, radius: 6, elevation: 2 }), marginBottom: 32 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   label: { fontSize: 14, color: '#94a3b8', fontWeight: '500' },
   value: { fontSize: 14, color: '#0f172a', fontWeight: '700' },

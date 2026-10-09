@@ -13,6 +13,6 @@ The API URL can be either `http://host:4000` or `http://host:4000/api`; clients 
 
 ## Validation
 
-TypeScript and 65 backend tests pass. Mobile web and admin production builds pass. A local backend connects to the configured MongoDB database. GPS map, fleet screen, owner screen and transit service files are identical to the GPS branch; navigation adapters connect them to the other modules.
+TypeScript and 73 backend tests pass. Mobile web and admin production builds pass. A local backend connects to the configured MongoDB database. GPS map, fleet screen and transit service files are identical to the GPS branch; the owner screen retains its layout with the team cross-platform shadow fix; navigation adapters connect them to the other modules.
 
 Payments and seeded tracking/dashboard figures include demonstration data. This merge does not establish a real vehicle telemetry feed or payment gateway. Mobile device UI execution still needs a final device check.

@@ -2,9 +2,10 @@ import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { PaymentStackParamList, ScreenBackContext } from '../../navigation/AppNavigator';
-import { AppNavigationContext } from '../../../App';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { PaymentStackParamList } from '../../navigation/navigationTypes';
+import { ScreenBackContext, AppNavigationContext } from '../../navigation/navigationTypes';
+import { platformShadow } from '../../theme/shadows';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../../components/Header';
 
@@ -163,7 +164,7 @@ const styles = StyleSheet.create({
   content: { padding: 24, paddingBottom: 40 },
   title: { fontSize: 28, fontWeight: '800', color: '#0f172a', marginBottom: 8 },
   subtitle: { fontSize: 15, color: '#64748b', marginBottom: 32 },
-  cardContainer: { backgroundColor: '#fff', borderRadius: 24, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.05, shadowRadius: 20, elevation: 4, marginBottom: 32 },
+  cardContainer: { backgroundColor: '#fff', borderRadius: 24, padding: 24, ...platformShadow({ color: '#000', width: 0, height: 10, opacity: 0.05, radius: 20, elevation: 4 }), marginBottom: 32 },
   routeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
   busBadge: { backgroundColor: '#e0f2fe', color: '#0284c7', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, fontSize: 13, fontWeight: '700' },
   busType: { fontSize: 13, color: '#64748b' },
@@ -185,13 +186,13 @@ const styles = StyleSheet.create({
   quantityLabel: { fontSize: 14, color: '#64748b', marginBottom: 4 },
   quantitySub: { fontSize: 16, fontWeight: '600', color: '#0f172a' },
   counter: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 12, padding: 4 },
-  counterButton: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff', borderRadius: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  counterButton: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff', borderRadius: 8, ...platformShadow({ color: '#000', width: 0, height: 2, opacity: 0.05, radius: 4, elevation: 2 }) },
   counterValue: { width: 40, textAlign: 'center', fontSize: 16, fontWeight: '700', color: '#0f172a' },
   footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingHorizontal: 8 },
   totalText: { fontSize: 16, color: '#64748b' },
   totalAmount: { fontSize: 28, fontWeight: '800', color: '#0f172a' },
   secureBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, marginBottom: 24 },
   secureText: { fontSize: 13, color: '#0f766e', marginLeft: 8, fontWeight: '500' },
-  button: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#0f766e', padding: 20, borderRadius: 16, alignItems: 'center', shadowColor: '#0f766e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 6 },
+  button: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#0f766e', padding: 20, borderRadius: 16, alignItems: 'center', ...platformShadow({ color: '#0f766e', width: 0, height: 8, opacity: 0.3, radius: 16, elevation: 6 }) },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: '700' }
 });

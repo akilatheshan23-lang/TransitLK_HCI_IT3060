@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { PaymentStackParamList } from '../../navigation/AppNavigator';
+import type { PaymentStackParamList } from '../../navigation/navigationTypes';
+import { platformShadow } from '../../theme/shadows';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '../../components/Header';
 
@@ -97,8 +98,8 @@ const styles = StyleSheet.create({
   content: { padding: 20, flex: 1 },
   title: { fontSize: 24, fontWeight: '800', color: '#0f172a', marginBottom: 6 },
   subtitle: { fontSize: 14, color: '#64748b', marginBottom: 28 },
-  methodCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 20, borderRadius: 16, marginBottom: 16, borderWidth: 2, borderColor: 'transparent', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 3 },
-  methodCardSelected: { borderColor: '#14b8a6', backgroundColor: '#f0fdfa', shadowColor: '#14b8a6', shadowOpacity: 0.15, elevation: 6 },
+  methodCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 20, borderRadius: 16, marginBottom: 16, borderWidth: 2, borderColor: 'transparent', ...platformShadow({ color: '#000', width: 0, height: 4, opacity: 0.05, radius: 8, elevation: 3 }) },
+  methodCardSelected: { borderColor: '#14b8a6', backgroundColor: '#f0fdfa', ...platformShadow({ color: '#14b8a6', width: 0, height: 4, opacity: 0.15, radius: 8, elevation: 6 }) },
   methodIcon: { width: 48, height: 48, backgroundColor: '#f1f5f9', borderRadius: 12, marginRight: 16, justifyContent: 'center', alignItems: 'center' },
   methodIconSelected: { backgroundColor: '#ccfbf1' },
   methodTextContainer: { flex: 1 },
@@ -110,6 +111,6 @@ const styles = StyleSheet.create({
   footer: { marginTop: 'auto', marginBottom: 20, alignItems: 'center' },
   totalText: { fontSize: 13, color: '#64748b', fontWeight: '700', letterSpacing: 1, marginBottom: 4 },
   totalAmount: { fontSize: 32, fontWeight: '800', color: '#0f172a' },
-  button: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#0f766e', padding: 20, borderRadius: 16, alignItems: 'center', shadowColor: '#0f766e', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 6 },
+  button: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#0f766e', padding: 20, borderRadius: 16, alignItems: 'center', ...platformShadow({ color: '#0f766e', width: 0, height: 8, opacity: 0.3, radius: 16, elevation: 6 }) },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 0.5 }
 });

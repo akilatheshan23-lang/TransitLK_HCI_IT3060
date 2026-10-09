@@ -2,6 +2,12 @@ import React, { useState, useEffect } from 'react';
 
 const API_BASE = 'http://localhost:4000/api';
 
+
+function ownerFetch(url, options={}) {
+ let token='';try{token=JSON.parse(localStorage.getItem('transitlk_portal_session')||'{}').token||'';}catch{}
+ return fetch(url,{...options,headers:{...options.headers,...(token?{Authorization:'Bearer '+token}:{})}});
+}
+
 export function BusOwnerDashboard({ currentUser, onLogout }) {
   const [loading, setLoading] = useState(false);
   const [dashboardData, setDashboardData] = useState(null);
@@ -75,7 +81,7 @@ export function BusOwnerDashboard({ currentUser, onLogout }) {
         const token = saved ? JSON.parse(saved).token : null;
         if (token) headers = { Authorization: `Bearer ${token}` };
       } catch {}
-      fetch(`${API_BASE}/admin/users?role=bus_owner`, { headers })
+      ownerFetch(`${API_BASE}/admin/users?role=bus_owner`, { headers })
         .then((r) => r.json())
         .then((data) => {
           if (data && data.users) {
@@ -90,7 +96,7 @@ export function BusOwnerDashboard({ currentUser, onLogout }) {
     }
 
     // Fetch master routes
-    fetch(`${API_BASE}/buses/routes`)
+    ownerFetch(`${API_BASE}/buses/routes`)
       .then((r) => r.json())
       .then((data) => {
         if (data && data.routes) {
@@ -107,7 +113,7 @@ export function BusOwnerDashboard({ currentUser, onLogout }) {
       const url = selectedOwnerEmail
         ? `${API_BASE}/buses/owner-dashboard?email=${encodeURIComponent(selectedOwnerEmail)}`
         : `${API_BASE}/buses/owner-dashboard`;
-      const res = await fetch(url).then((r) => r.json());
+      const res = await ownerFetch(url).then((r) => r.json());
       if (res && res.success) {
         setDashboardData(res);
       }
@@ -144,7 +150,7 @@ export function BusOwnerDashboard({ currentUser, onLogout }) {
     setSubmittingBus(true);
     try {
       const selectedRouteObj = availableRoutes.find((r) => r.routeNumber === newRouteNumber);
-      const res = await fetch(`${API_BASE}/buses`, {
+      const res = await ownerFetch(`${API_BASE}/buses`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -218,7 +224,7 @@ export function BusOwnerDashboard({ currentUser, onLogout }) {
     setSubmittingEdit(true);
     try {
       const selectedRouteObj = availableRoutes.find((r) => r.routeNumber === editRouteNumber);
-      const res = await fetch(`${API_BASE}/buses/${busId}`, {
+      const res = await ownerFetch(`${API_BASE}/buses/${busId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -264,7 +270,7 @@ export function BusOwnerDashboard({ currentUser, onLogout }) {
     const busId = deletingBus.id || deletingBus._id;
     setSubmittingDelete(true);
     try {
-      const res = await fetch(`${API_BASE}/buses/${busId}`, {
+      const res = await ownerFetch(`${API_BASE}/buses/${busId}`, {
         method: 'DELETE',
       }).then((r) => r.json());
 

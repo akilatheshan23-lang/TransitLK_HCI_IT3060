@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { EyeIcon, EyeOffIcon } from './Icons';
 import { colors } from '../theme/colors';
+import { platformShadow } from '../theme/shadows';
 
 interface InputFieldProps extends TextInputProps {
   label: string;
@@ -92,11 +93,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.2,
     borderColor: colors.neutral.inputBorder,
     paddingHorizontal: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    ...platformShadow({ color: '#000', width: 0, height: 1, opacity: 0.03, radius: 2, elevation: 1 }),
   },
   iconWrapper: {
     marginRight: 10,
