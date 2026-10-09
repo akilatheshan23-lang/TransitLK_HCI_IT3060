@@ -6,23 +6,33 @@ const STORAGE_KEY_USER = '@transitlk_auth_user';
 
 // Determine the best API base URL depending on runtime environment
 export function getApiBaseUrl(): string {
-  // If explicitly specified in environment
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
-  }
-
-  // Web environment
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
+  // 1. Web environment (browser): ALWAYS use the current browser hostname
+  // When browsing on localhost:8082, connects directly to localhost:4000/api
+  // When browsing on LAN (e.g. 192.168.1.86:8082), connects to 192.168.1.86:4000/api
+  // This prevents broken connections if the PC's local Wi-Fi IP changes.
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
+    const hostname = window.location.hostname || 'localhost';
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'http://localhost:4000/api';
     }
     return `http://${hostname}:4000/api`;
   }
 
-  // Real Android device on the local Wi-Fi / hotspot
-  // 172.20.10.2 is the developer machine IP
-  return 'http://172.20.10.2:4000/api';
+  // 2. Explicit environment variable
+  let envUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (envUrl) {
+    if (!envUrl.endsWith('/api')) {
+      envUrl = envUrl.replace(/\/+$/, '') + '/api';
+    }
+    return envUrl;
+  }
+
+  // 3. Android emulator fallback (10.0.2.2 connects to host PC localhost)
+  if (Platform.OS === 'android') {
+    return 'http://10.0.2.2:4000/api';
+  }
+
+  return 'http://localhost:4000/api';
 }
 
 export interface UserProfile {
@@ -127,15 +137,23 @@ async function request(endpoint: string, options: RequestInit = {}): Promise<Aut
   } catch (error: any) {
     console.warn(`[API] Failed to fetch from ${url}:`, error.message);
 
-    // If local LAN IP fails on emulator, try Android emulator loopback 10.0.2.2 as fallback
-    if (Platform.OS === 'android' && baseUrl.includes('172.20.10.2')) {
+    // Automatic fallbacks if initial host fails:
+    if (Platform.OS === 'web' && !baseUrl.includes('localhost') && !baseUrl.includes('127.0.0.1')) {
+      try {
+        const fallbackUrl = `http://localhost:4000/api${endpoint}`;
+        const fallbackRes = await fetch(fallbackUrl, { ...options, headers });
+        const fallbackData = await fallbackRes.json().catch(() => null);
+        if (fallbackData) return fallbackData;
+      } catch {}
+    }
+
+    if (Platform.OS === 'android' && !baseUrl.includes('10.0.2.2')) {
       try {
         const fallbackUrl = `http://10.0.2.2:4000/api${endpoint}`;
         const fallbackRes = await fetch(fallbackUrl, { ...options, headers });
-        return await fallbackRes.json();
-      } catch {
-        // Fall through to error
-      }
+        const fallbackData = await fallbackRes.json().catch(() => null);
+        if (fallbackData) return fallbackData;
+      } catch {}
     }
 
     return {

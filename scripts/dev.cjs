@@ -31,7 +31,7 @@ async function main() {
     const mobile = mode === 'mobile' || android;
     if (mobile && !android && !host) throw Error('Connect the PC to Wi-Fi, or set TRANSITLK_HOST_IP to its LAN address.');
     process.chdir(path.join(root, 'mobile'));
-    process.env.EXPO_PUBLIC_API_URL = process.env.EXPO_PUBLIC_API_URL || `http://${android ? '10.0.2.2' : host || 'localhost'}:4000`;
+    process.env.EXPO_PUBLIC_API_URL = process.env.EXPO_PUBLIC_API_URL || (mode === 'frontend' ? 'http://localhost:4000/api' : `http://${android ? '10.0.2.2' : host || 'localhost'}:4000/api`);
     if (android) process.env.REACT_NATIVE_PACKAGER_HOSTNAME = '127.0.0.1';
     else if (host) process.env.REACT_NATIVE_PACKAGER_HOSTNAME = host;
     process.env.EXPO_NO_TELEMETRY = '1';

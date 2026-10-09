@@ -246,22 +246,23 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       </ScrollView>
 
       {/* Google Sign-In Account Chooser Modal */}
-      <Modal
-        visible={showGoogleModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowGoogleModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {/* Google Header */}
-            <View style={styles.googleModalHeader}>
-              <GoogleColorIcon size={28} />
-              <Text style={styles.googleModalTitle}>Sign in with Google</Text>
-              <Text style={styles.googleModalSubtitle}>
-                Choose an account to continue to <Text style={{ fontWeight: '700' }}>TransitLK</Text>
-              </Text>
-            </View>
+      {Platform.OS === 'web' ? (
+        showGoogleModal ? (
+          <View style={styles.webModalOverlay}>
+            <TouchableOpacity
+              style={styles.modalBackdropTouch}
+              activeOpacity={1}
+              onPress={() => setShowGoogleModal(false)}
+            />
+            <View style={styles.modalContent}>
+              {/* Google Header */}
+              <View style={styles.googleModalHeader}>
+                <GoogleColorIcon size={28} />
+                <Text style={styles.googleModalTitle}>Sign in with Google</Text>
+                <Text style={styles.googleModalSubtitle}>
+                  Choose an account to continue to <Text style={{ fontWeight: '700' }}>TransitLK</Text>
+                </Text>
+              </View>
 
             {googleLoading ? (
               <View style={styles.googleLoadingContainer}>
@@ -359,7 +360,65 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      ) : null) : (
+        <Modal
+          visible={showGoogleModal}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowGoogleModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.googleModalHeader}>
+                <GoogleColorIcon size={28} />
+                <Text style={styles.googleModalTitle}>Sign in with Google</Text>
+                <Text style={styles.googleModalSubtitle}>
+                  Choose an account to continue to <Text style={{ fontWeight: '700' }}>TransitLK</Text>
+                </Text>
+              </View>
+              {googleLoading ? (
+                <View style={styles.googleLoadingContainer}>
+                  <ActivityIndicator size="large" color={colors.teal.primary} />
+                  <Text style={styles.googleLoadingText}>
+                    Connecting to Google & syncing with MongoDB...
+                  </Text>
+                </View>
+              ) : (
+                <View style={styles.accountsList}>
+                  <TouchableOpacity
+                    style={styles.accountItem}
+                    onPress={() =>
+                      handleGoogleAccountSelect({
+                        email: 'janiththathsara@gmail.com',
+                        name: 'Janith Thathsara',
+                      })
+                    }
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.accountAvatar, { backgroundColor: '#4285F4' }]}>
+                      <Text style={styles.accountAvatarText}>J</Text>
+                    </View>
+                    <View style={styles.accountInfo}>
+                      <Text style={styles.accountName}>Janith Thathsara</Text>
+                      <Text style={styles.accountEmail}>janiththathsara@gmail.com</Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+              )}
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => {
+                  setShowGoogleModal(false);
+                  setShowCustomInput(false);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };
@@ -368,6 +427,10 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    position: 'relative',
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
   },
   scrollContent: {
     paddingHorizontal: 22,
@@ -468,6 +531,24 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
   },
   // Modal styles
+  webModalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(10, 28, 46, 0.55)',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    zIndex: 999,
+  },
+  modalBackdropTouch: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(10, 28, 46, 0.55)',

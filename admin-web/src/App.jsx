@@ -105,8 +105,12 @@ export default function App() {
   const [officersList, setOfficersList] = useState([]);
   const [ownersList, setOwnersList] = useState([]);
   const [allUsersList, setAllUsersList] = useState([]);
+  const [pendingBusesList, setPendingBusesList] = useState([]);
+  const [allBusesList, setAllBusesList] = useState([]);
+  const [busViewMode, setBusViewMode] = useState('pending'); // 'pending' | 'all'
+  const [busSearchQuery, setBusSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'officers' | 'owners' | 'all'
+  const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'bus_approvals' | 'officers' | 'owners' | 'all'
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('');
@@ -162,6 +166,18 @@ export default function App() {
       const allRes = await fetch(`${API_BASE}/admin/users`, { headers: authHeaders }).then((r) => r.json()).catch(() => null);
       if (allRes && allRes.users) {
         setAllUsersList(allRes.users);
+      }
+
+      // Fetch pending bus schedule submissions awaiting approval
+      const pendingBusesRes = await fetch(`${API_BASE}/admin/pending-buses`, { headers: authHeaders }).then((r) => r.json()).catch(() => null);
+      if (pendingBusesRes && pendingBusesRes.buses) {
+        setPendingBusesList(pendingBusesRes.buses);
+      }
+
+      // Fetch all fleet buses
+      const allBusesRes = await fetch(`${API_BASE}/admin/buses`, { headers: authHeaders }).then((r) => r.json()).catch(() => null);
+      if (allBusesRes && allBusesRes.buses) {
+        setAllBusesList(allBusesRes.buses);
       }
     } catch (err) {
       console.error('Fetch error:', err);
@@ -326,6 +342,75 @@ export default function App() {
       }
     } catch {
       alert('Could not seed pending users');
+    }
+  };
+
+  // Admin Approve Bus & Schedule Submission
+  const handleApproveBus = async (busId, busRegNumber) => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/buses/${busId}/approve`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      }).then((r) => r.json());
+
+      if (res.success) {
+        showToast(`Bus ${busRegNumber} schedule approved! Published to active routes.`);
+        fetchAdminData();
+      } else {
+        alert(res.message || 'Failed to approve bus schedule');
+      }
+    } catch {
+      alert('Network error while approving bus schedule');
+    }
+  };
+
+  // Admin Reject Bus Submission
+  const handleRejectBus = async (busId, busRegNumber) => {
+    const reason = window.prompt(
+      `Please provide a reason for rejecting bus ${busRegNumber}:`,
+      'Route timetable conflict or unverified operator schedule'
+    );
+    if (!reason) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/buses/${busId}/reject`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ reason }),
+      }).then((r) => r.json());
+
+      if (res.success) {
+        showToast(`Bus ${busRegNumber} schedule rejected with feedback sent to owner.`);
+        fetchAdminData();
+      } else {
+        alert(res.message || 'Failed to reject bus submission');
+      }
+    } catch {
+      alert('Network error while rejecting bus submission');
+    }
+  };
+
+  // Admin Seed test pending bus schedule submission
+  const handleSeedPendingBus = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/seed-demo-pending-bus`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      }).then((r) => r.json());
+
+      if (res.success) {
+        showToast(`Seeded sample bus submission ${res.bus?.busRegNumber || ''}! Check the queue.`);
+        setActiveTab('bus_approvals');
+        setBusViewMode('pending');
+        fetchAdminData();
+      } else {
+        alert(res.message || 'Could not seed pending bus');
+      }
+    } catch {
+      alert('Network error while seeding pending bus');
     }
   };
 
@@ -638,6 +723,23 @@ export default function App() {
               <div className="metric-value">{stats.totalPassengers}</div>
               <div className="metric-label">Registered Passenger Users</div>
             </div>
+
+            {/* Card 5: Bus Fleet & Timetables Approvals */}
+            <div
+              className={`metric-card ${pendingBusesList.length > 0 ? 'alert-card' : 'owners-card'}`}
+              onClick={() => setActiveTab('bus_approvals')}
+              style={{ cursor: 'pointer' }}
+              title="Click to view Bus Schedule Approvals"
+            >
+              <div className="metric-top">
+                <div className="metric-icon-wrap">📋</div>
+                <span className={`metric-badge ${pendingBusesList.length > 0 ? 'badge-amber' : 'badge-teal'}`}>
+                  {pendingBusesList.length > 0 ? `${pendingBusesList.length} Action Required` : 'Up to Date'}
+                </span>
+              </div>
+              <div className="metric-value">{pendingBusesList.length}</div>
+              <div className="metric-label">Pending Bus Submissions</div>
+            </div>
           </section>
 
           {/* Evaluation Assistant Widget */}
@@ -647,13 +749,23 @@ export default function App() {
               <div>
                 <h4>Evaluation & Demonstration Helper</h4>
                 <p>
-                  Click below to auto-generate sample pending registration requests to demonstrate the live approval workflow.
+                  Generate sample pending user accounts or commercial bus schedule submissions to test the live approval workflow.
                 </p>
               </div>
             </div>
-            <button className="btn-seed" onClick={handleSeedPending}>
-              <span>+</span> Seed 2 Demo Applicants
-            </button>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button className="btn-seed" onClick={handleSeedPending} title="Seed 2 pending user accounts">
+                <span>+</span> Seed 2 Demo Applicants
+              </button>
+              <button
+                className="btn-seed"
+                onClick={handleSeedPendingBus}
+                style={{ background: '#007A74', color: 'white' }}
+                title="Seed a sample bus schedule awaiting approval"
+              >
+                <span>+</span> Seed Pending Bus Submission
+              </button>
+            </div>
           </section>
 
           {/* Navigation Tabs */}
@@ -662,8 +774,18 @@ export default function App() {
               className={`tab-btn ${activeTab === 'pending' ? 'tab-btn-active' : ''}`}
               onClick={() => setActiveTab('pending')}
             >
-              <span>⏳ Pending Approvals</span>
+              <span>⏳ Account Approvals</span>
               {stats.totalPending > 0 && <span className="tab-count-badge badge-amber">{stats.totalPending}</span>}
+            </button>
+
+            <button
+              className={`tab-btn ${activeTab === 'bus_approvals' ? 'tab-btn-active' : ''}`}
+              onClick={() => setActiveTab('bus_approvals')}
+            >
+              <span>📋 Bus Schedule Approvals</span>
+              {pendingBusesList.length > 0 && (
+                <span className="tab-count-badge badge-amber">{pendingBusesList.length}</span>
+              )}
             </button>
 
             <button
@@ -802,6 +924,367 @@ export default function App() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Tab: Bus Fleet & Timetables Approvals */}
+          {activeTab === 'bus_approvals' && (
+            <section className="tab-content-panel">
+              <div className="panel-header">
+                <div>
+                  <h3>Bus Schedule Approval Queue ({pendingBusesList.length} Pending)</h3>
+                  <span className="panel-sub">
+                    Review and approve bus numbers, timetables, starting and ending points, and journey durations submitted by operators before publishing to passenger searches.
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button
+                    className={`btn-secondary ${busViewMode === 'pending' ? 'btn-primary' : ''}`}
+                    onClick={() => setBusViewMode('pending')}
+                    style={{
+                      padding: '7px 14px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      background: busViewMode === 'pending' ? '#007A74' : '#FFFFFF',
+                      color: busViewMode === 'pending' ? '#FFFFFF' : '#0F253B',
+                      borderColor: '#CBD5E1',
+                    }}
+                  >
+                    Pending Review ({pendingBusesList.length})
+                  </button>
+                  <button
+                    className={`btn-secondary ${busViewMode === 'all' ? 'btn-primary' : ''}`}
+                    onClick={() => setBusViewMode('all')}
+                    style={{
+                      padding: '7px 14px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      background: busViewMode === 'all' ? '#007A74' : '#FFFFFF',
+                      color: busViewMode === 'all' ? '#FFFFFF' : '#0F253B',
+                      borderColor: '#CBD5E1',
+                    }}
+                  >
+                    All Fleet Buses ({allBusesList.length})
+                  </button>
+                </div>
+              </div>
+
+              {/* Search & Filter Toolbar */}
+              <div className="filters-toolbar" style={{ marginTop: '12px' }}>
+                <div className="search-input-wrap">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Filter by bus plate, route number, town, or operator..."
+                    value={busSearchQuery}
+                    onChange={(e) => setBusSearchQuery(e.target.value)}
+                  />
+                </div>
+
+                <button
+                  className="btn-secondary"
+                  onClick={handleSeedPendingBus}
+                  style={{ fontSize: '12px', fontWeight: 700, padding: '7px 12px' }}
+                >
+                  <span>+</span> Seed Test Bus Submission
+                </button>
+              </div>
+
+              {/* PENDING VIEW */}
+              {busViewMode === 'pending' && (
+                <>
+                  {pendingBusesList.filter((b) => {
+                    if (!busSearchQuery) return true;
+                    const q = busSearchQuery.toLowerCase();
+                    return (
+                      b.busRegNumber?.toLowerCase().includes(q) ||
+                      b.routeNumber?.toLowerCase().includes(q) ||
+                      b.routeName?.toLowerCase().includes(q) ||
+                      b.ownerName?.toLowerCase().includes(q) ||
+                      b.companyName?.toLowerCase().includes(q) ||
+                      b.startPoint?.toLowerCase().includes(q) ||
+                      b.endPoint?.toLowerCase().includes(q)
+                    );
+                  }).length === 0 ? (
+                    <div className="empty-state">
+                      <div className="empty-state-icon">🎉</div>
+                      <h3>All Bus Submissions Approved!</h3>
+                      <p>
+                        There are currently no pending bus registration requests or timetable edits awaiting administrator review.
+                      </p>
+                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '12px' }}>
+                        <button className="btn-secondary" onClick={handleSeedPendingBus}>
+                          + Seed Demo Bus Submission
+                        </button>
+                        <button className="btn-secondary" onClick={() => setBusViewMode('all')}>
+                          View All Fleet Buses ({allBusesList.length})
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="pending-cards-grid">
+                      {pendingBusesList
+                        .filter((b) => {
+                          if (!busSearchQuery) return true;
+                          const q = busSearchQuery.toLowerCase();
+                          return (
+                            b.busRegNumber?.toLowerCase().includes(q) ||
+                            b.routeNumber?.toLowerCase().includes(q) ||
+                            b.routeName?.toLowerCase().includes(q) ||
+                            b.ownerName?.toLowerCase().includes(q) ||
+                            b.companyName?.toLowerCase().includes(q) ||
+                            b.startPoint?.toLowerCase().includes(q) ||
+                            b.endPoint?.toLowerCase().includes(q)
+                          );
+                        })
+                        .map((bus) => (
+                          <div key={bus._id} className="pending-card" style={{ borderColor: '#FDE68A' }}>
+                            <div className="pending-card-left">
+                              <div className="role-avatar-circle bus_owner" style={{ fontSize: '1.6rem' }}>
+                                🚌
+                              </div>
+                              <div className="pending-details-col" style={{ flex: 1 }}>
+                                <div className="pending-badge-row">
+                                  <span className="role-pill bus_owner" style={{ fontWeight: 800 }}>
+                                    Route {bus.routeNumber}
+                                  </span>
+                                  <span
+                                    className="status-pill pending"
+                                    style={{ textTransform: 'uppercase', fontSize: '10px', fontWeight: 800 }}
+                                  >
+                                    ⏳ Pending Approval
+                                  </span>
+                                  {bus.submissionType === 'update' ? (
+                                    <span
+                                      className="time-pill"
+                                      style={{ background: '#FEF3C7', color: '#B45309', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}
+                                    >
+                                      Timetable Update
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className="time-pill"
+                                      style={{ background: '#D1FAE5', color: '#065F46', padding: '2px 8px', borderRadius: '4px', fontWeight: 700 }}
+                                    >
+                                      New Registration
+                                    </span>
+                                  )}
+                                  <span className="time-pill">
+                                    Submitted: {new Date(bus.submittedAt || bus.createdAt || Date.now()).toLocaleDateString()}
+                                  </span>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
+                                  <h3 className="applicant-name" style={{ fontSize: '1.25rem', color: '#12304A', fontWeight: 800 }}>
+                                    {bus.busRegNumber}
+                                  </h3>
+                                  <span style={{ fontSize: '12px', background: '#F1F5F9', padding: '2px 8px', borderRadius: '6px', fontWeight: 700, color: '#475569' }}>
+                                    {bus.busType || 'Semi-Luxury'} • {bus.totalSeats || 50} Seats
+                                  </span>
+                                </div>
+
+                                {/* Route Start and End Points */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 700, color: '#0F253B', marginTop: '6px' }}>
+                                  <span style={{ color: '#008783' }}>📍 {bus.startPoint || 'Origin Terminal'}</span>
+                                  <span style={{ color: '#94A3B8' }}>➔</span>
+                                  <span style={{ color: '#008783' }}>🏁 {bus.endPoint || 'Destination Terminal'}</span>
+                                  <span style={{ color: '#64748B', fontWeight: 500, fontSize: '12px' }}>
+                                    ({bus.routeName || `Route ${bus.routeNumber}`})
+                                  </span>
+                                </div>
+
+                                {/* Schedule Timings & Journey Duration Grid */}
+                                <div
+                                  className="owner-credentials-box"
+                                  style={{
+                                    marginTop: '8px',
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                                    gap: '8px',
+                                    background: '#F8FAFC',
+                                    border: '1px solid #E2E8F0',
+                                    borderRadius: '8px',
+                                    padding: '10px 12px',
+                                  }}
+                                >
+                                  <div className="cred-item">
+                                    <span className="cred-label" style={{ fontSize: '11px', color: '#64748B' }}>Departure:</span>
+                                    <span className="cred-value" style={{ fontWeight: 800, color: '#008783', fontSize: '13px' }}>
+                                      🕒 {bus.departureTime || '07:00 AM'}
+                                    </span>
+                                  </div>
+                                  <div className="cred-item">
+                                    <span className="cred-label" style={{ fontSize: '11px', color: '#64748B' }}>Arrival:</span>
+                                    <span className="cred-value" style={{ fontWeight: 800, color: '#008783', fontSize: '13px' }}>
+                                      🕒 {bus.arrivalTime || '08:30 AM'}
+                                    </span>
+                                  </div>
+                                  <div className="cred-item">
+                                    <span className="cred-label" style={{ fontSize: '11px', color: '#64748B' }}>Duration:</span>
+                                    <span className="cred-value" style={{ fontWeight: 800, color: '#1E3A8A', fontSize: '13px' }}>
+                                      ⏱️ {bus.journeyDuration || '1 hr 30 mins'}
+                                    </span>
+                                  </div>
+                                  <div className="cred-item">
+                                    <span className="cred-label" style={{ fontSize: '11px', color: '#64748B' }}>Base Fare:</span>
+                                    <span className="cred-value" style={{ fontWeight: 800, fontSize: '13px' }}>
+                                      Rs. {bus.baseFare || 220}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Operator Information */}
+                                <div style={{ fontSize: '12px', color: '#64748B', marginTop: '6px', display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
+                                  <span>👤 Operator: <strong>{bus.ownerName || 'Verified Bus Fleet Owner'}</strong></span>
+                                  {bus.companyName && <span>🏢 Company: <strong>{bus.companyName}</strong></span>}
+                                  {bus.phone && <span>📞 {bus.phone}</span>}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="pending-card-actions">
+                              <button
+                                className="btn-approve"
+                                onClick={() => handleApproveBus(bus._id, bus.busRegNumber)}
+                                title="Approve this bus and publish timetable to public search"
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                                Approve Bus & Schedule
+                              </button>
+                              <button
+                                className="btn-reject"
+                                onClick={() => handleRejectBus(bus._id, bus.busRegNumber)}
+                                title="Reject with feedback"
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                  <line x1="18" y1="6" x2="6" y2="18"/>
+                                  <line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                                Reject
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ALL FLEET BUSES VIEW */}
+              {busViewMode === 'all' && (
+                <div className="verified-table-wrap">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Bus Plate</th>
+                        <th>Route</th>
+                        <th>Origin ➔ Destination</th>
+                        <th>Schedule Timings</th>
+                        <th>Duration</th>
+                        <th>Type / Seats</th>
+                        <th>Operator / Fleet</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allBusesList
+                        .filter((b) => {
+                          if (!busSearchQuery) return true;
+                          const q = busSearchQuery.toLowerCase();
+                          return (
+                            b.busRegNumber?.toLowerCase().includes(q) ||
+                            b.routeNumber?.toLowerCase().includes(q) ||
+                            b.routeName?.toLowerCase().includes(q) ||
+                            b.ownerName?.toLowerCase().includes(q) ||
+                            b.companyName?.toLowerCase().includes(q) ||
+                            b.startPoint?.toLowerCase().includes(q) ||
+                            b.endPoint?.toLowerCase().includes(q)
+                          );
+                        })
+                        .map((b) => (
+                          <tr key={b._id}>
+                            <td>
+                              <strong style={{ fontFamily: 'monospace', fontSize: '13px' }}>
+                                {b.busRegNumber}
+                              </strong>
+                            </td>
+                            <td>
+                              <span className="role-pill bus_owner" style={{ fontWeight: 800 }}>
+                                {b.routeNumber}
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ fontSize: '12px', fontWeight: 600 }}>
+                                {b.startPoint || 'Origin'} ➔ {b.endPoint || 'Destination'}
+                              </div>
+                              <div style={{ fontSize: '11px', color: '#64748B' }}>{b.routeName}</div>
+                            </td>
+                            <td>
+                              <div style={{ fontSize: '12px', fontWeight: 700, color: '#007A74' }}>
+                                {b.departureTime || '—'} ➔ {b.arrivalTime || '—'}
+                              </div>
+                            </td>
+                            <td>
+                              <span style={{ fontSize: '12px', fontWeight: 700, color: '#1E3A8A' }}>
+                                {b.journeyDuration || '—'}
+                              </span>
+                            </td>
+                            <td>
+                              <span style={{ fontSize: '12px' }}>{b.busType || 'Normal'}</span>
+                              <div style={{ fontSize: '11px', color: '#64748B' }}>{b.totalSeats || 50} seats</div>
+                            </td>
+                            <td>
+                              <div style={{ fontSize: '12px', fontWeight: 600 }}>{b.ownerName || '—'}</div>
+                              <div style={{ fontSize: '11px', color: '#64748B' }}>{b.companyName || '—'}</div>
+                            </td>
+                            <td>
+                              <span className={`status-pill ${b.status || 'approved'}`}>
+                                {b.status === 'pending'
+                                  ? '⏳ Pending'
+                                  : b.status === 'rejected'
+                                  ? '✕ Rejected'
+                                  : '✓ Approved'}
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                {b.status !== 'approved' && (
+                                  <button
+                                    className="btn-approve"
+                                    style={{ padding: '4px 8px', fontSize: '11px' }}
+                                    onClick={() => handleApproveBus(b._id, b.busRegNumber)}
+                                    title="Approve Bus"
+                                  >
+                                    ✓ Approve
+                                  </button>
+                                )}
+                                {b.status !== 'rejected' && (
+                                  <button
+                                    className="btn-reject"
+                                    style={{ padding: '4px 8px', fontSize: '11px' }}
+                                    onClick={() => handleRejectBus(b._id, b.busRegNumber)}
+                                    title="Reject Bus"
+                                  >
+                                    ✕ Reject
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </section>
