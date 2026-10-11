@@ -9,7 +9,10 @@ const store={
   async updateLanguage(id,language){const u=users.get(id);u.language=language;return u;},
   async createSession(s){sessions.set(s.tokenHash,s);},
   async findSession(hash){const s=sessions.get(hash);return s&&s.expiresAt>new Date()?s:null;},
-  async deleteSession(hash){sessions.delete(hash);},async ping(){}
+  async deleteSession(hash){sessions.delete(hash);},
+  async updateUser(id,updates){const u=users.get(id);Object.assign(u,updates);return u;},
+  async deleteUser(id){users.delete(id);for(const [k,s] of sessions.entries()){if(s.userId===id)sessions.delete(k);}},
+  async ping(){}
 };
 let server,base,token;
 before(async()=>{server=createApp(store,{limit:100}).listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));base=`http://127.0.0.1:${server.address().port}/api`;});
@@ -29,3 +32,5 @@ test('expired sessions are rejected',async()=>{const r=await call('/auth/login',
 test('malformed JSON and oversized bodies are rejected',async()=>{let r=await fetch(base+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:'{broken'});assert.equal(r.status,400);r=await fetch(base+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:'x'.repeat(17000)})});assert.equal(r.status,413);});
 test('unavailable database reports unhealthy instead of successful',async()=>{const saved=store.ping;store.ping=async()=>{throw Error('offline');};try{assert.equal((await call('/health')).status,503);}finally{store.ping=saved;}});
 test('authentication attempts are rate limited',async()=>{const limited=createApp(store,{limit:1}).listen(0,'127.0.0.1');await new Promise(r=>limited.once('listening',r));try{const url=`http://127.0.0.1:${limited.address().port}/api/auth/login`;const options={method:'POST',headers:{'Content-Type':'application/json'},body:'{}'};assert.equal((await fetch(url,options)).status,400);assert.equal((await fetch(url,options)).status,429);}finally{await new Promise(r=>limited.close(r));}});
+test('profile details can be updated with name, email and avatar',async()=>{const loginRes=await call('/auth/login','POST',{email:'rider@example.test',password:'test-password'});const t=loginRes.body.token;const updateRes=await call('/me','PATCH',{name:'Kamal Perera Updated',email:'kamal.new@example.test',avatar:'bus'},t);assert.equal(updateRes.status,200);assert.equal(updateRes.body.user.name,'Kamal Perera Updated');assert.equal(updateRes.body.user.email,'kamal.new@example.test');assert.equal(updateRes.body.user.avatar,'bus');const me=await call('/me','GET',null,t);assert.equal(me.body.user.name,'Kamal Perera Updated');});
+test('account deletion deletes the user and revokes the session',async()=>{const userRes=await call('/auth/register','POST',{name:'Delete Rider',email:'to.delete@example.test',password:'test-password'});const delToken=userRes.body.token;const delRes=await call('/me','DELETE',null,delToken);assert.equal(delRes.status,200);assert.equal((await call('/me','GET',null,delToken)).status,401);});

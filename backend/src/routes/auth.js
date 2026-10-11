@@ -534,6 +534,7 @@ authRouter.get('/me', async (req, res) => {
         name: user.name,
         role: user.role || 'passenger',
         language: user.language || 'en',
+        avatar: user.avatar || null,
         companyName: user.companyName || null,
         officerId: user.officerId || null,
         department: user.department || null,
@@ -543,6 +544,134 @@ authRouter.get('/me', async (req, res) => {
     });
   } catch (error) {
     console.error('Auth/me error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+/**
+ * PUT /api/auth/profile & PATCH /api/auth/profile
+ * Update user profile details (name, email, avatar icon)
+ */
+const updateProfileHandler = async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, message: 'No bearer token provided' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const tokenHash = hashToken(token);
+
+    const session = await getSessionsCollection().findOne({
+      tokenHash,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!session) {
+      return res.status(401).json({ success: false, message: 'Session expired or invalid' });
+    }
+
+    const userIdFilter = (typeof session.userId === 'string' && ObjectId.isValid(session.userId))
+      ? { $or: [{ _id: new ObjectId(session.userId) }, { _id: session.userId }] }
+      : { _id: session.userId };
+    const users = getUsersCollection();
+    const user = await users.findOne(userIdFilter);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const { name, email, avatar } = req.body;
+    if (name !== undefined && (!name || typeof name !== 'string' || !name.trim())) {
+      return res.status(400).json({ success: false, message: 'Full name cannot be empty' });
+    }
+    if (email !== undefined && (!email || typeof email !== 'string' || !email.includes('@'))) {
+      return res.status(400).json({ success: false, message: 'Valid email address is required' });
+    }
+
+    const updateFields = { updatedAt: new Date().toISOString() };
+    if (name !== undefined) updateFields.name = name.trim();
+    if (avatar !== undefined) updateFields.avatar = avatar;
+
+    if (email !== undefined) {
+      const normalizedEmail = email.toLowerCase().trim();
+      if (normalizedEmail !== user.email) {
+        const existing = await users.findOne({ email: normalizedEmail });
+        if (existing && String(existing._id) !== String(user._id)) {
+          return res.status(409).json({ success: false, message: 'An account with this email already exists' });
+        }
+        updateFields.email = normalizedEmail;
+      }
+    }
+
+    await users.updateOne(userIdFilter, { $set: updateFields });
+    const updatedUser = await users.findOne(userIdFilter);
+
+    return res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      user: {
+        id: updatedUser._id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        role: updatedUser.role || 'passenger',
+        language: updatedUser.language || 'en',
+        avatar: updatedUser.avatar || null,
+        companyName: updatedUser.companyName || null,
+        officerId: updatedUser.officerId || null,
+        department: updatedUser.department || null,
+        phone: updatedUser.phone || null,
+        status: updatedUser.status || 'approved',
+      },
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+authRouter.put('/profile', updateProfileHandler);
+authRouter.patch('/profile', updateProfileHandler);
+
+/**
+ * DELETE /api/auth/account
+ * Permanently delete passenger account and all active sessions
+ */
+authRouter.delete('/account', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ success: false, message: 'No bearer token provided' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const tokenHash = hashToken(token);
+
+    const session = await getSessionsCollection().findOne({
+      tokenHash,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (!session) {
+      return res.status(401).json({ success: false, message: 'Session expired or invalid' });
+    }
+
+    const userIdFilter = (typeof session.userId === 'string' && ObjectId.isValid(session.userId))
+      ? { $or: [{ _id: new ObjectId(session.userId) }, { _id: session.userId }] }
+      : { _id: session.userId };
+
+    const users = getUsersCollection();
+    const sessions = getSessionsCollection();
+
+    await users.deleteOne(userIdFilter);
+    await sessions.deleteMany({ userId: String(session.userId) });
+    await sessions.deleteOne({ tokenHash });
+
+    return res.json({
+      success: true,
+      message: 'Account deleted successfully',
+    });
+  } catch (error) {
+    console.error('Delete account error:', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });

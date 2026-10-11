@@ -180,3 +180,33 @@ test('8. Mock tokens are strictly rejected in production runtime (NODE_ENV=produ
     process.env.NODE_ENV = previousEnv || 'test';
   }
 });
+
+test('9. User deletion requires administrator authorization (rejects 401 and 403)', async () => {
+  const unauthRes = await adminApi('/users/user-to-delete', 'DELETE');
+  assert.equal(unauthRes.status, 401);
+  assert.equal(unauthRes.data.success, false);
+
+  const passengerRes = await adminApi('/users/user-to-delete', 'DELETE', null, 'mock-passenger-token');
+  assert.equal(passengerRes.status, 403);
+  assert.equal(passengerRes.data.success, false);
+});
+
+test('10. Authorized admin can delete a user, but admin accounts are protected (403)', async () => {
+  // First seed pending accounts so we have a target user
+  await adminApi('/seed-demo-pending', 'POST', null, 'mock-admin-token');
+  const pendingRes = await adminApi('/pending', 'GET', null, 'mock-admin-token');
+  assert.ok(pendingRes.data.users.length > 0);
+  const targetUser = pendingRes.data.users[0];
+  const targetId = targetUser._id || targetUser.id;
+
+  // Admin deletes the user
+  const deleteRes = await adminApi(`/users/${targetId}`, 'DELETE', null, 'mock-admin-token');
+  assert.equal(deleteRes.status, 200);
+  assert.equal(deleteRes.data.success, true);
+  assert.equal(deleteRes.data.deletedUserId, targetId);
+
+  // Attempting to delete again returns 404
+  const repeatDelete = await adminApi(`/users/${targetId}`, 'DELETE', null, 'mock-admin-token');
+  assert.equal(repeatDelete.status, 404);
+  assert.equal(repeatDelete.data.success, false);
+});

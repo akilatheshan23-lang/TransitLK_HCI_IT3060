@@ -279,6 +279,7 @@ export default function App() {
         return (
           <DashboardScreen
             user={activeUser}
+            onUpdateUser={(updated) => setCurrentUser(updated)}
             onLogout={() => {
               api.logout().finally(() => {
                 setCurrentUser(null);
@@ -291,7 +292,7 @@ export default function App() {
         );
 
       case 'staff-management':
-        return <DashboardScreen user={activeUser} onLogout={() => { void api.logout().then(() => { setCurrentUser(null); navigateTo('login'); }); }} onNavigateBack={() => navigateTo('dashboard')} onNavigateToHome={() => navigateTo('home')} />;
+        return <DashboardScreen user={activeUser} onUpdateUser={(updated) => setCurrentUser(updated)} onLogout={() => { void api.logout().then(() => { setCurrentUser(null); navigateTo('login'); }); }} onNavigateBack={() => navigateTo('dashboard')} onNavigateToHome={() => navigateTo('home')} />;
       case 'fleet':
         return (
           <FleetTrackingScreen

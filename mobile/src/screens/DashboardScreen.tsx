@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Linking,
   KeyboardAvoidingView,
   Keyboard,
+  ActivityIndicator,
 } from 'react-native';
 import { Header } from '../components/Header';
 import {
@@ -21,6 +22,11 @@ import {
   ScannerIcon,
   HomeIcon,
   LockIcon,
+  EditIcon,
+  TrashIcon,
+  BusPictogram,
+  TrainIcon,
+  CheckIcon,
 } from '../components/Icons';
 import { InputField } from '../components/InputField';
 import { AppButton } from '../components/Buttons';
@@ -33,6 +39,7 @@ interface DashboardScreenProps {
   onLogout: () => void;
   onNavigateBack?: () => void;
   onNavigateToHome?: () => void;
+  onUpdateUser?: (user: UserProfile) => void;
 }
 
 export const DashboardScreen: React.FC<DashboardScreenProps> = ({
@@ -40,6 +47,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onLogout,
   onNavigateBack,
   onNavigateToHome,
+  onUpdateUser,
 }) => {
   const [selectedLanguage, setSelectedLanguage] = useState('English / Sinhala / Tamil');
   const [activeTab, setActiveTab] = useState<'home' | 'tickets' | 'community' | 'profile'>('profile');
@@ -50,6 +58,116 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [adminPassword, setAdminPassword] = useState('');
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminError, setAdminError] = useState('');
+
+  // Current User State
+  const [currentUserState, setCurrentUserState] = useState<UserProfile>(user);
+
+  useEffect(() => {
+    setCurrentUserState(user);
+  }, [user]);
+
+  // Edit Profile Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editName, setEditName] = useState(user.name || '');
+  const [editEmail, setEditEmail] = useState(user.email || '');
+  const [editAvatar, setEditAvatar] = useState(user.avatar || 'user');
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState('');
+
+  // Delete Account Modal State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const AVATAR_OPTIONS = [
+    { key: 'user', label: 'Default' },
+    { key: 'bus', label: 'Bus' },
+    { key: 'train', label: 'Train' },
+    { key: 'globe', label: 'Traveler' },
+    { key: 'ticket', label: 'Pass' },
+  ];
+
+  const renderAvatarIcon = (avatarKey?: string, size = 42, color = colors.teal.primary) => {
+    switch (avatarKey) {
+      case 'bus':
+        return <BusPictogram size={size} color={color} />;
+      case 'train':
+        return <TrainIcon size={size} color={color} />;
+      case 'globe':
+        return <GlobeIcon size={size} color={color} />;
+      case 'ticket':
+        return <TicketIcon size={size} color={color} />;
+      case 'user':
+      default:
+        return <UserIcon size={size} color={color} />;
+    }
+  };
+
+  const handleOpenEditModal = () => {
+    setEditName(currentUserState.name || '');
+    setEditEmail(currentUserState.email || '');
+    setEditAvatar(currentUserState.avatar || 'user');
+    setEditError('');
+    setShowEditModal(true);
+  };
+
+  const handleSaveProfile = async () => {
+    const trimmedName = editName.trim();
+    const trimmedEmail = editEmail.trim();
+
+    if (!trimmedName) {
+      setEditError('Name cannot be empty.');
+      return;
+    }
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
+      setEditError('Please enter a valid email address.');
+      return;
+    }
+
+    setEditLoading(true);
+    setEditError('');
+
+    try {
+      const res = await api.updateProfile({
+        name: trimmedName,
+        email: trimmedEmail,
+        avatar: editAvatar,
+      });
+
+      setEditLoading(false);
+
+      if (res.success && res.user) {
+        setCurrentUserState(res.user);
+        onUpdateUser?.(res.user);
+        setShowEditModal(false);
+        showAlert('Profile Updated', 'Your profile details have been saved successfully.');
+      } else {
+        setEditError(res.message || 'Failed to update profile.');
+      }
+    } catch (err: any) {
+      setEditLoading(false);
+      setEditError(err.message || 'Network error while updating profile.');
+    }
+  };
+
+  const handleConfirmDeleteAccount = async () => {
+    setDeleteLoading(true);
+    try {
+      const res = await api.deleteAccount();
+      setDeleteLoading(false);
+      setShowDeleteModal(false);
+
+      if (res.success) {
+        showAlert('Account Deleted', 'Your account has been permanently removed from TransitLK.');
+        onLogout();
+      } else {
+        showAlert('Delete Failed', res.message || 'Could not delete account. Please try again.');
+      }
+    } catch (err: any) {
+      setDeleteLoading(false);
+      setShowDeleteModal(false);
+      showAlert('Error', err.message || 'Could not delete account.');
+    }
+  };
 
   const showAlert = (title: string, msg: string) => {
     if (Platform.OS === 'web') {
@@ -158,11 +276,26 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       >
         {/* Profile Avatar Hero */}
         <View style={styles.avatarSection}>
-          <View style={styles.avatarCircle}>
-            <UserIcon size={42} color={colors.teal.primary} />
-          </View>
-          <Text style={styles.userName}>{user.name || 'Kamal Perera'}</Text>
+          <TouchableOpacity
+            style={styles.avatarCircle}
+            onPress={handleOpenEditModal}
+            activeOpacity={0.8}
+          >
+            {renderAvatarIcon(currentUserState.avatar, 42, colors.teal.primary)}
+            <View style={styles.avatarEditBadge}>
+              <EditIcon size={12} color="#FFFFFF" />
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.userName}>{currentUserState.name || 'Kamal Perera'}</Text>
           <Text style={styles.accountSubtitle}>{getAccountLabel()}</Text>
+          <TouchableOpacity
+            style={styles.editProfilePill}
+            onPress={handleOpenEditModal}
+            activeOpacity={0.75}
+          >
+            <EditIcon size={13} color={colors.teal.primary} />
+            <Text style={styles.editProfilePillText}>Edit profile</Text>
+          </TouchableOpacity>
         </View>
 
         {/* App Language Section */}
@@ -235,6 +368,16 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           activeOpacity={0.7}
         >
           <Text style={styles.signOutText}>Sign out</Text>
+        </TouchableOpacity>
+
+        {/* Delete account button */}
+        <TouchableOpacity
+          onPress={() => setShowDeleteModal(true)}
+          style={styles.deleteAccountContainer}
+          activeOpacity={0.7}
+        >
+          <TrashIcon size={15} color="#DC2626" />
+          <Text style={styles.deleteAccountText}>Delete account</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -345,6 +488,200 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </View>
       </Modal>
 
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={showEditModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          if (!editLoading) setShowEditModal(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => {
+              if (!editLoading) {
+                Keyboard.dismiss();
+                setShowEditModal(false);
+              }
+            }}
+          />
+
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalKeyboardContainer}
+            pointerEvents="box-none"
+          >
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeaderBadge}>
+                <View style={styles.modalIconCircle}>
+                  <EditIcon size={24} color={colors.teal.primary} />
+                </View>
+                <Text style={styles.modalKicker}>ACCOUNT SETTINGS</Text>
+                <Text style={styles.modalTitle}>Edit Profile</Text>
+                <Text style={styles.modalSubtitle}>
+                  Update your display name, contact email and profile avatar.
+                </Text>
+              </View>
+
+              {/* Avatar Selection */}
+              <View style={styles.avatarPickerSection}>
+                <Text style={styles.avatarPickerLabel}>Choose Avatar Icon</Text>
+                <View style={styles.avatarOptionsRow}>
+                  {AVATAR_OPTIONS.map((item) => {
+                    const isSelected = editAvatar === item.key;
+                    return (
+                      <TouchableOpacity
+                        key={item.key}
+                        style={[
+                          styles.avatarOptionItem,
+                          isSelected && styles.avatarOptionItemSelected,
+                        ]}
+                        onPress={() => setEditAvatar(item.key)}
+                        activeOpacity={0.7}
+                      >
+                        {renderAvatarIcon(item.key, 22, isSelected ? colors.teal.primary : colors.neutral.muted)}
+                        <Text
+                          style={[
+                            styles.avatarOptionText,
+                            isSelected && styles.avatarOptionTextSelected,
+                          ]}
+                        >
+                          {item.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Error Banner */}
+              {editError ? (
+                <View style={styles.modalErrorBanner}>
+                  <Text style={styles.modalErrorText}>⚠️ {editError}</Text>
+                </View>
+              ) : null}
+
+              {/* Input Fields */}
+              <View style={styles.modalForm}>
+                <InputField
+                  label="Full Name"
+                  placeholder="Enter your name"
+                  value={editName}
+                  onChangeText={(val) => {
+                    setEditName(val);
+                    if (editError) setEditError('');
+                  }}
+                  leftIcon={<UserIcon size={18} color={colors.teal.primary} />}
+                  autoCapitalize="words"
+                />
+
+                <InputField
+                  label="Email Address"
+                  placeholder="Enter your email"
+                  value={editEmail}
+                  onChangeText={(val) => {
+                    setEditEmail(val);
+                    if (editError) setEditError('');
+                  }}
+                  leftIcon={<GlobeIcon size={18} color={colors.teal.primary} />}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+              </View>
+
+              {/* Action Buttons */}
+              <View style={styles.modalActions}>
+                <AppButton
+                  title={editLoading ? 'Saving Changes...' : 'Save Profile Changes'}
+                  onPress={handleSaveProfile}
+                  variant="teal"
+                  loading={editLoading}
+                  showArrow={!editLoading}
+                />
+
+                <TouchableOpacity
+                  style={styles.modalCancelButton}
+                  onPress={() => {
+                    if (!editLoading) setShowEditModal(false);
+                  }}
+                  disabled={editLoading}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* Delete Account Confirmation Modal */}
+      <Modal
+        visible={showDeleteModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          if (!deleteLoading) setShowDeleteModal(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => {
+              if (!deleteLoading) setShowDeleteModal(false);
+            }}
+          />
+
+          <View style={styles.modalKeyboardContainer}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeaderBadge}>
+                <View style={[styles.modalIconCircle, { backgroundColor: '#FEE2E2' }]}>
+                  <TrashIcon size={24} color="#DC2626" />
+                </View>
+                <Text style={[styles.modalKicker, { color: '#DC2626' }]}>DANGER ZONE</Text>
+                <Text style={styles.modalTitle}>Delete Account?</Text>
+                <Text style={styles.modalSubtitle}>
+                  Are you sure you want to permanently delete your TransitLK passenger account? This action cannot be undone. All tickets and profile data will be permanently removed from the system.
+                </Text>
+              </View>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.deleteConfirmBtn, deleteLoading && { opacity: 0.7 }]}
+                  onPress={handleConfirmDeleteAccount}
+                  disabled={deleteLoading}
+                  activeOpacity={0.8}
+                >
+                  {deleteLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <TrashIcon size={18} color="#FFFFFF" />
+                      <Text style={styles.deleteConfirmBtnText}>Yes, Delete My Account</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalCancelButton}
+                  onPress={() => {
+                    if (!deleteLoading) setShowDeleteModal(false);
+                  }}
+                  disabled={deleteLoading}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.modalCancelText}>Keep Account</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Bottom Navigation Bar */}
       <View style={styles.bottomTabBar}>
         {/* Tab 1: Home */}
@@ -429,6 +766,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 14,
   },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.teal.primary,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   userName: {
     fontSize: 24,
     fontWeight: '800',
@@ -440,6 +790,22 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.neutral.muted,
     marginTop: 4,
+    letterSpacing: -0.1,
+  },
+  editProfilePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#DCF5EE',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 14,
+    marginTop: 8,
+  },
+  editProfilePillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.teal.primary,
     letterSpacing: -0.1,
   },
   sectionBlock: {
@@ -539,6 +905,21 @@ const styles = StyleSheet.create({
     color: colors.teal.primary,
     letterSpacing: -0.1,
   },
+  deleteAccountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginTop: 2,
+    marginBottom: 8,
+  },
+  deleteAccountText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#DC2626',
+    letterSpacing: -0.1,
+  },
   modalOverlay: {
     flex: 1,
     justifyContent: 'center',
@@ -631,6 +1012,60 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.neutral.muted,
+  },
+  avatarPickerSection: {
+    marginBottom: 14,
+  },
+  avatarPickerLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.neutral.label,
+    marginBottom: 8,
+    letterSpacing: -0.1,
+  },
+  avatarOptionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  avatarOptionItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.neutral.inputBorder,
+    backgroundColor: '#F8FAFC',
+  },
+  avatarOptionItemSelected: {
+    borderColor: colors.teal.primary,
+    backgroundColor: '#DCF5EE',
+  },
+  avatarOptionText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.neutral.muted,
+    marginTop: 4,
+  },
+  avatarOptionTextSelected: {
+    color: colors.teal.primary,
+    fontWeight: '700',
+  },
+  deleteConfirmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 50,
+    backgroundColor: '#DC2626',
+    borderRadius: 14,
+  },
+  deleteConfirmBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: -0.1,
   },
   bottomTabBar: {
     height: 64,

@@ -22,6 +22,7 @@ export interface UserProfile {
   busRegNumbers?: string;
   phone?: string;
   language?: string;
+  avatar?: string;
 }
 
 export interface AuthResponse {
@@ -276,6 +277,40 @@ export const api = {
     }
     await this.clearSession();
     return { success: true };
+  },
+
+  /**
+   * Update passenger profile (name, email, avatar icon)
+   */
+  async updateProfile(payload: {
+    name?: string;
+    email?: string;
+    avatar?: string;
+  }): Promise<AuthResponse> {
+    const res = await request('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    if (res.success && res.user) {
+      const { token } = await this.getSession();
+      if (token) {
+        await this.saveSession(token, res.user);
+      }
+    }
+    return res;
+  },
+
+  /**
+   * Permanently delete passenger account from database and clear local session
+   */
+  async deleteAccount(): Promise<AuthResponse> {
+    const res = await request('/auth/account', {
+      method: 'DELETE',
+    });
+    if (res.success) {
+      await this.clearSession();
+    }
+    return res;
   },
 
   /**

@@ -137,6 +137,33 @@ app.use(
     const user = await store.updateLanguage(req.user._id, result.data.language);
     res.json({ user: publicUser(user) });
   });
+  app.patch('/api/me', authenticate, async (req, res) => {
+    const { name, email, avatar } = req.body || {};
+    if (name !== undefined && (!name || typeof name !== 'string' || !name.trim())) {
+      return res.status(400).json({ error: 'Name cannot be empty' });
+    }
+    if (email !== undefined && (!email || typeof email !== 'string' || !email.includes('@'))) {
+      return res.status(400).json({ error: 'Valid email address is required' });
+    }
+    const updates = {};
+    if (name) updates.name = name.trim();
+    if (email) updates.email = email.toLowerCase().trim();
+    if (avatar !== undefined) updates.avatar = avatar;
+
+    if (updates.email && updates.email !== req.user.email) {
+      const existing = await store.findEmail(updates.email);
+      if (existing && String(existing._id) !== String(req.user._id)) {
+        return res.status(409).json({ error: 'An account with this email already exists.' });
+      }
+    }
+    const user = store.updateUser ? await store.updateUser(req.user._id, updates) : Object.assign(req.user, updates);
+    res.json({ success: true, user: publicUser(user) });
+  });
+  app.delete('/api/me', authenticate, async (req, res) => {
+    if (store.deleteUser) await store.deleteUser(req.user._id);
+    await store.deleteSession(req.sessionHash);
+    res.json({ success: true, message: 'Account deleted successfully' });
+  });
   app.post('/api/auth/logout', authenticate, async (req, res) => {
     await store.deleteSession(req.sessionHash);
     res.status(204).end();

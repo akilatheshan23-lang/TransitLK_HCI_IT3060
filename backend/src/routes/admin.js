@@ -59,10 +59,11 @@ function getSafeUsersCollection() {
             const orMatch = filter.$or.some((clause) => {
               if (clause._id && String(u._id) === String(clause._id)) return true;
               if (clause.email && u.email === clause.email) return true;
+              if (clause.username && u.username === clause.username) return true;
               if (clause.role && u.role === clause.role) return true;
               return false;
             });
-            if (orMatch) return { ...u };
+            if (!orMatch) continue;
           }
           let match = true;
           for (const [k, v] of Object.entries(filter)) {
@@ -96,6 +97,31 @@ function getSafeUsersCollection() {
           }
         }
         return { matchedCount: 0, modifiedCount: 0 };
+      },
+      async deleteOne(filter = {}) {
+        for (const [k, u] of memoryAdminUsers.entries()) {
+          let matches = false;
+          if (filter.$or && Array.isArray(filter.$or)) {
+            matches = filter.$or.some((clause) => {
+              if (clause._id && String(u._id) === String(clause._id)) return true;
+              if (clause.id && String(u.id) === String(clause.id)) return true;
+              if (clause.email && u.email === clause.email) return true;
+              return false;
+            });
+          } else {
+            let match = true;
+            for (const [key, val] of Object.entries(filter)) {
+              if (key === '_id' && String(u._id) !== String(val)) { match = false; break; }
+              else if (u[key] !== val) { match = false; break; }
+            }
+            matches = match;
+          }
+          if (matches) {
+            memoryAdminUsers.delete(k);
+            return { deletedCount: 1 };
+          }
+        }
+        return { deletedCount: 0 };
       },
       async insertOne(doc) {
         memoryAdminUsers.set(String(doc._id || doc.id), { ...doc });
@@ -533,6 +559,65 @@ adminRouter.post('/reject/:id', requireAdmin, async (req, res) => {
   } catch (error) {
     console.error('Admin reject user error:', error);
     return res.status(500).json({ success: false, message: 'Failed to reject user registration' });
+  }
+});
+
+/**
+ * DELETE /api/admin/users/:id
+ * Delete a user by administrator (Protected: Admin Only)
+ */
+adminRouter.delete('/users/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) {
+      return res.status(400).json({ success: false, message: 'User ID is required' });
+    }
+
+    const users = getSafeUsersCollection();
+
+    const userFilter = (typeof id === 'string' && ObjectId.isValid(id))
+      ? { $or: [{ _id: new ObjectId(id) }, { _id: id }] }
+      : { _id: id };
+
+    const targetUser = await users.findOne(userFilter);
+    if (!targetUser) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Protect administrator accounts from deletion
+    if (targetUser.role === 'admin' || targetUser.username === 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Administrator accounts cannot be deleted',
+      });
+    }
+
+    await users.deleteOne(userFilter);
+
+    // Revoke and delete any active sessions for this user
+    try {
+      const sessions = getSessionsCollection();
+      await sessions.deleteMany({
+        $or: [
+          { userId: targetUser._id },
+          { userId: String(targetUser._id) },
+          { userId: targetUser.id },
+        ],
+      });
+    } catch {
+      // Non-fatal if database is in memory test mode or sessions collection unavailable
+    }
+
+    console.log(`[Admin] Deleted user: ${targetUser.email} (${targetUser.role}) - ID: ${id}`);
+
+    return res.json({
+      success: true,
+      message: `User ${targetUser.name || targetUser.email} deleted successfully.`,
+      deletedUserId: id,
+    });
+  } catch (error) {
+    console.error('Admin delete user error:', error);
+    return res.status(500).json({ success: false, message: 'Could not delete user' });
   }
 });
 

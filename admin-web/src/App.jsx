@@ -325,6 +325,37 @@ export default function App() {
     }
   };
 
+  // Admin Delete a user
+  const handleDeleteUser = async (userId, userName, userEmail, role) => {
+    if (role === 'admin') {
+      alert('Administrator accounts are protected and cannot be deleted.');
+      return;
+    }
+
+    const confirmMsg = `Are you sure you want to permanently delete user "${userName || userEmail}" (${userEmail})?\n\nThis will remove their account from TransitLK and revoke all active sessions.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      }).then((r) => r.json());
+
+      if (res.success) {
+        showToast(`User ${userName || userEmail} was deleted successfully.`);
+        setAllUsersList((prev) => prev.filter((u) => u._id !== userId && u.id !== userId));
+        setOfficersList((prev) => prev.filter((u) => u._id !== userId && u.id !== userId));
+        setOwnersList((prev) => prev.filter((u) => u._id !== userId && u.id !== userId));
+        setPendingList((prev) => prev.filter((u) => u._id !== userId && u.id !== userId));
+        fetchAdminData();
+      } else {
+        alert(res.message || 'Failed to delete user');
+      }
+    } catch {
+      alert('Network error while deleting user');
+    }
+  };
+
   // Admin Seed test pending users
   const handleSeedPending = async () => {
     try {
@@ -1310,6 +1341,7 @@ export default function App() {
                       <th>Department</th>
                       <th>Status</th>
                       <th>Registered</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1332,6 +1364,19 @@ export default function App() {
                           </span>
                         </td>
                         <td>{new Date(off.createdAt || Date.now()).toLocaleDateString()}</td>
+                        <td>
+                          <button
+                            className="btn-delete-user"
+                            onClick={() => handleDeleteUser(off._id, off.name, off.email, off.role)}
+                            title={`Delete officer ${off.name || off.email}`}
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            </svg>
+                            Delete
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1360,6 +1405,7 @@ export default function App() {
                       <th>Registered Buses</th>
                       <th>Phone</th>
                       <th>Status</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1383,6 +1429,19 @@ export default function App() {
                           <span className={`status-pill ${own.status || 'approved'}`}>
                             {own.status || 'approved'}
                           </span>
+                        </td>
+                        <td>
+                          <button
+                            className="btn-delete-user"
+                            onClick={() => handleDeleteUser(own._id, own.name, own.email, own.role)}
+                            title={`Delete owner ${own.name || own.email}`}
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            </svg>
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -1445,6 +1504,7 @@ export default function App() {
                       <th>Identifier / Details</th>
                       <th>Status</th>
                       <th>Joined</th>
+                      <th>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1479,6 +1539,23 @@ export default function App() {
                           </span>
                         </td>
                         <td>{new Date(u.createdAt || Date.now()).toLocaleDateString()}</td>
+                        <td>
+                          {u.role !== 'admin' ? (
+                            <button
+                              className="btn-delete-user"
+                              onClick={() => handleDeleteUser(u._id, u.name, u.email, u.role)}
+                              title={`Delete ${u.name || u.email}`}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              </svg>
+                              Delete
+                            </button>
+                          ) : (
+                            <span className="protected-admin-tag">Protected</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

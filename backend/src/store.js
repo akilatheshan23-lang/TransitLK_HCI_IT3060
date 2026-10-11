@@ -49,6 +49,26 @@ export async function createMongoStore(db) {
       }
       return users.findOneAndUpdate(filter, { $set: { language, updatedAt: new Date() } }, { returnDocument: 'after' });
     },
+    async updateUser(id, updates) {
+      let filter = { _id: id };
+      if (id instanceof ObjectId) {
+        filter = { _id: id };
+      } else if (typeof id === 'string' && ObjectId.isValid(id)) {
+        filter = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
+      }
+      return users.findOneAndUpdate(filter, { $set: { ...updates, updatedAt: new Date() } }, { returnDocument: 'after' });
+    },
+    async deleteUser(id) {
+      let filter = { _id: id };
+      if (id instanceof ObjectId) {
+        filter = { _id: id };
+      } else if (typeof id === 'string' && ObjectId.isValid(id)) {
+        filter = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
+      }
+      const userRes = await users.deleteOne(filter);
+      await sessions.deleteMany({ userId: String(id) });
+      return userRes.deletedCount > 0;
+    },
     createSession: session => sessions.insertOne(session),
     findSession: tokenHash => sessions.findOne({ tokenHash, expiresAt: { $gt: new Date() } }),
     deleteSession: tokenHash => sessions.deleteOne({ tokenHash }),
