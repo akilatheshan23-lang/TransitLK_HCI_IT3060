@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Header from '../../components/Header';
 import { ScreenBackContext, AppNavigationContext } from '../../navigation/navigationTypes';
 import { platformShadow } from '../../theme/shadows';
+import { api } from '../../services/api';
 
 export default function ConductorDashboard() {
   const navigation = useNavigation<any>();
@@ -14,6 +15,9 @@ export default function ConductorDashboard() {
   const [activeTrip, setActiveTrip] = useState<any>(null);
   const [stats, setStats] = useState<any>({ invalid: 0 });
   const [isRouteModalVisible, setRouteModalVisible] = useState(false);
+  const [conductorName, setConductorName] = useState('Nimal Bandara (Conductor)');
+  const [employeeId, setEmployeeId] = useState('EMP-1024');
+  const [assignedBus, setAssignedBus] = useState('ND-4521');
 
   const handleBack = () => {
     if (navigation.canGoBack()) {
@@ -54,6 +58,24 @@ export default function ConductorDashboard() {
               setStats(parsed);
             }
           }
+
+          // Load authenticated conductor details
+          try {
+            const conductorJson = await AsyncStorage.getItem('@conductor_profile');
+            if (conductorJson) {
+              const c = JSON.parse(conductorJson);
+              if (c.name) setConductorName(c.name);
+              if (c.employeeId) setEmployeeId(c.employeeId);
+              if (c.assignedBus) setAssignedBus(c.assignedBus);
+            } else {
+              const session = await api.getSession();
+              if (session?.user && session.user.role === 'conductor') {
+                if (session.user.name) setConductorName(session.user.name);
+                if (session.user.employeeId) setEmployeeId(session.user.employeeId);
+                if (session.user.assignedBus) setAssignedBus(session.user.assignedBus);
+              }
+            }
+          } catch {}
         } catch (e) {}
       };
       loadData();
@@ -113,8 +135,10 @@ export default function ConductorDashboard() {
           </View>
         </View>
 
-        <Text style={styles.greeting}>Hello, Kamal</Text>
-        <Text style={styles.subtitle}>Select the current trip before scanning.</Text>
+        <Text style={styles.greeting}>Hello, {conductorName}</Text>
+        <Text style={styles.subtitle}>
+          {employeeId ? `Employee ID: ${employeeId}${assignedBus ? ` • Bus: ${assignedBus}` : ''}` : 'Select the current trip before scanning.'}
+        </Text>
 
         <TouchableOpacity
           style={styles.routeSelectorBtn}

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ActivityIndicator, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ActivityIndicator, Alert, Platform, ScrollView } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -126,7 +126,11 @@ export default function EWalletPayment() {
     <SafeAreaView style={styles.container}>
       <Header title="E-Wallet payment" />
 
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+      >
         <Text style={styles.title}>Pay with your wallet</Text>
         <Text style={styles.subtitle}>Confirm your journey payment (DEMO).</Text>
 
@@ -181,14 +185,15 @@ export default function EWalletPayment() {
             )}
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
-  content: { padding: 20, flex: 1 },
+  scrollView: { flex: 1 },
+  scrollContent: { padding: 20, paddingBottom: 50 },
   title: { fontSize: 24, fontWeight: '800', color: '#0f172a', marginBottom: 6 },
   subtitle: { fontSize: 14, color: '#64748b', marginBottom: 28 },
   walletCard: { backgroundColor: '#0f172a', padding: 24, borderRadius: 16, marginBottom: 24, ...platformShadow({ color: '#000', width: 0, height: 8, opacity: 0.3, radius: 12, elevation: 8 }) },

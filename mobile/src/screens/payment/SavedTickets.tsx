@@ -120,26 +120,52 @@ export default function SavedTickets() {
         }
       />
 
-      {/* Mock Bottom Navigation Bar per Figma */}
+      {/* Bottom Navigation Bar */}
       <View style={styles.bottomNav}>
-        <View style={styles.navItem}>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => {
+            if (navigateToScreen) {
+              navigateToScreen('home');
+            } else if (onBackToHome) {
+              onBackToHome();
+            }
+          }}
+          activeOpacity={0.7}
+        >
           <Ionicons name="home-outline" size={24} color="#94a3b8" />
           <Text style={styles.navText}>Home</Text>
-        </View>
-        <View style={styles.navItem}>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} activeOpacity={0.7}>
           <View style={styles.activeNavIcon}>
             <Ionicons name="ticket" size={24} color="#0f766e" />
           </View>
           <Text style={styles.activeNavText}>Tickets</Text>
-        </View>
-        <View style={styles.navItem}>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => {
+            if (navigateToScreen) {
+              navigateToScreen('community');
+            }
+          }}
+          activeOpacity={0.7}
+        >
           <Ionicons name="chatbubbles-outline" size={24} color="#94a3b8" />
           <Text style={styles.navText}>Community</Text>
-        </View>
-        <View style={styles.navItem}>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => {
+            if (navigateToScreen) {
+              navigateToScreen('dashboard');
+            }
+          }}
+          activeOpacity={0.7}
+        >
           <Ionicons name="person-outline" size={24} color="#94a3b8" />
           <Text style={styles.navText}>Profile</Text>
-        </View>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );

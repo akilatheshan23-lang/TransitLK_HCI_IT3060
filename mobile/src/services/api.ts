@@ -14,12 +14,15 @@ export interface UserProfile {
   id: string;
   email: string;
   name: string;
-  role: 'passenger' | 'authority' | 'bus_owner' | 'admin' | string;
+  role: 'passenger' | 'authority' | 'bus_owner' | 'conductor' | 'admin' | string;
   status?: 'pending' | 'approved' | 'rejected' | string;
   officerId?: string;
   department?: string;
   companyName?: string;
   busRegNumbers?: string;
+  employeeId?: string;
+  assignedBus?: string;
+  route?: string;
   phone?: string;
   language?: string;
   avatar?: string;
@@ -249,6 +252,37 @@ export const api = {
     password: string;
   }): Promise<AuthResponse> {
     return request('/auth/owner-login', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * Sign in as an Authorized Conductor
+   */
+  async conductorLogin(payload: {
+    conductorId: string;
+    password: string;
+  }): Promise<AuthResponse> {
+    return request('/auth/conductor-login', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * Register a new Conductor account
+   */
+  async registerConductor(payload: {
+    name: string;
+    email: string;
+    employeeId: string;
+    assignedBus?: string;
+    route?: string;
+    phone?: string;
+    password: string;
+  }): Promise<AuthResponse> {
+    return request('/auth/register-conductor', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -517,4 +551,186 @@ export const api = {
     });
     return res as any;
   },
+
+  /**
+   * ==========================================
+   * SAVED CARDS MANAGEMENT (Client Service)
+   * With AsyncStorage fallback (@passenger_saved_cards)
+   * ==========================================
+   */
+  async getSavedCards(): Promise<{ success: boolean; count: number; data: SavedCard[] }> {
+    const STORAGE_KEY = '@passenger_saved_cards';
+    try {
+      const res: any = await request('/payments/cards', { method: 'GET' });
+      if (res && res.success && Array.isArray(res.data)) {
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(res.data));
+        return res;
+      }
+    } catch (e) {
+      console.warn('[Cards API] Remote fetch failed, using local offline store:', e);
+    }
+
+    // Offline / Local storage fallback
+    try {
+      const localStr = await AsyncStorage.getItem(STORAGE_KEY);
+      if (localStr) {
+        const localCards: SavedCard[] = JSON.parse(localStr);
+        return { success: true, count: localCards.length, data: localCards };
+      }
+    } catch {}
+
+    const defaultCards: SavedCard[] = [
+      {
+        id: 'card_demo_1',
+        cardholderName: 'KAMAL PERERA',
+        cardNumberMasked: '•••• •••• •••• 4242',
+        last4: '4242',
+        expiry: '12/28',
+        cardType: 'visa',
+        isDefault: true,
+      },
+      {
+        id: 'card_demo_2',
+        cardholderName: 'KAMAL PERERA',
+        cardNumberMasked: '•••• •••• •••• 8888',
+        last4: '8888',
+        expiry: '09/27',
+        cardType: 'mastercard',
+        isDefault: false,
+      },
+    ];
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(defaultCards));
+    return { success: true, count: defaultCards.length, data: defaultCards };
+  },
+
+  async addSavedCard(cardData: {
+    cardNumber: string;
+    cardholderName: string;
+    expiry: string;
+    cardType?: string;
+    isDefault?: boolean;
+  }): Promise<{ success: boolean; message?: string; data: SavedCard }> {
+    const STORAGE_KEY = '@passenger_saved_cards';
+    let newCard: SavedCard | null = null;
+
+    try {
+      const res: any = await request('/payments/cards', {
+        method: 'POST',
+        body: JSON.stringify(cardData),
+      });
+      if (res && res.success && res.data) {
+        newCard = res.data;
+      }
+    } catch (e) {
+      console.warn('[Cards API] Remote add card failed, persisting locally:', e);
+    }
+
+    if (!newCard) {
+      const cleanNum = cardData.cardNumber.replace(/\D/g, '');
+      const last4 = cleanNum.slice(-4) || '1234';
+      newCard = {
+        id: `card_${Date.now()}`,
+        cardholderName: cardData.cardholderName.trim().toUpperCase(),
+        cardNumberMasked: `•••• •••• •••• ${last4}`,
+        last4,
+        expiry: cardData.expiry.trim(),
+        cardType: (cardData.cardType || 'visa').toLowerCase(),
+        isDefault: Boolean(cardData.isDefault),
+      };
+    }
+
+    try {
+      const existingStr = await AsyncStorage.getItem(STORAGE_KEY);
+      let list: SavedCard[] = existingStr ? JSON.parse(existingStr) : [];
+      if (newCard.isDefault) {
+        list = list.map((c) => ({ ...c, isDefault: false }));
+      }
+      list.push(newCard);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    } catch {}
+
+    return { success: true, message: 'Card added successfully', data: newCard };
+  },
+
+  async updateSavedCard(
+    id: string,
+    cardData: {
+      cardholderName?: string;
+      expiry?: string;
+      cardType?: string;
+      isDefault?: boolean;
+    }
+  ): Promise<{ success: boolean; message?: string; data?: SavedCard }> {
+    const STORAGE_KEY = '@passenger_saved_cards';
+    let updatedCard: SavedCard | undefined;
+
+    try {
+      const res: any = await request(`/payments/cards/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(cardData),
+      });
+      if (res && res.success && res.data) {
+        updatedCard = res.data;
+      }
+    } catch (e) {
+      console.warn('[Cards API] Remote update card failed, updating locally:', e);
+    }
+
+    try {
+      const existingStr = await AsyncStorage.getItem(STORAGE_KEY);
+      let list: SavedCard[] = existingStr ? JSON.parse(existingStr) : [];
+      if (cardData.isDefault) {
+        list = list.map((c) => ({ ...c, isDefault: false }));
+      }
+      list = list.map((c) => {
+        if (c.id === id || (c._id && c._id === id)) {
+          const mod = {
+            ...c,
+            ...(cardData.cardholderName ? { cardholderName: cardData.cardholderName.toUpperCase() } : {}),
+            ...(cardData.expiry ? { expiry: cardData.expiry } : {}),
+            ...(cardData.cardType ? { cardType: cardData.cardType.toLowerCase() } : {}),
+            ...(typeof cardData.isDefault === 'boolean' ? { isDefault: cardData.isDefault } : {}),
+          };
+          updatedCard = mod;
+          return mod;
+        }
+        return c;
+      });
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    } catch {}
+
+    return { success: true, message: 'Card updated successfully', data: updatedCard };
+  },
+
+  async deleteSavedCard(id: string): Promise<{ success: boolean; message?: string }> {
+    const STORAGE_KEY = '@passenger_saved_cards';
+    try {
+      await request(`/payments/cards/${id}`, { method: 'DELETE' });
+    } catch (e) {
+      console.warn('[Cards API] Remote delete card failed, deleting locally:', e);
+    }
+
+    try {
+      const existingStr = await AsyncStorage.getItem(STORAGE_KEY);
+      if (existingStr) {
+        let list: SavedCard[] = JSON.parse(existingStr);
+        list = list.filter((c) => c.id !== id && c._id !== id);
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      }
+    } catch {}
+
+    return { success: true, message: 'Card deleted successfully' };
+  },
 };
+
+export interface SavedCard {
+  id: string;
+  _id?: string;
+  cardholderName: string;
+  cardNumberMasked: string;
+  last4: string;
+  expiry: string;
+  cardType: string;
+  isDefault?: boolean;
+  userId?: string;
+}

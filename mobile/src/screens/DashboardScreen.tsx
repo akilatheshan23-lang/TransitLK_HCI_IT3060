@@ -40,6 +40,8 @@ interface DashboardScreenProps {
   onLogout: () => void;
   onNavigateBack?: () => void;
   onNavigateToHome?: () => void;
+  onNavigateToConductor?: () => void;
+  onNavigateToConductorLogin?: () => void;
   onUpdateUser?: (user: UserProfile) => void;
 }
 
@@ -48,6 +50,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   onLogout,
   onNavigateBack,
   onNavigateToHome,
+  onNavigateToConductor,
+  onNavigateToConductorLogin,
   onUpdateUser,
 }) => {
   const [selectedLanguage, setSelectedLanguage] = useState('English / Sinhala / Tamil');
@@ -59,6 +63,21 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [adminPassword, setAdminPassword] = useState('');
   const [adminLoading, setAdminLoading] = useState(false);
   const [adminError, setAdminError] = useState('');
+
+  // Conductor Verification & Sign In/Register Modal State
+  const [showConductorModal, setShowConductorModal] = useState(false);
+  const [conductorMode, setConductorMode] = useState<'signin' | 'register'>('signin');
+  const [conductorLoginId, setConductorLoginId] = useState('conductor@transitlk.com');
+  const [conductorLoginPassword, setConductorLoginPassword] = useState('password123');
+  const [conductorRegName, setConductorRegName] = useState('');
+  const [conductorRegEmail, setConductorRegEmail] = useState('');
+  const [conductorRegEmployeeId, setConductorRegEmployeeId] = useState('');
+  const [conductorRegBus, setConductorRegBus] = useState('ND-4521');
+  const [conductorRegRoute, setConductorRegRoute] = useState('Route 120 (Colombo - Horana)');
+  const [conductorRegPhone, setConductorRegPhone] = useState('');
+  const [conductorRegPassword, setConductorRegPassword] = useState('');
+  const [conductorLoading, setConductorLoading] = useState(false);
+  const [conductorError, setConductorError] = useState('');
 
   // Current User State
   const [currentUserState, setCurrentUserState] = useState<UserProfile>(user);
@@ -235,6 +254,119 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     }
   };
 
+  const handleOpenConductorModal = () => {
+    if (onNavigateToConductorLogin) {
+      onNavigateToConductorLogin();
+      return;
+    }
+    if (onNavigateToConductor) {
+      onNavigateToConductor();
+      return;
+    }
+    setConductorError('');
+    setShowConductorModal(true);
+  };
+
+  const handleConductorSignIn = async () => {
+    const cleanId = conductorLoginId.trim();
+    if (!cleanId) {
+      setConductorError('Please enter conductor email or Employee ID.');
+      return;
+    }
+    if (!conductorLoginPassword) {
+      setConductorError('Please enter duty password.');
+      return;
+    }
+
+    setConductorLoading(true);
+    setConductorError('');
+
+    try {
+      const res = await api.conductorLogin({
+        conductorId: cleanId,
+        password: conductorLoginPassword,
+      });
+
+      setConductorLoading(false);
+
+      if (res.success && res.user && res.token) {
+        await api.saveSession(res.token, res.user);
+        setCurrentUserState(res.user);
+        onUpdateUser?.(res.user);
+        setShowConductorModal(false);
+        showAlert(
+          'Conductor Duty Active',
+          `Authenticated as ${res.user.name}. Opening Conductor Scanner & Dashboard...`
+        );
+        onNavigateToConductor?.();
+      } else {
+        setConductorError(res.message || 'Invalid Conductor credentials.');
+      }
+    } catch (err: any) {
+      setConductorLoading(false);
+      setConductorError(err.message || 'Network error while contacting conductor auth service.');
+    }
+  };
+
+  const handleConductorRegister = async () => {
+    if (!conductorRegName.trim()) {
+      setConductorError('Please enter conductor full name.');
+      return;
+    }
+    if (!conductorRegEmail.trim() || !conductorRegEmail.includes('@')) {
+      setConductorError('Please enter a valid conductor email.');
+      return;
+    }
+    if (!conductorRegEmployeeId.trim()) {
+      setConductorError('Please enter conductor employee / badge ID.');
+      return;
+    }
+    if (!conductorRegPassword || conductorRegPassword.length < 6) {
+      setConductorError('Password must be at least 6 characters.');
+      return;
+    }
+
+    setConductorLoading(true);
+    setConductorError('');
+
+    try {
+      const res = await api.registerConductor({
+        name: conductorRegName.trim(),
+        email: conductorRegEmail.trim(),
+        employeeId: conductorRegEmployeeId.trim(),
+        assignedBus: conductorRegBus.trim(),
+        route: conductorRegRoute.trim(),
+        phone: conductorRegPhone.trim(),
+        password: conductorRegPassword,
+      });
+
+      setConductorLoading(false);
+
+      if (res.success && res.user && res.token) {
+        await api.saveSession(res.token, res.user);
+        setCurrentUserState(res.user);
+        onUpdateUser?.(res.user);
+        setShowConductorModal(false);
+        showAlert('Registration Successful', `Welcome, ${res.user.name}! Opening Conductor Dashboard...`);
+        onNavigateToConductor?.();
+      } else {
+        setConductorError(res.message || 'Failed to register conductor.');
+      }
+    } catch (err: any) {
+      setConductorLoading(false);
+      setConductorError(err.message || 'Network error during registration.');
+    }
+  };
+
+  const handleQuickDemoConductor = () => {
+    setConductorLoginId('conductor@transitlk.com');
+    setConductorLoginPassword('password123');
+    setConductorError('');
+    setTimeout(() => {
+      handleConductorSignIn();
+    }, 50);
+  };
+
   return (
     <View style={styles.screen}>
       {/* Header */}
@@ -312,10 +444,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           {/* 3. Conductor tools */}
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => showAlert('Conductor tools', 'Conductor scanner & fare validation tools.')}
+            onPress={handleOpenConductorModal}
             activeOpacity={0.75}
           >
-            <Text style={styles.actionCardText}>Conductor tools</Text>
+            <View style={styles.conductorActionRow}>
+              <Text style={styles.actionCardText}>Conductor tools</Text>
+              {currentUserState.role === 'conductor' ? (
+                <View style={styles.activeDutyBadge}>
+                  <Text style={styles.activeDutyBadgeText}>On Duty</Text>
+                </View>
+              ) : null}
+            </View>
             <ScannerIcon size={22} color={colors.teal.primary} />
           </TouchableOpacity>
 
@@ -459,6 +598,272 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
                   <Text style={styles.modalCancelText}>Cancel</Text>
                 </TouchableOpacity>
               </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* Conductor Verification & Sign In/Register Modal */}
+      <Modal
+        visible={showConductorModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          if (!conductorLoading) setShowConductorModal(false);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => {
+              if (!conductorLoading) {
+                Keyboard.dismiss();
+                setShowConductorModal(false);
+              }
+            }}
+          />
+
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalKeyboardContainer}
+            pointerEvents="box-none"
+          >
+            <View style={[styles.modalCard, { maxHeight: '90%' }]}>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 10 }}>
+                {/* Header Badge */}
+                <View style={styles.modalHeaderBadge}>
+                  <View style={[styles.modalIconCircle, { backgroundColor: '#CCFBF1' }]}>
+                    <ScannerIcon size={26} color="#0D9488" />
+                  </View>
+                  <Text style={[styles.modalKicker, { color: '#0F766E' }]}>ON-DUTY CONDUCTOR ACCESS</Text>
+                  <Text style={styles.modalTitle}>Conductor Portal</Text>
+                  <Text style={styles.modalSubtitle}>
+                    Authenticate or register your conductor credentials to access ticket validation and scanner tools.
+                  </Text>
+                </View>
+
+                {/* Segmented Mode Selector */}
+                <View style={styles.conductorSegmentRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.conductorSegmentBtn,
+                      conductorMode === 'signin' && styles.conductorSegmentBtnActive,
+                    ]}
+                    onPress={() => {
+                      setConductorMode('signin');
+                      setConductorError('');
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.conductorSegmentText,
+                        conductorMode === 'signin' && styles.conductorSegmentTextActive,
+                      ]}
+                    >
+                      Sign In
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.conductorSegmentBtn,
+                      conductorMode === 'register' && styles.conductorSegmentBtnActive,
+                    ]}
+                    onPress={() => {
+                      setConductorMode('register');
+                      setConductorError('');
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.conductorSegmentText,
+                        conductorMode === 'register' && styles.conductorSegmentTextActive,
+                      ]}
+                    >
+                      Register
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Error Banner */}
+                {conductorError ? (
+                  <View style={styles.modalErrorBanner}>
+                    <Text style={styles.modalErrorText}>⚠️ {conductorError}</Text>
+                  </View>
+                ) : null}
+
+                {conductorMode === 'signin' ? (
+                  /* ============= SIGN IN ============= */
+                  <View style={styles.modalForm}>
+                    <InputField
+                      label="Conductor Email or Employee ID"
+                      placeholder="e.g. conductor@transitlk.com or EMP-1024"
+                      value={conductorLoginId}
+                      onChangeText={(val) => {
+                        setConductorLoginId(val);
+                        if (conductorError) setConductorError('');
+                      }}
+                      leftIcon={<UserIcon size={18} color="#0D9488" />}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+
+                    <InputField
+                      label="Duty Password"
+                      placeholder="Enter duty password"
+                      value={conductorLoginPassword}
+                      onChangeText={(val) => {
+                        setConductorLoginPassword(val);
+                        if (conductorError) setConductorError('');
+                      }}
+                      isPassword={true}
+                      leftIcon={<LockIcon size={18} color="#0D9488" />}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+
+                    {/* Quick Demo Autofill & Sign-in */}
+                    <TouchableOpacity
+                      style={styles.conductorDemoBtn}
+                      onPress={handleQuickDemoConductor}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.conductorDemoIconCircle}>
+                        <CheckIcon size={14} color="#0D9488" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.conductorDemoTitle}>⚡ Quick Demo Sign In</Text>
+                        <Text style={styles.conductorDemoSubtitle}>
+                          Auto-fill EMP-1024 / password123 & launch duty mode
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Action Buttons */}
+                    <View style={[styles.modalActions, { marginTop: 14 }]}>
+                      <AppButton
+                        title={conductorLoading ? 'Authenticating...' : 'Sign In as Conductor'}
+                        onPress={handleConductorSignIn}
+                        variant="teal"
+                        loading={conductorLoading}
+                        showArrow={!conductorLoading}
+                      />
+
+                      <TouchableOpacity
+                        style={styles.modalCancelButton}
+                        onPress={() => {
+                          if (!conductorLoading) setShowConductorModal(false);
+                        }}
+                        disabled={conductorLoading}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.modalCancelText}>Cancel</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  /* ============= REGISTER ============= */
+                  <View style={styles.modalForm}>
+                    <InputField
+                      label="Full Name *"
+                      placeholder="e.g. Nimal Bandara"
+                      value={conductorRegName}
+                      onChangeText={(val) => {
+                        setConductorRegName(val);
+                        if (conductorError) setConductorError('');
+                      }}
+                      leftIcon={<UserIcon size={18} color="#0D9488" />}
+                      autoCapitalize="words"
+                    />
+
+                    <InputField
+                      label="Contact Email *"
+                      placeholder="e.g. conductor@transitlk.com"
+                      value={conductorRegEmail}
+                      onChangeText={(val) => {
+                        setConductorRegEmail(val);
+                        if (conductorError) setConductorError('');
+                      }}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      leftIcon={<UserIcon size={18} color="#0D9488" />}
+                    />
+
+                    <InputField
+                      label="Conductor Badge / Employee ID *"
+                      placeholder="e.g. EMP-1024"
+                      value={conductorRegEmployeeId}
+                      onChangeText={(val) => {
+                        setConductorRegEmployeeId(val);
+                        if (conductorError) setConductorError('');
+                      }}
+                      autoCapitalize="characters"
+                      leftIcon={<ScannerIcon size={18} color="#0D9488" />}
+                    />
+
+                    <InputField
+                      label="Assigned Bus Number"
+                      placeholder="e.g. ND-4521"
+                      value={conductorRegBus}
+                      onChangeText={setConductorRegBus}
+                      autoCapitalize="characters"
+                      leftIcon={<BusPictogram size={18} color="#0D9488" />}
+                    />
+
+                    <InputField
+                      label="Operating Route"
+                      placeholder="e.g. Route 120 (Colombo - Horana)"
+                      value={conductorRegRoute}
+                      onChangeText={setConductorRegRoute}
+                    />
+
+                    <InputField
+                      label="Phone Number"
+                      placeholder="e.g. +94 77 123 4567"
+                      value={conductorRegPhone}
+                      onChangeText={setConductorRegPhone}
+                      keyboardType="phone-pad"
+                    />
+
+                    <InputField
+                      label="Duty Password (min 6 chars) *"
+                      placeholder="Create password"
+                      value={conductorRegPassword}
+                      onChangeText={(val) => {
+                        setConductorRegPassword(val);
+                        if (conductorError) setConductorError('');
+                      }}
+                      isPassword={true}
+                      leftIcon={<LockIcon size={18} color="#0D9488" />}
+                    />
+
+                    {/* Action Buttons */}
+                    <View style={[styles.modalActions, { marginTop: 14 }]}>
+                      <AppButton
+                        title={conductorLoading ? 'Registering...' : 'Register & Enter Conductor Mode'}
+                        onPress={handleConductorRegister}
+                        variant="teal"
+                        loading={conductorLoading}
+                        showArrow={!conductorLoading}
+                      />
+
+                      <TouchableOpacity
+                        style={styles.modalCancelButton}
+                        onPress={() => {
+                          if (!conductorLoading) setShowConductorModal(false);
+                        }}
+                        disabled={conductorLoading}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.modalCancelText}>Cancel</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </ScrollView>
             </View>
           </KeyboardAvoidingView>
         </View>
@@ -1081,5 +1486,79 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.teal.primary,
     marginTop: 2,
+  },
+  conductorActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  activeDutyBadge: {
+    backgroundColor: '#DCFCE7',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+  },
+  activeDutyBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#15803D',
+  },
+  conductorSegmentRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+  },
+  conductorSegmentBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  conductorSegmentBtnActive: {
+    backgroundColor: '#FFFFFF',
+    ...platformShadow({ color: '#000', width: 0, height: 2, opacity: 0.08, radius: 4, elevation: 2 }),
+  },
+  conductorSegmentText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  conductorSegmentTextActive: {
+    color: '#0F766E',
+    fontWeight: '700',
+  },
+  conductorDemoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDFA',
+    borderWidth: 1,
+    borderColor: '#99F6E4',
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 6,
+    marginBottom: 6,
+    gap: 10,
+  },
+  conductorDemoIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#CCFBF1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  conductorDemoTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F766E',
+  },
+  conductorDemoSubtitle: {
+    fontSize: 11,
+    color: '#475569',
+    marginTop: 1,
   },
 });

@@ -2,6 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import PaymentCheckout from '../screens/payment/PaymentCheckout';
 import PaymentMethod from '../screens/payment/PaymentMethod';
+import ManageCards from '../screens/payment/ManageCards';
 import CardPayment from '../screens/payment/CardPayment';
 import EWalletPayment from '../screens/payment/EWalletPayment';
 import WalletTopUp from '../screens/payment/WalletTopUp';
@@ -34,6 +35,7 @@ export default function AppNavigator({ initialRouteName = 'PaymentCheckout', onB
       <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRouteName}>
       <Stack.Screen name="PaymentCheckout" component={PaymentCheckout} />
       <Stack.Screen name="PaymentMethod" component={PaymentMethod} />
+      <Stack.Screen name="ManageCards" component={ManageCards} />
       <Stack.Screen name="CardPayment" component={CardPayment} />
       <Stack.Screen name="EWalletPayment" component={EWalletPayment} />
       <Stack.Screen name="WalletTopUp" component={WalletTopUp} />
