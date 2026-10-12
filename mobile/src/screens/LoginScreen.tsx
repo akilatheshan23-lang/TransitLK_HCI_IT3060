@@ -24,6 +24,7 @@ interface LoginScreenProps {
   onNavigateToRegister: () => void;
   onNavigateToAuthority: () => void;
   onNavigateToBusOwner: () => void;
+  onNavigateToConductor?: () => void;
   onLoginSuccess?: (user: UserProfile) => void;
 }
 
@@ -31,6 +32,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   onNavigateToRegister,
   onNavigateToAuthority,
   onNavigateToBusOwner,
+  onNavigateToConductor,
   onLoginSuccess,
 }) => {
   const [email, setEmail] = useState('janith_test@transitlk.com');
@@ -224,6 +226,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         <View style={styles.staffSection}>
           <Text style={styles.staffHeading}>STAFF & BUSINESS ACCESS</Text>
           <View style={styles.roleButtonsRow}>
+            {/* Bus Conductor Button */}
+            <TouchableOpacity
+              onPress={onNavigateToConductor}
+              style={[styles.roleCard, { borderColor: '#99F6E4', backgroundColor: '#F0FDFA' }]}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.busOwnerText, { color: '#0F766E' }]}>Bus Conductor</Text>
+            </TouchableOpacity>
+
             {/* Bus Owner Button */}
             <TouchableOpacity
               onPress={onNavigateToBusOwner}

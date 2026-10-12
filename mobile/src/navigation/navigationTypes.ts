@@ -13,7 +13,8 @@ export type ScreenType =
   | 'fleet'
   | 'payment'
   | 'tickets'
-  | 'conductor';
+  | 'conductor'
+  | 'conductor-login';
 
 export const AppNavigationContext = React.createContext<{
   navigateToScreen: (screen: ScreenType) => void;
@@ -37,6 +38,7 @@ export type PaymentStackParamList = {
     };
   } | undefined;
   PaymentMethod: undefined;
+  ManageCards: undefined;
   CardPayment: undefined;
   EWalletPayment: undefined;
   WalletTopUp: undefined;

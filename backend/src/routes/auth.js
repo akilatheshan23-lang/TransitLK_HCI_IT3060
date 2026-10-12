@@ -496,6 +496,162 @@ authRouter.post('/owner-login', async (req, res) => {
 });
 
 /**
+ * POST /api/auth/conductor-login
+ * Conductor Login with Employee ID or Email
+ */
+authRouter.post('/conductor-login', async (req, res) => {
+  try {
+    const { conductorId, password } = req.body;
+
+    if (!conductorId || !password) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Conductor email or Employee ID and password are required' });
+    }
+
+    const normalizedId = conductorId.toLowerCase().trim();
+    const users = getUsersCollection();
+
+    // Look up or auto-seed demo conductor if using demo credentials
+    let user = await users.findOne({
+      $or: [{ email: normalizedId }, { employeeId: conductorId.trim() }],
+    });
+
+    if (!user && (normalizedId === 'conductor@transitlk.com' || normalizedId === 'conductor' || normalizedId === 'emp-1024')) {
+      user = await ensureSeedAccount({
+        email: 'conductor@transitlk.com',
+        name: 'Nimal Bandara (Conductor)',
+        role: 'conductor',
+        defaultPassword: 'password123',
+        extra: {
+          employeeId: 'EMP-1024',
+          assignedBus: 'ND-4521',
+          route: 'Route 120 (Colombo - Horana)',
+          phone: '+94 77 123 4567',
+          status: 'approved',
+        },
+      });
+    }
+
+    if (!user || !verifyPassword(password, user.passwordHash)) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid conductor credentials or password',
+      });
+    }
+
+    if (user.role && user.role !== 'conductor' && user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Account is not authorized as Conductor',
+      });
+    }
+
+    const token = await createSession(user._id);
+
+    return res.json({
+      success: true,
+      message: 'Conductor authenticated successfully',
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        employeeId: user.employeeId || 'EMP-1024',
+        assignedBus: user.assignedBus || 'ND-4521',
+        route: user.route || 'Route 120 (Colombo - Horana)',
+        role: 'conductor',
+        status: user.status || 'approved',
+      },
+      token,
+    });
+  } catch (error) {
+    console.error('Conductor login error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+/**
+ * POST /api/auth/register-conductor
+ * Conductor Account Registration
+ */
+authRouter.post('/register-conductor', async (req, res) => {
+  try {
+    const { name, email, employeeId, assignedBus, route, phone, password } = req.body;
+
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ success: false, message: 'Conductor full name is required' });
+    }
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      return res.status(400).json({ success: false, message: 'Valid email address is required' });
+    }
+    if (!employeeId || typeof employeeId !== 'string' || !employeeId.trim()) {
+      return res.status(400).json({ success: false, message: 'Conductor / Employee ID is required' });
+    }
+    if (!password || typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedEmpId = employeeId.trim();
+    const users = getUsersCollection();
+
+    const existing = await users.findOne({
+      $or: [{ email: normalizedEmail }, { employeeId: normalizedEmpId }],
+    });
+
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message:
+          existing.email === normalizedEmail
+            ? 'An account with this email already exists'
+            : 'A conductor with this Employee ID is already registered',
+      });
+    }
+
+    const newConductor = {
+      _id: generateId(),
+      email: normalizedEmail,
+      name: name.trim(),
+      employeeId: normalizedEmpId,
+      assignedBus: (assignedBus && assignedBus.trim()) || 'ND-4521',
+      route: (route && route.trim()) || 'Route 120 (Colombo - Horana)',
+      phone: (phone && phone.trim()) || null,
+      passwordHash: hashPassword(password),
+      role: 'conductor',
+      status: 'approved',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await users.insertOne(newConductor);
+    console.log(`[Conductor Register] Registered conductor: ${newConductor.email} (${newConductor.employeeId})`);
+
+    const token = await createSession(newConductor._id);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Conductor registered and authenticated successfully!',
+      user: {
+        id: newConductor._id,
+        email: newConductor.email,
+        name: newConductor.name,
+        employeeId: newConductor.employeeId,
+        assignedBus: newConductor.assignedBus,
+        route: newConductor.route,
+        role: 'conductor',
+        status: 'approved',
+      },
+      token,
+    });
+  } catch (error) {
+    console.error('Conductor registration error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error during conductor registration' });
+  }
+});
+
+
+/**
  * GET /api/auth/me
  * Retrieve currently logged in user profile using Bearer token
  */
@@ -719,6 +875,19 @@ authRouter.post('/seed', async (req, res) => {
         name: 'Kamal Perera',
         role: 'passenger',
         defaultPassword: 'password123',
+      },
+      {
+        email: 'conductor@transitlk.com',
+        name: 'Nimal Bandara (Conductor)',
+        role: 'conductor',
+        defaultPassword: 'password123',
+        extra: {
+          employeeId: 'EMP-1024',
+          assignedBus: 'ND-4521',
+          route: 'Route 120 (Colombo - Horana)',
+          phone: '+94 77 123 4567',
+          status: 'approved',
+        },
       },
     ];
 

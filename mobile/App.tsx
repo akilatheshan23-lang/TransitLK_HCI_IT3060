@@ -18,6 +18,7 @@ import { RegisterScreen } from './src/screens/RegisterScreen';
 import { AuthorityLoginScreen } from './src/screens/AuthorityLoginScreen';
 import { BusOwnerLoginScreen } from './src/screens/BusOwnerLoginScreen';
 import { DashboardScreen } from './src/screens/DashboardScreen';
+import { ConductorLoginScreen } from './src/screens/conductor/ConductorLoginScreen';
 import OwnerDashboard from './src/OwnerDashboard';
 import AuthorityDashboardScreen from './src/authority/AuthorityDashboardScreen';
 import FleetTrackingScreen from './src/FleetTrackingScreen';
@@ -88,7 +89,8 @@ export default function App() {
           hash === 'home' ||
           hash === 'payment' ||
           hash === 'tickets' ||
-          hash === 'conductor'
+          hash === 'conductor' ||
+          hash === 'conductor-login'
         ) {
           setCurrentScreen(hash as ScreenType);
         }
@@ -100,9 +102,9 @@ export default function App() {
   }, []);
 
   const navigateTo = (screen: ScreenType) => {
-    if (screen !== currentScreen && ['payment','tickets','conductor','login'].includes(screen)) {
+    if (screen !== currentScreen && ['payment','tickets','conductor','conductor-login','login'].includes(screen)) {
       // Returning from registration must not make the login Back button loop.
-      if (!(screen === 'login' && ['register','authority-login','bus-owner-login','dashboard','staff-management'].includes(currentScreen))) {
+      if (!(screen === 'login' && ['register','authority-login','bus-owner-login','conductor-login','dashboard','staff-management'].includes(currentScreen))) {
         entryScreens.current[screen] = currentScreen;
       }
     }
@@ -176,52 +178,15 @@ export default function App() {
         );
 
       case 'conductor':
-        // Guard unauthorized users from accessing conductor screen
+        // Guard unauthorized users from accessing conductor screen by showing Conductor Login/Register
         if (!currentUser || (currentUser.role !== 'conductor' && currentUser.role !== 'admin')) {
-          if (!currentUser) {
-            return (
-              <LoginScreen
-                onNavigateToRegister={() => navigateTo('register')}
-                onNavigateToAuthority={() => navigateTo('authority-login')}
-                onNavigateToBusOwner={() => navigateTo('bus-owner-login')}
-                onLoginSuccess={(user) => {
-                  setCurrentUser(user);
-                  if (user.role === 'conductor') {
-                    navigateTo('conductor');
-                  } else if (['owner', 'bus_owner', 'officer', 'authority', 'admin'].includes(user.role)) {
-                    navigateTo('dashboard');
-                  } else {
-                    navigateTo('home');
-                  }
-                }}
-              />
-            );
-          }
-          if (currentUser.role === 'passenger') {
-            return (
-              <HomeScreen
-                user={activeUser}
-                onNavigateToProfile={() => navigateTo('dashboard')}
-                onNavigateBack={() => navigateTo('transit')}
-                onNavigateToTransit={() => navigateTo('transit')}
-                onNavigateToCommunity={() => navigateTo('community')}
-                onNavigateToPayment={handleSelectBusAndPay}
-                onNavigateToTickets={() => navigateTo('tickets')}
-                onNavigateToConductor={() => navigateTo('conductor')}
-              />
-            );
-          }
           return (
-            <DashboardScreen
-              user={activeUser}
-              onLogout={() => {
-                api.logout().finally(() => {
-                  setCurrentUser(null);
-                  navigateTo('login');
-                });
+            <ConductorLoginScreen
+              onNavigateBack={() => navigateTo('dashboard')}
+              onLoginSuccess={(user) => {
+                setCurrentUser(user);
+                navigateTo('conductor');
               }}
-              onNavigateBack={() => navigateTo('home')}
-              onNavigateToHome={() => navigateTo('home')}
             />
           );
         }
@@ -231,12 +196,24 @@ export default function App() {
           </NavigationContainer>
         );
 
+      case 'conductor-login':
+        return (
+          <ConductorLoginScreen
+            onNavigateBack={() => navigateTo('dashboard')}
+            onLoginSuccess={(user) => {
+              setCurrentUser(user);
+              navigateTo('conductor');
+            }}
+          />
+        );
+
       case 'login':
         return (
           <LoginScreen
             onNavigateToRegister={() => navigateTo('register')}
             onNavigateToAuthority={() => navigateTo('authority-login')}
             onNavigateToBusOwner={() => navigateTo('bus-owner-login')}
+            onNavigateToConductor={() => navigateTo('conductor-login')}
             onLoginSuccess={(user) => {
               setCurrentUser(user);
               if (user.role === 'conductor') {
@@ -302,6 +279,8 @@ export default function App() {
             }}
             onNavigateBack={() => navigateTo('home')}
             onNavigateToHome={() => navigateTo('home')}
+            onNavigateToConductor={() => navigateTo('conductor-login')}
+            onNavigateToConductorLogin={() => navigateTo('conductor-login')}
           />
         );
 
