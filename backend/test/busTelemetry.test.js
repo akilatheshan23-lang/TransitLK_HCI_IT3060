@@ -1,0 +1,17 @@
+import {test,before,after} from 'node:test';
+import assert from 'node:assert/strict';
+import express from 'express';
+import {busTelemetryRouter,telemetryView} from '../src/busTelemetry.js';
+let sample=null;
+const store={findTelemetryBus:async id=>id==='bus-1'?{status:'active',telemetry:sample}:null,ownsTelemetryBus:async(user,id)=>user==='owner'&&id==='bus-1',writeBusTelemetry:async(user,id,value)=>{if(sample&&value.timestamp<=sample.timestamp)return false;sample={...value,active:true};return true;},stopBusTelemetry:async()=>{sample={...sample,active:false};}};
+const app=express();app.use(express.json());app.use(busTelemetryRouter(store,(req,res,next)=>{const id=req.get('x-user');if(!id)return res.sendStatus(401);req.user={_id:id,role:id==='passenger'?'passenger':'bus_owner',status:id==='pending'?'pending':'approved'};next();}));
+let server,base;
+before(async()=>{server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));base=`http://127.0.0.1:${server.address().port}`;});
+after(()=>new Promise(r=>server.close(r)));
+const fix=()=>({latitude:6.91,longitude:79.88,accuracy:12,speed:10,timestamp:Date.now()});
+const publish=(user,value=fix())=>fetch(base+'/fleet/bus-1/gps',{method:'POST',headers:{'Content-Type':'application/json',...(user?{'x-user':user}:{})},body:JSON.stringify(value)});
+test('bus GPS accepts only authenticated approved owners of the selected bus',async()=>{for(const [user,status] of [[null,401],['passenger',403],['pending',403],['another-owner',404]])assert.equal((await publish(user)).status,status);});
+test('invalid, inaccurate, old and future GPS fixes are rejected',async()=>{for(const value of [{latitude:91},{accuracy:101},{timestamp:Date.now()-60000},{timestamp:Date.now()+20000},{speed:-1}])assert.equal((await publish('owner',{...fix(),...value})).status,400);});
+test('fresh owner phone GPS becomes public bus position and measured speed',async()=>{const value=fix();assert.equal((await publish('owner',value)).status,200);const d=await(await fetch(base+'/bus-tracking/bus-1')).json();assert.equal(d.status,'live');assert.equal(d.speedKmh,36);assert.deepEqual(d.position,{latitude:6.91,longitude:79.88});assert.equal((await publish('owner',value)).status,409);});
+test('stale and stopped locations cannot be advertised as live',async()=>{const stale=telemetryView({...fix(),active:true,timestamp:Date.now()-61000});assert.equal(stale.status,'stale');assert.equal(stale.speedKmh,null);assert.equal(stale.position,null);const stop=await fetch(base+'/fleet/bus-1/gps',{method:'DELETE',headers:{'x-user':'owner'}});assert.equal(stop.status,200);const d=await(await fetch(base+'/bus-tracking/bus-1')).json();assert.equal(d.status,'unavailable');assert.equal(d.position,null);});
+test('unknown GPS speed remains unavailable instead of becoming zero',()=>assert.equal(telemetryView({...fix(),active:true,speed:null}).speedKmh,null));

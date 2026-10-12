@@ -44,15 +44,29 @@ export interface BusSearchResult {
   fromStop: string;
   toStop: string;
   stopsBetween: number;
+  routeStops?: string[];
   totalSeats: number;
   availableSeats: number;
   fare: number;
   departureTime: string;
   arrivalTime: string;
+  departureMinutes?: number;
+  arrivalMinutes?: number;
   duration: string;
   rating: number;
   features: string[];
   travelDate: string;
+  travelDateIso?: string;
+  scheduleStatus?: 'live_now' | 'upcoming';
+  isLiveNow?: boolean;
+  isUpcoming?: boolean;
+  statusBadge?: string;
+  progressPercent?: number;
+  currentStop?: string;
+  nextStop?: string;
+  remainingMinutes?: number;
+  departsInMinutes?: number;
+  departsInText?: string;
 }
 
 export interface LocationsResponse {
@@ -67,6 +81,13 @@ export interface BusSearchResponse {
   from?: string;
   to?: string;
   date?: string;
+  localTime?: string;
+  localTimeMinutes?: number;
+  startTime?: string;
+  endTime?: string;
+  filteredPastCount?: number;
+  liveNowCount?: number;
+  upcomingCount?: number;
   count?: number;
   buses?: BusSearchResult[];
   message?: string;
@@ -362,19 +383,27 @@ export const api = {
   },
 
   /**
-   * Search for buses from origin town to destination town
+   * Search for buses from origin town to destination town (filtered by local time & start/end time window)
    */
   async searchBuses(params: {
     from: string;
     to: string;
     date?: string;
     time?: string;
+    startTime?: string;
+    endTime?: string;
+    localTime?: string;
+    statusFilter?: 'all' | 'live_now' | 'upcoming';
   }): Promise<BusSearchResponse> {
     const query = new URLSearchParams({
       from: params.from,
       to: params.to,
       ...(params.date ? { date: params.date } : {}),
       ...(params.time ? { time: params.time } : {}),
+      ...(params.startTime ? { startTime: params.startTime } : {}),
+      ...(params.endTime ? { endTime: params.endTime } : {}),
+      ...(params.localTime ? { localTime: params.localTime } : {}),
+      ...(params.statusFilter && params.statusFilter !== 'all' ? { statusFilter: params.statusFilter } : {}),
     }).toString();
     const res = await request(`/buses/search?${query}`, { method: 'GET' });
     return res as unknown as BusSearchResponse;

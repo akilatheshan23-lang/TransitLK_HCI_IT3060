@@ -188,3 +188,91 @@ test('8. Unauthenticated callers cannot register, edit or delete buses', async (
   assert.equal((await api('/buses/unknown', 'PUT', {}, null)).status, 401);
   assert.equal((await api('/buses/unknown', 'DELETE', null, null)).status, 401);
 });
+
+test('9. Passenger bus search identifies local time, hides past buses, and returns only live_now and upcoming buses for today', async () => {
+  const res = await api(
+    '/buses/search?from=Horana&to=Colombo&localTime=02:00%20PM',
+    'GET',
+    null,
+    null
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.data.success, true);
+  assert.equal(res.data.todayOnly, true);
+  assert.equal(res.data.localTimeMinutes, 14 * 60);
+  assert.ok(res.data.filteredPastCount > 0, 'Past buses before 02:00 PM must be filtered out');
+  assert.ok(Array.isArray(res.data.buses));
+  assert.ok(res.data.buses.length > 0);
+
+  for (const bus of res.data.buses) {
+    assert.ok(
+      bus.scheduleStatus === 'live_now' || bus.scheduleStatus === 'upcoming',
+      `Bus ${bus.busRegNumber} must be live_now or upcoming`
+    );
+    assert.ok(
+      bus.arrivalMinutes >= 14 * 60,
+      `Past bus (${bus.departureTime} -> ${bus.arrivalTime}) should not be returned after 02:00 PM`
+    );
+  }
+
+  const liveBuses = res.data.buses.filter((b) => b.scheduleStatus === 'live_now');
+  const upcomingBuses = res.data.buses.filter((b) => b.scheduleStatus === 'upcoming');
+  assert.ok(liveBuses.length >= 1, 'Should include at least one live_now bus running at local time');
+  assert.ok(upcomingBuses.length >= 1, 'Should include upcoming buses for today');
+  assert.equal(res.data.liveNowCount, liveBuses.length);
+  assert.equal(res.data.upcomingCount, upcomingBuses.length);
+});
+
+test('10. Passenger bus search respects startTime and endTime window for today', async () => {
+  const res = await api(
+    '/buses/search?from=Horana&to=Colombo&localTime=10:00%20AM&startTime=11:00%20AM&endTime=03:00%20PM',
+    'GET',
+    null,
+    null
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.data.success, true);
+  assert.equal(res.data.searchWindowStartMinutes, 11 * 60);
+  assert.equal(res.data.searchWindowEndMinutes, 15 * 60);
+  assert.ok(res.data.buses.length > 0);
+
+  for (const bus of res.data.buses) {
+    assert.ok(bus.arrivalMinutes >= 11 * 60, 'Bus must be active at or after startTime');
+    assert.ok(bus.departureMinutes <= 15 * 60, 'Bus must depart at or before endTime');
+  }
+});
+
+test('11. Passenger bus search supports statusFilter for live_now and upcoming buses with tracking telemetry', async () => {
+  const liveRes = await api(
+    '/buses/search?from=Horana&to=Colombo&localTime=01:30%20PM&statusFilter=live_now',
+    'GET',
+    null,
+    null
+  );
+  assert.equal(liveRes.status, 200);
+  assert.ok(liveRes.data.buses.length > 0);
+  for (const bus of liveRes.data.buses) {
+    assert.equal(bus.scheduleStatus, 'live_now');
+    assert.equal(bus.isLiveNow, true);
+    assert.equal(typeof bus.progressPercent, 'number');
+    assert.ok(bus.currentStop);
+    assert.ok(bus.nextStop);
+  }
+
+  const upcomingRes = await api(
+    '/buses/search?from=Horana&to=Colombo&localTime=01:30%20PM&statusFilter=upcoming',
+    'GET',
+    null,
+    null
+  );
+  assert.equal(upcomingRes.status, 200);
+  assert.ok(upcomingRes.data.buses.length > 0);
+  for (const bus of upcomingRes.data.buses) {
+    assert.equal(bus.scheduleStatus, 'upcoming');
+    assert.equal(bus.isUpcoming, true);
+    assert.ok(bus.departsInMinutes > 0);
+    assert.ok(bus.departsInText);
+  }
+});
+
+

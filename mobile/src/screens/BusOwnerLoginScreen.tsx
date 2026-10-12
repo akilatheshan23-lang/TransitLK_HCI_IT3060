@@ -1,3 +1,4 @@
+import {openPortal} from '../portalLinks';
 import React, { useState } from 'react';
 import {
   View,
@@ -29,7 +30,7 @@ export const BusOwnerLoginScreen: React.FC<BusOwnerLoginScreenProps> = ({
   const [mode, setMode] = useState<'signin' | 'register'>('signin');
 
   // Sign In fields
-  const [ownerId, setOwnerId] = useState('owner@transitlk.com');
+  const [ownerId, setOwnerId] = useState('niketh@gamil.com');
   const [password, setPassword] = useState('password123');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -230,7 +231,7 @@ export const BusOwnerLoginScreen: React.FC<BusOwnerLoginScreenProps> = ({
             <View style={styles.formSection}>
               <InputField
                 label="Registered email / Owner ID"
-                placeholder="owner@transitlk.com"
+                placeholder="niketh@gamil.com"
                 value={ownerId}
                 onChangeText={setOwnerId}
                 autoCapitalize="none"
@@ -304,13 +305,7 @@ export const BusOwnerLoginScreen: React.FC<BusOwnerLoginScreenProps> = ({
 
                 <TouchableOpacity
                   style={[styles.returnToSignInBtn, { backgroundColor: colors.teal.primary, marginTop: 10 }]}
-                  onPress={() => {
-                    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                      window.open('http://localhost:3001/?role=bus_owner', '_blank');
-                    } else {
-                      showAlert('Web Dashboard', 'Access your fleet dashboard at http://localhost:3001/?role=bus_owner');
-                    }
-                  }}
+                  onPress={() => { void openPortal('bus_owner'); }}
                   activeOpacity={0.8}
                 >
                   <Text style={[styles.returnToSignInText, { color: '#FFFFFF' }]}>

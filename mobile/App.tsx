@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import {openPortal} from './src/portalLinks';
+import {NotificationsProvider} from './src/notifications/Notifications';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -37,6 +39,7 @@ const defaultGuestUser: UserProfile = {
 };
 
 export default function App() {
+  const entryScreens = useRef<Partial<Record<ScreenType,ScreenType>>>({});
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [currentScreen, setCurrentScreen] = useState<ScreenType>(() => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -97,10 +100,21 @@ export default function App() {
   }, []);
 
   const navigateTo = (screen: ScreenType) => {
+    if (screen !== currentScreen && ['payment','tickets','conductor','login'].includes(screen)) {
+      // Returning from registration must not make the login Back button loop.
+      if (!(screen === 'login' && ['register','authority-login','bus-owner-login','dashboard','staff-management'].includes(currentScreen))) {
+        entryScreens.current[screen] = currentScreen;
+      }
+    }
     setCurrentScreen(screen);
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       window.location.hash = screen;
     }
+  };
+
+  const returnToEntry = () => {
+    const target = entryScreens.current[currentScreen];
+    navigateTo(target && target !== currentScreen ? target : 'home');
   };
 
   const handleSelectBusAndPay = async (bus?: BusSearchResult) => {
@@ -150,14 +164,14 @@ export default function App() {
       case 'payment':
         return (
           <NavigationContainer>
-            <AppNavigator initialRouteName="PaymentCheckout" onBackToHome={() => navigateTo('transit')} />
+            <AppNavigator initialRouteName="PaymentCheckout" onBackToHome={returnToEntry} />
           </NavigationContainer>
         );
 
       case 'tickets':
         return (
           <NavigationContainer>
-            <AppNavigator initialRouteName="SavedTickets" onBackToHome={() => navigateTo('transit')} />
+            <AppNavigator initialRouteName="SavedTickets" onBackToHome={returnToEntry} />
           </NavigationContainer>
         );
 
@@ -271,10 +285,10 @@ export default function App() {
 
       case 'dashboard':
         if (currentUser && ['officer', 'authority'].includes(currentUser.role)) {
-          return <AuthorityDashboardScreen user={currentUser as any} onOpenWebDashboard={() => navigateTo('staff-management')} onBack={() => navigateTo('home')} onSignOut={() => { void api.logout().then(() => { setCurrentUser(null); navigateTo('login'); }); }} />;
+          return <AuthorityDashboardScreen user={currentUser as any} onOpenWebDashboard={() => { void openPortal('authority'); }} onBack={() => navigateTo('home')} onSignOut={() => { void api.logout().then(() => { setCurrentUser(null); navigateTo('login'); }); }} />;
         }
         if (currentUser && ['owner', 'bus_owner'].includes(currentUser.role)) {
-          return <OwnerDashboard user={currentUser as any} onOpenWebDashboard={() => navigateTo('staff-management')} onViewFleet={() => navigateTo('fleet')} onBack={() => navigateTo('home')} onSignOut={() => { void api.logout().then(() => { setCurrentUser(null); navigateTo('login'); }); }} />;
+          return <OwnerDashboard user={currentUser as any} onViewFleet={() => navigateTo('fleet')} onBack={() => navigateTo('home')} onSignOut={() => { void api.logout().then(() => { setCurrentUser(null); navigateTo('login'); }); }} />;
         }
         return (
           <DashboardScreen
@@ -296,7 +310,7 @@ export default function App() {
       case 'fleet':
         return (
           <FleetTrackingScreen
-            onBack={() => navigateTo(currentUser?.role === 'bus_owner' ? 'dashboard' : 'home')}
+            onBack={() => navigateTo(currentUser && ['owner', 'bus_owner'].includes(currentUser.role) ? 'dashboard' : 'home')}
           />
         );
 
@@ -320,8 +334,10 @@ export default function App() {
   return (
     <SafeAreaProvider style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <AppNavigationContext.Provider value={{ navigateToScreen: navigateTo }}>
+      <AppNavigationContext.Provider value={{ navigateToScreen: navigateTo, goBackScreen:returnToEntry }}>
+        <NotificationsProvider key={currentUser?.id || 'guest'} userId={currentUser?.id} onSignIn={()=>navigateTo('login')}>
         <DeviceFrame>{renderScreen()}</DeviceFrame>
+        </NotificationsProvider>
       </AppNavigationContext.Provider>
     </SafeAreaProvider>
   );

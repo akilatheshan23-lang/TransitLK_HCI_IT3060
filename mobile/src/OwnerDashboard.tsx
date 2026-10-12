@@ -1,5 +1,7 @@
+import {RoutePlannerButton} from './location/RoutePlanner';
+import {NotificationBell} from './notifications/Notifications';
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Platform, Linking } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Platform, Linking, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors as c } from './theme';
 import { platformShadow } from './theme/shadows';
@@ -26,7 +28,7 @@ export default function OwnerDashboard({ user, onViewFleet, onSignOut, onBack, o
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       window.open(url, '_blank');
     } else {
-      void Linking.openURL(url);
+      void Linking.openURL(url).catch(() => Alert.alert('Could not open dashboard', `Open ${url} in your browser while connected to the same Wi-Fi as the computer.`));
     }
   };
 
@@ -44,7 +46,7 @@ export default function OwnerDashboard({ user, onViewFleet, onSignOut, onBack, o
             <Icon name="back" size={20} color={c.navy} />
           </Pressable>
           <Text style={s.headerTitle}>Owner dashboard</Text>
-          <View style={s.headerRightPlaceholder} />
+          <NotificationBell/>
         </View>
 
         <ScrollView
@@ -54,10 +56,11 @@ export default function OwnerDashboard({ user, onViewFleet, onSignOut, onBack, o
         >
           {/* Greeting */}
           <View style={s.greetingBlock}>
-            <Text style={s.eyebrow}>TODAY'S OPERATIONS</Text>
+            <Text style={s.eyebrow}>DEMO OPERATIONS OVERVIEW</Text>
             <Text style={s.title}>Good morning, {user?.name?.split(' ')[0] || 'Owner'}.</Text>
           </View>
 
+          <RoutePlannerButton/>
           {/* Today's Revenue Card */}
           <View style={s.card}>
             <Text style={s.cardLabel}>Today's revenue</Text>

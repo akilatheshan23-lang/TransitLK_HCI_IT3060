@@ -394,6 +394,7 @@ export async function requireAuthorityOrAdmin(req, res, next) {
 paymentsRouter.post('/process', async (req, res) => {
   const idempotencyKey = req.headers['idempotency-key'] || req.body.idempotencyKey;
   let scopedUserId = 'guest_user';
+  let notificationUserId = null;
 
   // Extract user identity for idempotency key scoping
   const authHeader = req.headers.authorization;
@@ -411,6 +412,7 @@ paymentsRouter.post('/process', async (req, res) => {
         });
         if (session && session.userId) {
           scopedUserId = String(session.userId);
+          notificationUserId = scopedUserId;
         }
       } catch {}
     }
@@ -575,6 +577,7 @@ paymentsRouter.post('/process', async (req, res) => {
     };
 
     const ticketRecord = {
+      ...(notificationUserId ? {notificationUserId} : {}),
       _id: generateId(),
       ticketId,
       verificationCode,

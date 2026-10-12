@@ -1,6 +1,9 @@
-import React from 'react';
+import React, {useContext} from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { NavigationContext } from '@react-navigation/native';
+import {AppNavigationContext, ScreenBackContext} from '../navigation/navigationTypes';
+import {performBack} from '../navigation/backAction';
+import {NotificationBell} from '../notifications/Notifications';
 import { Ionicons } from '@expo/vector-icons';
 import { ArrowLeftIcon, BellIcon } from './Icons';
 import { colors } from '../theme/colors';
@@ -18,22 +21,16 @@ export const Header: React.FC<HeaderProps> = ({
   title,
   onBackPress,
   showBack = true,
-  showBell = false,
+  showBell = true,
   onBellPress,
 }) => {
-  let nav: any = null;
-  try {
-    nav = useNavigation();
-  } catch {
-    // Navigation container may not wrap this screen in standalone mode
-  }
+  const nav = useContext(NavigationContext);
+  const {onBackToHome} = useContext(ScreenBackContext);
+  const {navigateToScreen, goBackScreen} = useContext(AppNavigationContext);
 
   const handleBack = () => {
-    if (onBackPress) {
-      onBackPress();
-    } else if (nav && typeof nav.goBack === 'function' && nav.canGoBack?.()) {
-      nav.goBack();
-    }
+    performBack({explicit:onBackPress, navigation:nav,
+      moduleBack:onBackToHome, appBack:goBackScreen || (()=>navigateToScreen('home'))});
   };
 
   return (
@@ -60,16 +57,7 @@ export const Header: React.FC<HeaderProps> = ({
       </View>
 
       {showBell ? (
-        <TouchableOpacity
-          onPress={onBellPress}
-          style={styles.bellButton}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Notifications"
-        >
-          <BellIcon size={22} color={colors.neutral.title} />
-        </TouchableOpacity>
+        <NotificationBell/>
       ) : (
         <View style={styles.placeholder} />
       )}
@@ -98,6 +86,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backButton: {
+    minWidth: 44,
+    minHeight: 44,
     padding: 6,
     backgroundColor: '#fff',
     borderRadius: 8,

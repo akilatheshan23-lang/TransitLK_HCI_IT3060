@@ -17,6 +17,7 @@ export type ScreenType =
 
 export const AppNavigationContext = React.createContext<{
   navigateToScreen: (screen: ScreenType) => void;
+  goBackScreen?: () => void;
 }>({
   navigateToScreen: () => {},
 });

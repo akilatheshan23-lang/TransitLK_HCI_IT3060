@@ -1,3 +1,4 @@
+import {NotificationBell} from '../../notifications/Notifications';
 import React, { useState, useEffect } from 'react';
 import { Text, View, StyleSheet, TouchableOpacity, Platform, SafeAreaView } from 'react-native';
 import { CameraView, Camera } from 'expo-camera';
@@ -12,8 +13,10 @@ export default function ScanTicket() {
 
   useEffect(() => {
     const getCameraPermissions = async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === 'granted');
+      try {
+        const { status } = await Camera.requestCameraPermissionsAsync();
+        setHasPermission(status === 'granted');
+      } catch { setHasPermission(false); }
     };
     getCameraPermissions();
   }, []);
@@ -36,11 +39,11 @@ export default function ScanTicket() {
             <Ionicons name="arrow-back" size={24} color="#0f172a" />
           </TouchableOpacity>
           <Text style={styles.headerTitleDark}>Scan QR code</Text>
-          <Ionicons name="notifications-outline" size={24} color="#0f172a" />
+          <NotificationBell/>
         </View>
         <View style={styles.center}>
           <Ionicons name="camera-outline" size={64} color="#94a3b8" />
-          <Text style={styles.errorText}>No access to camera</Text>
+          <Text style={styles.errorText}>{hasPermission === null ? 'Requesting camera access…' : 'Camera unavailable. Allow camera access in device settings or enter the ticket manually.'}</Text>
           <TouchableOpacity style={styles.manualBtn} onPress={() => navigation.navigate('ManualCheck')}>
             <Text style={styles.manualBtnText}>Enter Ticket Manually</Text>
           </TouchableOpacity>
@@ -57,7 +60,7 @@ export default function ScanTicket() {
           <Ionicons name="arrow-back" size={24} color="#0f172a" />
         </TouchableOpacity>
         <Text style={styles.headerTitleDark}>Scan QR code</Text>
-        <Ionicons name="notifications-outline" size={24} color="#0f172a" />
+        <NotificationBell/>
       </View>
 
       <View style={styles.cameraWrapper}>

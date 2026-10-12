@@ -1,3 +1,4 @@
+import {openPortal} from '../portalLinks';
 import React, { useState } from 'react';
 import {
   View,
@@ -306,13 +307,7 @@ export const AuthorityLoginScreen: React.FC<AuthorityLoginScreenProps> = ({
 
                 <TouchableOpacity
                   style={[styles.returnToSignInBtn, { backgroundColor: colors.authority.primary, marginTop: 10 }]}
-                  onPress={() => {
-                    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                      window.open('http://localhost:3001/?role=authority', '_blank');
-                    } else {
-                      showAlert('Web Portal', 'Access the Authority Officer Portal at http://localhost:3001/?role=authority');
-                    }
-                  }}
+                  onPress={() => { void openPortal('authority'); }}
                   activeOpacity={0.8}
                 >
                   <Text style={[styles.returnToSignInText, { color: '#FFFFFF' }]}>

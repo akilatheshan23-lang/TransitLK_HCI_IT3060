@@ -1,4 +1,6 @@
 import { transitRouter } from './transit.js';
+import {notificationsRouter} from './notifications.js';
+import {busTelemetryRouter} from './busTelemetry.js';
 import { lostFoundRouter } from './lostFound.js';
 import { authRouter } from './routes/auth.js';
 import { adminRouter } from './routes/admin.js';
@@ -68,8 +70,9 @@ app.use(
     res.type('html').send(html.replace("const GEOAPIFY_API_KEY = '';", 'const GEOAPIFY_API_KEY = ' + key + ';'));
   });
   app.get('/api/owner/overview', (_req, res) => res.json({
-    operator: 'Lanka Ashok Leyland Fleet #LK-BUS-4029',
-    ownerName: 'Bandara Silva',
+    operator: 'NCG Transport Fleet',
+    ownerName: 'niketh',
+    ownerEmail: 'niketh@gamil.com',
     todayRevenue: 45800,
     yesterdayRevenue: 40890,
     revenueChangePercent: 12,
@@ -131,6 +134,33 @@ app.use(
     next();
   }
   app.get('/api/me', authenticate, (req, res) => res.json({ success: true, user: publicUser(req.user) }));
+  app.patch('/api/me', authenticate, async (req, res, next) => {
+    try {
+      const updates = {};
+      if (typeof req.body?.name === 'string' && req.body.name.trim().length >= 2) updates.name = req.body.name.trim();
+      if (typeof req.body?.email === 'string' && req.body.email.includes('@')) updates.email = req.body.email.trim().toLowerCase();
+      if (typeof req.body?.avatar === 'string') updates.avatar = req.body.avatar.trim();
+      if (typeof req.body?.language === 'string' && ['en', 'si', 'ta'].includes(req.body.language)) updates.language = req.body.language;
+      const user = store.updateUser ? await store.updateUser(req.user._id, updates) : Object.assign(req.user, updates);
+      res.json({ success: true, user: publicUser(user) });
+    } catch (error) {
+      if (error.code === 11000) return res.status(409).json({ error: 'An account with this email already exists.' });
+      next(error);
+    }
+  });
+  app.delete('/api/me', authenticate, async (req, res, next) => {
+    try {
+      if (store.deleteUser) await store.deleteUser(req.user._id);
+      if (req.sessionHash && store.deleteSession) await store.deleteSession(req.sessionHash);
+      res.json({ success: true, message: 'Account deleted successfully.' });
+    } catch (error) {
+      next(error);
+    }
+  });
+  app.get('/api/fleet/routes',authenticate,async(req,res)=>{
+    if(!['owner','bus_owner'].includes(req.user.role) || (req.user.role==='bus_owner'&&req.user.status!=='approved'))return res.status(403).json({error:'An approved owner account is required.'});
+    res.json({buses:await store.ownerFleetRoutes(req.user._id)});
+  });
   app.patch('/api/me/preferences', authenticate, async (req, res) => {
     const result = z.object({ language }).strict().safeParse(req.body);
     if (!result.success) return res.status(400).json({ error: 'Choose English, Tamil or Sinhala.' });
@@ -173,6 +203,8 @@ app.use(
   app.use('/api/buses', busesRouter);
   app.use('/api/payments', paymentsRouter);
   app.use('/api', lostFoundRouter(store, authenticate));
+  app.use('/api', notificationsRouter(store, authenticate));
+  app.use('/api', busTelemetryRouter(store, authenticate));
   app.use('/api', transitRouter(store, authenticate));
   app.use('/api',authorityRouter(store, authenticate));
   app.use((_req, res) => res.status(404).json({ error: 'This endpoint does not exist.' }));

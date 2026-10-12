@@ -1,0 +1,13 @@
+import {test,before,after} from 'node:test';
+import assert from 'node:assert/strict';
+import {createApp} from '../src/app.js';
+import {tokenHash} from '../src/auth.js';
+const identities={['a'.repeat(64)]:{_id:'owner-a',role:'bus_owner',status:'approved'},['b'.repeat(64)]:{_id:'passenger',role:'passenger'},['c'.repeat(64)]:{_id:'pending-owner',role:'bus_owner',status:'pending'}};
+const users=Object.values(identities);let requestedOwner;
+const store={findSession:async hash=>{const pair=Object.entries(identities).find(([token])=>tokenHash(token)===hash);return pair?{userId:pair[1]._id}:null;},findUser:async id=>users.find(u=>u._id===id),ownerFleetRoutes:async id=>{requestedOwner=id;return [{id:'bus-a',stops:['Malabe','Borella'],gpsAvailable:false}];}};
+let server,base;
+before(async()=>{server=createApp(store).listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));base=`http://127.0.0.1:${server.address().port}/api/fleet/routes`;});
+after(()=>new Promise(r=>server.close(r)));
+test('fleet routes require authentication',async()=>assert.equal((await fetch(base)).status,401));
+test('passenger and pending owner cannot read fleet routes',async()=>{for(const letter of ['b','c'])assert.equal((await fetch(base,{headers:{Authorization:`Bearer ${letter.repeat(64)}`}})).status,403);});
+test('fleet identity comes from session, not caller input',async()=>{const response=await fetch(base+'?ownerId=another-owner',{headers:{Authorization:`Bearer ${'a'.repeat(64)}`}});assert.equal(response.status,200);assert.equal(requestedOwner,'owner-a');const data=await response.json();assert.equal(data.buses[0].gpsAvailable,false);assert.deepEqual(data.buses[0].stops,['Malabe','Borella']);});

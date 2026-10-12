@@ -1,3 +1,4 @@
+import {NotificationBell} from '../notifications/Notifications';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -258,12 +259,7 @@ export default function PostDetailsScreen({
         Post details
       </Text>
 
-      <Pressable
-        onPress={onNotifications}
-        style={styles.iconButton}
-      >
-        <Icon name="bell" size={20} />
-      </Pressable>
+      <NotificationBell/>
     </View>
   );
 

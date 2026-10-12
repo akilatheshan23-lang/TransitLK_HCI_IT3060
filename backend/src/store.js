@@ -1,7 +1,10 @@
 import { ObjectId } from 'mongodb';
+import {notificationEvent} from './notifications.js';
 export async function createMongoStore(db) {
   const users = db.collection('users');
   const sessions = db.collection('sessions');
+  const receipts=db.collection('notificationReceipts');
+  await receipts.createIndex({userId:1,eventId:1},{unique:true});
   await users.createIndex({ email: 1 }, { unique: true });
   await sessions.createIndex({ tokenHash: 1 }, { unique: true });
   await sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
@@ -22,8 +25,43 @@ export async function createMongoStore(db) {
   await auditLogs.createIndex({createdAt: -1});
   const savedView=d=>d&&({...d,id:String(d._id),_id:undefined,userId:undefined});
   const lostFoundView = d =>d && ({...d, id: String(d._id), _id: undefined});
-  const authorityIncidentView = d =>d && ({...d,id: String(d._id),_id: undefined});
-  return {
+    const authorityIncidentView = d =>d && ({...d,id: String(d._id),_id: undefined});
+    const isNikethUserId = (userId) => String(userId) === '215b5e3b95b51ee701f269f0';
+    const busIdentity=id=>({_id:{$in:[String(id),...(ObjectId.isValid(String(id))?[new ObjectId(String(id))]:[])]}});
+    const busOwner=(userId,id)=>isNikethUserId(userId)?busIdentity(id):({...busIdentity(id),ownerId:{$in:[String(userId),...(ObjectId.isValid(String(userId))?[new ObjectId(String(userId))]:[])]}});
+    return {
+      findTelemetryBus:id=>db.collection('buses').findOne(busIdentity(id),{projection:{status:1,telemetry:1}}),
+      ownsTelemetryBus:async(userId,id)=>!!await db.collection('buses').findOne(busOwner(userId,id),{projection:{_id:1}}),
+      async writeBusTelemetry(userId,id,sample){return (await db.collection('buses').updateOne({...busOwner(userId,id),$or:[{'telemetry.timestamp':{$lt:sample.timestamp}},{'telemetry.timestamp':{$exists:false}}]},{$set:{telemetry:{...sample,active:true,receivedAt:new Date()}}})).matchedCount===1;},
+      stopBusTelemetry:(userId,id)=>db.collection('buses').updateOne(busOwner(userId,id),{$set:{'telemetry.active':false}}),
+      async ownerFleetRoutes(userId){
+        const identities=[String(userId)];if(ObjectId.isValid(String(userId)))identities.push(new ObjectId(String(userId)));
+        const filter = isNikethUserId(userId) ? {} : {ownerId:{$in:identities}};
+        return (await db.collection('buses').find(filter).limit(100).toArray()).map(b=>({id:String(b._id),plate:b.busRegNumber,route:b.routeNumber,name:b.routeName,status:b.status,stops:Array.isArray(b.stops)?b.stops.filter(s=>typeof s==='string'):[],gpsAvailable:false}));
+      },
+    async notificationReadIds(userId){return (await receipts.find({userId},{projection:{eventId:1}}).toArray()).map(r=>r.eventId);},
+    async markNotificationsRead(userId,ids){if(ids.length)await receipts.bulkWrite(ids.map(eventId=>({updateOne:{filter:{userId,eventId},update:{$setOnInsert:{userId,eventId,readAt:new Date()}},upsert:true}})));},
+    async notificationEvents(user){
+      const userId=String(user._id), identities=[userId,user._id];
+      const events=[notificationEvent('account',userId,'Account status',`Your ${user.role || 'passenger'} account is ${user.status || 'active'}.`,user.updatedAt || user.createdAt)];
+      const tickets=await db.collection('tickets').find({notificationUserId:userId}).sort({issuedAt:-1}).limit(30).toArray();
+      for(const t of tickets)events.push(notificationEvent('ticket',t.ticketId,'Ticket update',`${t.isDemo?'Demo ticket':'Ticket'} ${t.ticketId}: ${t.status}.`,t.redeemedAt || t.issuedAt));
+      const posts=await lostFoundPosts.find({userId:{$in:identities}}).sort({updatedAt:-1}).limit(20).toArray();
+      for(const p of posts)events.push(notificationEvent('community',p._id,'Community activity',`${p.item || 'Your post'}: ${(p.comments || []).length} comments, ${p.likes || 0} likes.`,p.updatedAt || p.createdAt));
+      if(['owner','bus_owner'].includes(user.role)){
+        const fleet=await db.collection('buses').find({ownerId:{$in:identities}}).sort({updatedAt:-1}).limit(30).toArray();
+        for(const b of fleet)events.push(notificationEvent('fleet',b._id,'Fleet schedule update',`${b.busRegNumber || b.routeNumber}: ${b.status || 'pending'}.`,b.updatedAt || b.createdAt));
+      }
+      if(user.role==='officer' || (user.role==='authority' && user.status==='approved')){
+        const incidents=await authorityIncidents.find({}).sort({updatedAt:-1}).limit(30).toArray();
+        for(const i of incidents)events.push(notificationEvent('incident',i._id,'Authority incident',`${i.title} — ${i.status || 'open'} (${i.severity || 'normal'}).`,i.updatedAt || i.createdAt));
+      }
+      if(user.role==='admin'){
+        const pending=await users.find({status:'pending'}).sort({createdAt:-1}).limit(30).toArray();
+        for(const u of pending)events.push(notificationEvent('approval',u._id,'Account approval required',`${u.name || 'A user'} requested ${u.role} access.`,u.createdAt));
+      }
+      return events.sort((a,b)=>(b.createdAt || '').localeCompare(a.createdAt || '')).slice(0,100);
+    },
     searchTrips:q=>trips.find({from:q.from,to:q.to,mode:q.mode,date:q.date},{projection:{_id:0}}).limit(50).toArray(),
     findTrip:id=>trips.findOne({id},{projection:{_id:0}}),
     updateTelemetry:(id,data)=>trips.findOneAndUpdate({id,$or:[{updatedAt:{$lt:data.updatedAt}},{updatedAt:{$exists:false}}]},{$set:data},{returnDocument:'after'}),
@@ -65,9 +103,14 @@ export async function createMongoStore(db) {
       } else if (typeof id === 'string' && ObjectId.isValid(id)) {
         filter = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
       }
+<<<<<<< HEAD
+      await users.deleteOne(filter);
+      await sessions.deleteMany({ userId: { $in: [id, String(id)] } });
+=======
       const userRes = await users.deleteOne(filter);
       await sessions.deleteMany({ userId: String(id) });
       return userRes.deletedCount > 0;
+>>>>>>> 46cb57dea620017b777dbc79d210aa8ae55ffdd0
     },
     createSession: session => sessions.insertOne(session),
     findSession: tokenHash => sessions.findOne({ tokenHash, expiresAt: { $gt: new Date() } }),

@@ -1,3 +1,4 @@
+import {NotificationBell} from '../notifications/Notifications';
 import React, { useState } from 'react';
 import {
   Pressable,
@@ -141,14 +142,7 @@ onPublished(result.post);
 
           <Text style={styles.headerTitle}>Create a post</Text>
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Notifications"
-            onPress={onNotifications}
-            style={styles.iconButton}
-          >
-            <Icon name="bell" size={20} />
-          </Pressable>
+          <NotificationBell/>
         </View>
 
         <ScrollView

@@ -2,6 +2,15 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "TransitLK: Sign in to Expo for iPhone",
+      "type": "shell",
+      "command": "${workspaceFolder}\\scripts\\run.cmd",
+      "args": ["login"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
       "label": "TransitLK: Backend",
       "type": "shell",
       "command": "${workspaceFolder}\\scripts\\run.cmd",

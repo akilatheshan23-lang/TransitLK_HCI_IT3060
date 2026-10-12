@@ -334,10 +334,10 @@
         <span id="headerFleetCount">5 Fleet Buses Registered</span>
       </div>
       <div class="owner-profile">
-        <div class="owner-avatar">OW</div>
+        <div class="owner-avatar" id="headerOwnerAvatar">NK</div>
         <div class="owner-info">
-          <div class="name">Bandara Silva</div>
-          <div class="role">Owner • Lanka Ashok Leyland</div>
+          <div class="name" id="headerOwnerName">niketh@gamil.com</div>
+          <div class="role" id="headerOwnerRole">Bus Owner • NCG</div>
         </div>
       </div>
     </div>
@@ -349,7 +349,7 @@
     <div class="overview-banner">
       <div>
         <div class="eyebrow">COMMERCIAL FLEET OPERATIONS</div>
-        <h2 class="greeting">Good morning, Owner.</h2>
+        <h2 class="greeting" id="headerOwnerGreeting">Good morning, Niketh (niketh@gamil.com).</h2>
       </div>
       <div class="btn-group">
         <button class="btn btn-outline" onclick="exportReport()">📊 Export Revenue Report</button>
@@ -988,11 +988,7 @@
       };
 
       try {
-        const res = await fetch('/api/buses', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(busPayload)
-        }).then(r => r.json());
+        const res = await fetch('/api/buses', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-owner-email': 'niketh@gamil.com' }, body: JSON.stringify({ ...busPayload, ownerEmail: 'niketh@gamil.com' }) }).then(r => r.json());
 
         btn.disabled = false;
         btn.innerText = 'Submit for Approval';
@@ -1057,11 +1053,7 @@
       };
 
       try {
-        const res = await fetch(`/api/buses/${busId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatePayload)
-        }).then(r => r.json());
+        const res = await fetch(`/api/buses/${busId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'x-owner-email': 'niketh@gamil.com' }, body: JSON.stringify({ ...updatePayload, ownerEmail: 'niketh@gamil.com' }) }).then(r => r.json());
 
         btn.disabled = false;
         btn.innerText = 'Save & Resubmit';
@@ -1084,7 +1076,7 @@
       if (!confirm(`Are you sure you want to delete bus ${plate} from your commercial fleet?`)) return;
 
       try {
-        const res = await fetch(`/api/buses/${busId}`, { method: 'DELETE' }).then(r => r.json());
+        const res = await fetch(`/api/buses/${busId}`, { method: 'DELETE', headers: { 'x-owner-email': 'niketh@gamil.com' } }).then(r => r.json());
         if (res.success) {
           alert(`✓ Bus ${plate} has been deleted.`);
           loadFleetFromBackend();
@@ -1151,7 +1143,7 @@
     // Live fleet fetch from backend
     async function loadFleetFromBackend() {
       try {
-        const res = await fetch('/api/buses/owner-dashboard').then(r => r.json()).catch(() => null);
+        const res = await fetch('/api/buses/owner-dashboard?email=niketh@gamil.com', { headers: { 'x-owner-email': 'niketh@gamil.com' } }).then(r => r.json()).catch(() => null);
         if (res && res.success && res.busRevenueBreakdown && res.busRevenueBreakdown.length > 0) {
           window.liveFleetBuses = res.busRevenueBreakdown;
           renderFleetTable(res.busRevenueBreakdown);

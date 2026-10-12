@@ -1,3 +1,4 @@
+import {NotificationBell} from '../notifications/Notifications';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -113,14 +114,7 @@ export default function CommunityScreen({
 
           <Text style={styles.headerTitle}>Community</Text>
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Notifications"
-            onPress={onNotifications}
-            style={styles.iconButton}
-          >
-            <Icon name="bell" size={20} />
-          </Pressable>
+          <NotificationBell/>
         </View>
 
         <ScrollView

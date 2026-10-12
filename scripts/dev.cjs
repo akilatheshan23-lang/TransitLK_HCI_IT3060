@@ -11,7 +11,20 @@ const wifi = addresses.find(i => /wi-?fi|wireless/i.test(i.name));
 const host = process.env.TRANSITLK_HOST_IP || wifi?.address || addresses[0]?.address;
 
 async function main() {
-  if (!['frontend', 'mobile', 'android', 'backend', 'admin', 'check'].includes(mode)) throw Error('Choose frontend, mobile, android, backend or check.');
+  if (!['frontend', 'mobile', 'android', 'backend', 'admin', 'check', 'login', 'whoami'].includes(mode)) throw Error('Choose frontend, mobile, android, backend, admin, check, login or whoami.');
+  if (mode === 'login' || mode === 'whoami') {
+    // Match the running Metro server's account store, not the global CLI store.
+    process.env.__UNSAFE_EXPO_HOME_DIRECTORY = path.join(root, '.local/expo');
+    process.env.EXPO_NO_TELEMETRY = '1';
+    process.env.PATH = path.dirname(process.execPath) + path.delimiter + process.env.PATH;
+    const cli = path.join(root, 'node_modules/expo/bin/cli');
+    // Prompt in the user's terminal: Windows browser auto-launch can fail.
+    // Never accept or persist a password in this launcher or its arguments.
+    if (mode === 'login') console.log('Sign in using the same Expo username as your iPhone. Enter your password only at the hidden terminal prompt.');
+    process.argv = [process.execPath, cli, mode];
+    require(cli);
+    return;
+  }
   if (mode === 'check') {
     console.log(JSON.stringify({ node: process.version, project: root, host, api: host && `http://${host}:4000`, expo: host && `exp://${host}:8081` }, null, 2));
     return;
@@ -35,11 +48,13 @@ async function main() {
   } else {
     const android = mode === 'android';
     const mobile = mode === 'mobile' || android;
+    const port = process.env.TRANSITLK_EXPO_PORT || (mobile ? '8081' : '8082');
     if (mobile && !android && !host) throw Error('Connect the PC to Wi-Fi, or set TRANSITLK_HOST_IP to its LAN address.');
     process.chdir(path.join(root, 'mobile'));
-    process.env.EXPO_PUBLIC_API_URL = process.env.EXPO_PUBLIC_API_URL || (mode === 'frontend' ? 'http://localhost:4000/api' : `http://${android ? '10.0.2.2' : host || 'localhost'}:4000/api`);
-    if (android) process.env.REACT_NATIVE_PACKAGER_HOSTNAME = '127.0.0.1';
-    else if (host) process.env.REACT_NATIVE_PACKAGER_HOSTNAME = host;
+    // One LAN address works for Expo Go on both a phone and an emulator.
+    // Recompute it at startup so a Wi-Fi address change does not leave stale URLs.
+    process.env.EXPO_PUBLIC_API_URL = process.env.TRANSITLK_API_URL || `http://${host || (android ? '10.0.2.2' : 'localhost')}:4000/api`;
+    if (host) process.env.REACT_NATIVE_PACKAGER_HOSTNAME = host;
     process.env.EXPO_NO_TELEMETRY = '1';
     process.env.__UNSAFE_EXPO_HOME_DIRECTORY = path.join(root, '.local/expo');
     const androidSdk = path.join(process.env.LOCALAPPDATA || '', 'Android', 'Sdk');
@@ -50,14 +65,14 @@ async function main() {
     }
     process.env.PATH = path.dirname(process.execPath) + path.delimiter + process.env.PATH;
     if (android) {
-      console.log('Android emulator: Expo Go connects through localhost:8081.');
+      console.log(`Android emulator: Expo Go connects through ${host || 'localhost'}:${port}.`);
     } else if (mobile) {
       console.log(`iPhone: connect to the same Wi-Fi, then scan Expo's QR code with Camera.`);
-      console.log(`Expo Go address: exp://${host}:8081`);
-    } else console.log('Frontend browser preview: http://localhost:8082');
+      console.log(`Expo Go address: exp://${host}:${port}`);
+    } else console.log(`Frontend browser preview: http://localhost:${port}`);
     console.log(`Backend address: ${process.env.EXPO_PUBLIC_API_URL}`);
     const cli = path.join(root, 'node_modules/expo/bin/cli');
-    process.argv = [process.execPath, cli, 'start', ...(android ? ['--lan', ...(process.env.TRANSITLK_MANUAL_ANDROID ? [] : ['--android'])] : mobile ? ['--lan'] : ['--web']), '--port', mobile ? '8081' : '8082', '--max-workers', '0'];
+    process.argv = [process.execPath, cli, 'start', ...(android ? ['--lan', ...(process.env.TRANSITLK_MANUAL_ANDROID ? [] : ['--android'])] : mobile ? ['--lan'] : ['--web']), '--port', port, '--max-workers', '0'];
     require(cli);
   }
 }

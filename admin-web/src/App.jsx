@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BusOwnerDashboard } from './components/BusOwnerDashboard.jsx';
 import { AuthorityDashboard } from './components/AuthorityDashboard.jsx';
 
-const API_BASE = 'http://localhost:4000/api';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export default function App() {
   // Current authenticated user: { id, email, name, role, ... } or null
@@ -267,7 +267,7 @@ export default function App() {
       }
     } catch (err) {
       setLoginLoading(false);
-      setLoginError('Could not connect to backend server on http://localhost:4000');
+      setLoginError('Could not connect to the backend. Check that the TransitLK backend is running.');
     }
   };
 

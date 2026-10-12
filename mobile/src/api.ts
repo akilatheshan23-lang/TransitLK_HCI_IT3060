@@ -60,6 +60,7 @@ export async function uploadImage(
   path: string,
   formData: FormData
 ) {
+  if (!token) await restoreSession();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12000);
 

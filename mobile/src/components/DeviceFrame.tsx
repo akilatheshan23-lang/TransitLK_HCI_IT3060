@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { colors } from '../theme/colors';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface DeviceFrameProps {
   children: React.ReactNode;
@@ -40,6 +41,11 @@ export const DeviceFrame: React.FC<DeviceFrameProps> = ({
   const phoneHeight = isDesktop
     ? Math.min(880, Math.max(680, windowHeight - 36))
     : '100%';
+
+  // Real devices already provide the clock, camera cutout and gesture bar.
+  if (Platform.OS !== 'web') {
+    return <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>{children}</SafeAreaView>;
+  }
 
   return (
     <View style={isDesktop ? styles.desktopStage : styles.mobileStage}>

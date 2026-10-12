@@ -1,4 +1,9 @@
+<<<<<<< HEAD
+import {openPortal} from '../portalLinks';
+import React, { useState } from 'react';
+=======
 import React, { useState, useEffect } from 'react';
+>>>>>>> 46cb57dea620017b777dbc79d210aa8ae55ffdd0
 import {
   View,
   Text,
@@ -224,32 +229,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         setAdminPassword('');
         setAdminError('');
 
-        // Resolve admin dashboard destination URL
-        let dashboardUrl = res.adminDashboardUrl || 'http://localhost:3001';
-
-        if (Platform.OS === 'web' && typeof window !== 'undefined') {
-          const hostname = window.location.hostname;
-          if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
-            dashboardUrl = `http://${hostname}:3001`;
-          }
-          window.open(dashboardUrl, '_blank');
-        } else {
-          // Real mobile device / Expo Go on Android Pixel 7
-          if (dashboardUrl.includes('localhost')) {
-            dashboardUrl = 'http://172.20.10.3:3001';
-          }
-          const canOpen = await Linking.canOpenURL(dashboardUrl).catch(() => false);
-          if (canOpen) {
-            await Linking.openURL(dashboardUrl);
-          } else {
-            Linking.openURL(dashboardUrl).catch(() => {
-              showAlert(
-                'Open Admin Dashboard',
-                `Please open the admin portal in your browser: ${dashboardUrl}`
-              );
-            });
-          }
-        }
+        await openPortal('admin');
       } else {
         setAdminError(res.message || 'Invalid Admin Credentials. Access denied.');
       }

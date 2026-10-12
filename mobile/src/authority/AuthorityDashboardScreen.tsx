@@ -1,3 +1,4 @@
+import {NotificationBell} from '../notifications/Notifications';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -382,7 +383,7 @@ async function saveEdit(
           {titleText}
         </Text>
 
-        <View style={styles.headerButton} />
+        <NotificationBell/>
       </View>
     );
   }

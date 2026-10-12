@@ -1,4 +1,8 @@
+import {useBusTelemetry} from '../location/useBusTelemetry';
+import {NotificationBell} from '../notifications/Notifications';
 import React, { useState, useEffect, useMemo } from 'react';
+import ResolvedJourneyMap from '../location/ResolvedJourneyMap';
+import {RoutePlannerButton} from '../location/RoutePlanner';
 import {
   View,
   Text,
@@ -31,7 +35,7 @@ import {
 import { colors } from '../theme/colors';
 import { platformShadow } from '../theme/shadows';
 import { api, UserProfile, BusSearchResult } from '../services/api';
-import { GEOAPIFY_API_KEY, getGeoapifyStaticMapUrl } from '../geoapify';
+import { GEOAPIFY_API_KEY } from '../geoapify';
 
 interface HomeScreenProps {
   user: UserProfile;
@@ -44,45 +48,14 @@ interface HomeScreenProps {
   onNavigateToConductor?: () => void;
 }
 
-// Verified Sri Lankan town coordinates for real GPS mapping
-const SRI_LANKA_TOWNS: Record<string, { lat: number; lon: number }> = {
-  horana: { lat: 6.7159, lon: 80.0627 },
-  colombo: { lat: 6.9344, lon: 79.8500 },
-  pettah: { lat: 6.9350, lon: 79.8520 },
-  fort: { lat: 6.9330, lon: 79.8500 },
-  maharagama: { lat: 6.8480, lon: 79.9268 },
-  homagama: { lat: 6.8410, lon: 80.0030 },
-  kottawa: { lat: 6.8436, lon: 79.9654 },
-  panadura: { lat: 6.7134, lon: 79.9074 },
-  moratuwa: { lat: 6.7730, lon: 79.8816 },
-  'mount lavinia': { lat: 6.8344, lon: 79.8654 },
-  kollupitiya: { lat: 6.9147, lon: 79.8527 },
-  bambalapitiya: { lat: 6.8884, lon: 79.8587 },
-  kaduwela: { lat: 6.9336, lon: 79.9839 },
-  avissawella: { lat: 6.9537, lon: 80.2081 },
-  nugegoda: { lat: 6.8770, lon: 79.8780 },
-  katunayake: { lat: 7.1808, lon: 79.8841 },
-  negombo: { lat: 7.2088, lon: 79.8358 },
-  kandy: { lat: 7.2906, lon: 80.6337 },
-  galle: { lat: 6.0535, lon: 80.2210 },
-  matara: { lat: 5.9549, lon: 80.5550 },
-  kalutara: { lat: 6.5854, lon: 79.9607 },
-  ratnapura: { lat: 6.6828, lon: 80.4034 },
-  dehiwala: { lat: 6.8510, lon: 79.8659 },
-  kiribathgoda: { lat: 6.9806, lon: 79.9328 },
-  kadawatha: { lat: 7.0016, lon: 79.9528 },
-  battaramulla: { lat: 6.8992, lon: 79.9197 },
-  rajagiriya: { lat: 6.9088, lon: 79.8925 },
-};
-
-function getTownCoords(townName: string, fallbackOffset = 0): { lat: number; lon: number } {
-  const key = (townName || '').toLowerCase().trim();
-  for (const [k, v] of Object.entries(SRI_LANKA_TOWNS)) {
-    if (key.includes(k) || k.includes(key)) {
-      return v;
-    }
-  }
-  return { lat: 6.9100 + fallbackOffset * 0.04, lon: 79.8700 + fallbackOffset * 0.04 };
+function formatDeviceLocalTime(): string {
+  const now = new Date();
+  let hours = now.getHours();
+  const mins = now.getMinutes();
+  const meridian = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  if (hours === 0) hours = 12;
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} ${meridian}`;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -98,7 +71,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const [transitType, setTransitType] = useState<'bus' | 'train'>('bus');
   const [fromTown, setFromTown] = useState('Horana');
   const [toTown, setToTown] = useState('Colombo');
-  const [travelDate, setTravelDate] = useState('12 Sep 2026');
+  const [travelDate, setTravelDate] = useState('Today');
+  const [localTimeStr, setLocalTimeStr] = useState<string>(() => formatDeviceLocalTime());
+  const [startTime, setStartTime] = useState<string>('');
+  const [endTime, setEndTime] = useState<string>('');
+  const [statusTab, setStatusTab] = useState<'all' | 'live_now' | 'upcoming'>('all');
+  const [searchMeta, setSearchMeta] = useState<{
+    localTime: string;
+    startTime: string;
+    endTime: string;
+    liveNowCount: number;
+    upcomingCount: number;
+    filteredPastCount: number;
+  } | null>(null);
 
   // Locations state from MongoDB
   const [locations, setLocations] = useState<string[]>([]);
@@ -116,13 +101,23 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   // Live Bus Tracking state
   const [trackingBus, setTrackingBus] = useState<BusSearchResult | null>(null);
   const [showTrackingModal, setShowTrackingModal] = useState(false);
-  const [trackingSpeed, setTrackingSpeed] = useState(36);
-  const [trackingEta, setTrackingEta] = useState(8);
-  const [trackingLoading, setTrackingLoading] = useState(false);
+  const [demoTracking,setDemoTracking]=useState(true);
+  const [demoStats,setDemoStats]=useState<{speedKmh:number;etaMinutes:number}|null>(null);
+  const telemetry=useBusTelemetry(showTrackingModal && !demoTracking ? trackingBus?.id : undefined);
+  const trackingSpeed=demoTracking?demoStats?.speedKmh:telemetry.data?.speedKmh;
+  const [trackingEta, setTrackingEta] = useState<number|null>(null);
+  const trackingLoading=telemetry.loading;
   const [trackingRefreshCount, setTrackingRefreshCount] = useState(0);
 
   // Active bottom tab
   const [activeTab, setActiveTab] = useState<'home' | 'tickets' | 'community' | 'profile'>('home');
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLocalTimeStr(formatDeviceLocalTime());
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Load registered route town locations from database
   useEffect(() => {
@@ -177,17 +172,32 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     setSearchHasExecuted(true);
     setTrackingBus(null);
 
+    const currentLocal = formatDeviceLocalTime();
+    setLocalTimeStr(currentLocal);
+
     try {
       const res = await api.searchBuses({
         from: fromTown.trim(),
         to: toTown.trim(),
-        date: travelDate,
+        date: 'Today',
+        startTime: startTime.trim() || undefined,
+        endTime: endTime.trim() || undefined,
+        localTime: currentLocal,
       });
 
       if (res.success && res.buses) {
         setSearchResults(res.buses);
+        setSearchMeta({
+          localTime: res.localTime || currentLocal,
+          startTime: res.startTime || startTime.trim() || currentLocal,
+          endTime: res.endTime || endTime.trim() || '11:59 PM',
+          liveNowCount: res.liveNowCount ?? res.buses.filter((b) => b.isLiveNow).length,
+          upcomingCount: res.upcomingCount ?? res.buses.filter((b) => b.isUpcoming).length,
+          filteredPastCount: res.filteredPastCount ?? 0,
+        });
       } else {
         setSearchResults([]);
+        setSearchMeta(null);
       }
     } catch (err) {
       console.error('Bus search error:', err);
@@ -200,189 +210,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
   const handleTrackBus = (bus: BusSearchResult) => {
     setTrackingBus(bus);
-    setTrackingSpeed(34 + Math.floor(Math.random() * 8)); // 34-42 km/h
-    setTrackingEta(6 + Math.floor(Math.random() * 6)); // 6-12 mins
     setShowTrackingModal(true);
   };
 
-  const handleRefreshTracking = () => {
-    setTrackingLoading(true);
-    setTimeout(() => {
-      setTrackingRefreshCount((c) => c + 1);
-      setTrackingSpeed(32 + Math.floor(Math.random() * 12));
-      setTrackingEta((prev) => Math.max(2, prev - 1));
-      setTrackingLoading(false);
-    }, 600);
-  };
-
-  const trackingLeafletHtml = useMemo(() => {
-    if (!trackingBus) return '';
-    const fromCoord = getTownCoords(trackingBus.fromStop, 0);
-    const toCoord = getTownCoords(trackingBus.toStop, 1);
-    const busLat = Number((fromCoord.lat * 0.45 + toCoord.lat * 0.55).toFixed(5));
-    const busLon = Number((fromCoord.lon * 0.45 + toCoord.lon * 0.55).toFixed(5));
-    const routePoints = [
-      [fromCoord.lat, fromCoord.lon],
-      [Number(((fromCoord.lat * 2 + toCoord.lat) / 3 + 0.005).toFixed(5)), Number(((fromCoord.lon * 2 + toCoord.lon) / 3 - 0.004).toFixed(5))],
-      [Number(((fromCoord.lat + toCoord.lat * 2) / 3 + 0.003).toFixed(5)), Number(((fromCoord.lon + toCoord.lon * 2) / 3 - 0.002).toFixed(5))],
-      [toCoord.lat, toCoord.lon],
-    ];
-
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body, #map { width: 100%; height: 100%; background: #E8F4F0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    .pulse-ring {
-      position: absolute;
-      top: -10px;
-      left: -10px;
-      width: 52px;
-      height: 52px;
-      border-radius: 50%;
-      pointer-events: none;
-      animation: radar 2s infinite cubic-bezier(0.2, 0.8, 0.4, 1);
-    }
-    @keyframes radar {
-      0% { transform: scale(0.3); opacity: 0.95; }
-      100% { transform: scale(1.6); opacity: 0; }
-    }
-    .bus-marker-box {
-      background: #007A74;
-      color: white;
-      font-weight: 800;
-      font-size: 11px;
-      padding: 4px 8px;
-      border-radius: 12px;
-      border: 2px solid #FFFFFF;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.35);
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      white-space: nowrap;
-      cursor: pointer;
-    }
-    .stop-marker-pin {
-      width: 24px;
-      height: 24px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-weight: 800;
-      font-size: 11px;
-      border: 2px solid white;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-    }
-    .recenter-btn {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      z-index: 1000;
-      background: #FFFFFF;
-      color: #0F172A;
-      border: 1px solid #CBD5E1;
-      border-radius: 8px;
-      padding: 6px 12px;
-      font-size: 11px;
-      font-weight: 700;
-      cursor: pointer;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-  </style>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-</head>
-<body>
-  <div id="map"></div>
-  <button class="recenter-btn" onclick="centerBus()">🎯 Center Bus</button>
-  <script>
-    const fromCoord = [${fromCoord.lat}, ${fromCoord.lon}];
-    const toCoord = [${toCoord.lat}, ${toCoord.lon}];
-    const busCoord = [${busLat}, ${busLon}];
-    const routePoints = ${JSON.stringify(routePoints)};
-
-    const map = L.map('map', { zoomControl: false }).setView(busCoord, 13);
-    L.tileLayer('https://maps.geoapify.com/v1/tile/osm-bright/{z}/{x}/{y}.png?apiKey=${GEOAPIFY_API_KEY}', {
-      maxZoom: 19
-    }).addTo(map);
-
-    const polyline = L.polyline(routePoints, {
-      color: '#007A74',
-      weight: 5,
-      opacity: 0.85,
-      lineJoin: 'round'
-    }).addTo(map);
-
-    const originIcon = L.divIcon({
-      html: '<div class="stop-marker-pin" style="background:#059669;">A</div>',
-      className: '',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12]
-    });
-    L.marker(fromCoord, { icon: originIcon }).addTo(map)
-      .bindPopup('<b>Starting Stop: ${trackingBus.fromStop}</b><br/>Departure: ${trackingBus.departureTime}');
-
-    const destIcon = L.divIcon({
-      html: '<div class="stop-marker-pin" style="background:#DC2626;">B</div>',
-      className: '',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12]
-    });
-    L.marker(toCoord, { icon: destIcon }).addTo(map)
-      .bindPopup('<b>Destination Stop: ${trackingBus.toStop}</b><br/>Arrival: ${trackingBus.arrivalTime}');
-
-    const busIcon = L.divIcon({
-      html: '<div style="position:relative;display:flex;align-items:center;justify-content:center;">' +
-            '<div class="pulse-ring" style="background:rgba(0,122,116,0.45)"></div>' +
-            '<div class="bus-marker-box">🚌 ${trackingBus.routeNumber} • ${trackingBus.busRegNumber}</div>' +
-            '</div>',
-      className: '',
-      iconSize: [120, 32],
-      iconAnchor: [60, 16]
-    });
-    const busMarker = L.marker(busCoord, { icon: busIcon }).addTo(map);
-    busMarker.bindPopup(
-      '<div style="font-family:sans-serif;font-size:12px;padding:3px;">' +
-      '<b style="color:#0F172A;font-size:13px;">Route ${trackingBus.routeNumber} (${trackingBus.busRegNumber})</b><br/>' +
-      '<span style="color:#007A74;font-weight:700;">● Live Speed: ${trackingSpeed} km/h</span><br/>' +
-      '<span style="color:#64748B;">Approaching station</span><br/>' +
-      '<span style="color:#059669;font-weight:700;">ETA: ${trackingEta} mins</span>' +
-      '</div>'
-    ).openPopup();
-
-    function centerBus() {
-      map.flyTo(busCoord, 14, { animate: true, duration: 0.8 });
-      setTimeout(() => busMarker.openPopup(), 450);
-    }
-
-    map.fitBounds(polyline.getBounds(), { padding: [35, 35] });
-  </script>
-</body>
-</html>`;
-  }, [trackingBus, trackingSpeed, trackingEta, trackingRefreshCount]);
-
-  const trackingStaticMapUrl = useMemo(() => {
-    if (!trackingBus) return '';
-    const fromCoord = getTownCoords(trackingBus.fromStop, 0);
-    const toCoord = getTownCoords(trackingBus.toStop, 1);
-    const busLat = Number((fromCoord.lat * 0.45 + toCoord.lat * 0.55).toFixed(5));
-    const busLon = Number((fromCoord.lon * 0.45 + toCoord.lon * 0.55).toFixed(5));
-    return getGeoapifyStaticMapUrl({
-      centerLat: busLat,
-      centerLon: busLon,
-      zoom: 12,
-      vehicleLat: busLat,
-      vehicleLon: busLon,
-    });
-  }, [trackingBus, trackingRefreshCount]);
+  const handleRefreshTracking = telemetry.refresh;
 
   // Filtered locations for picker modal
   const filteredLocations = locations.filter((loc) =>
@@ -422,6 +253,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }
   };
 
+  const displayedBuses = useMemo(() => {
+    if (!searchResults) return [];
+    if (statusTab === 'live_now') {
+      return searchResults.filter((b) => b.scheduleStatus === 'live_now' || b.isLiveNow);
+    }
+    if (statusTab === 'upcoming') {
+      return searchResults.filter((b) => b.scheduleStatus === 'upcoming' || b.isUpcoming);
+    }
+    return searchResults;
+  }, [searchResults, statusTab]);
+
   const displayName = user?.name ? user.name.split(' ')[0].toUpperCase() : 'KAMAL';
 
   return (
@@ -437,14 +279,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <Text style={styles.headerBrandTitle}>TransitLK</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.bellButton}
-          onPress={() => showAlert('Notifications', 'No new transit delay notifications.')}
-          activeOpacity={0.7}
-        >
-          <BellIcon size={22} color="#0F172A" />
-          <View style={styles.notificationDot} />
-        </TouchableOpacity>
+        <NotificationBell/>
       </View>
 
       <ScrollView
@@ -557,23 +392,76 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* TRAVEL DATE Input */}
+          {/* TODAY LOCAL TIME BANNER */}
           <View style={styles.fieldBlock}>
-            <Text style={styles.fieldLabel}>Travel date</Text>
-            <TouchableOpacity
-              style={styles.fieldInputCard}
-              onPress={() => {
-                const dates = ['Today', 'Tomorrow', '12 Sep 2026', '13 Sep 2026'];
-                const nextIdx = (dates.indexOf(travelDate) + 1) % dates.length;
-                setTravelDate(dates[nextIdx]);
-              }}
-              activeOpacity={0.7}
-            >
-              <View style={styles.fieldIconContainer}>
-                <ClockIcon size={20} color={colors.teal.primary} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#ECFDF5', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: '#A7F3D0' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#10B981' }} />
+                <Text style={{ fontSize: 11, fontWeight: '800', color: '#065F46' }}>TODAY ONLY • LOCAL TIME</Text>
               </View>
-              <Text style={styles.fieldTextValue}>{travelDate}</Text>
-            </TouchableOpacity>
+              <Text style={{ fontSize: 12, fontWeight: '800', color: '#047857' }}>{localTimeStr}</Text>
+            </View>
+          </View>
+
+          {/* START TIME & END TIME WINDOW */}
+          <View style={styles.fieldBlock}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <Text style={styles.fieldLabel}>Start Time & End Time (Today)</Text>
+              {(startTime || endTime) ? (
+                <TouchableOpacity onPress={() => { setStartTime(''); setEndTime(''); }}>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: colors.teal.primary }}>Reset to Now ({localTimeStr})</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <View style={[styles.fieldInputCard, { flex: 1, paddingHorizontal: 10, height: 46 }]}>
+                <ClockIcon size={16} color={colors.teal.primary} />
+                <TextInput
+                  style={{ flex: 1, fontSize: 13, fontWeight: '700', color: '#0F172A', marginLeft: 6 }}
+                  placeholder={`Start (${localTimeStr})`}
+                  placeholderTextColor="#94A3B8"
+                  value={startTime}
+                  onChangeText={setStartTime}
+                />
+              </View>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#64748B' }}>→</Text>
+              <View style={[styles.fieldInputCard, { flex: 1, paddingHorizontal: 10, height: 46 }]}>
+                <ClockIcon size={16} color={colors.teal.primary} />
+                <TextInput
+                  style={{ flex: 1, fontSize: 13, fontWeight: '700', color: '#0F172A', marginLeft: 6 }}
+                  placeholder="End (11:59 PM)"
+                  placeholderTextColor="#94A3B8"
+                  value={endTime}
+                  onChangeText={setEndTime}
+                />
+              </View>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginTop: 8 }}>
+              {[
+                { label: 'Now → Tonight', s: '', e: '' },
+                { label: 'Morning', s: '06:00 AM', e: '12:00 PM' },
+                { label: 'Afternoon', s: '12:00 PM', e: '06:00 PM' },
+                { label: 'Evening', s: '06:00 PM', e: '11:30 PM' },
+              ].map((preset, idx) => {
+                const active = startTime === preset.s && endTime === preset.e;
+                return (
+                  <TouchableOpacity
+                    key={idx}
+                    onPress={() => { setStartTime(preset.s); setEndTime(preset.e); }}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 999,
+                      backgroundColor: active ? colors.teal.primary : '#F1F5F9',
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: active ? '#FFFFFF' : '#475569' }}>
+                      {preset.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
 
           {/* "Find my ride →" Main Action Button */}
@@ -598,21 +486,103 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {searchHasExecuted && (
           <View style={styles.resultsContainer}>
             <View style={styles.resultsHeader}>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.resultsTitle}>
-                  {searchResults && searchResults.length > 0
-                    ? `Available Buses (${searchResults.length})`
-                    : 'No direct buses found'}
+                  {displayedBuses.length > 0
+                    ? `Today's Available Buses (${displayedBuses.length})`
+                    : 'No buses in selected time window'}
                 </Text>
                 <Text style={styles.resultsSubtitle}>
-                  {fromTown} → {toTown} • {travelDate}
+                  {fromTown} → {toTown} • Local Time {searchMeta?.localTime || localTimeStr} • Window {searchMeta?.startTime || localTimeStr} – {searchMeta?.endTime || '11:59 PM'}
                 </Text>
               </View>
             </View>
 
-            {searchResults && searchResults.length > 0 ? (
-              searchResults.map((bus) => (
-                <View key={bus.id} style={styles.busCard}>
+            {searchResults && searchResults.length > 0 && (
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                <TouchableOpacity
+                  onPress={() => setStatusTab('all')}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 8,
+                    borderRadius: 10,
+                    alignItems: 'center',
+                    backgroundColor: statusTab === 'all' ? colors.teal.primary : '#E2E8F0',
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: statusTab === 'all' ? '#FFFFFF' : '#334155' }}>
+                    All Today ({searchResults.length})
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setStatusTab('live_now')}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 8,
+                    borderRadius: 10,
+                    alignItems: 'center',
+                    backgroundColor: statusTab === 'live_now' ? '#059669' : '#DCFCE7',
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: statusTab === 'live_now' ? '#FFFFFF' : '#065F46' }}>
+                    Live Now ({searchMeta?.liveNowCount ?? searchResults.filter((b) => b.isLiveNow).length})
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setStatusTab('upcoming')}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 8,
+                    borderRadius: 10,
+                    alignItems: 'center',
+                    backgroundColor: statusTab === 'upcoming' ? '#2563EB' : '#DBEAFE',
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: statusTab === 'upcoming' ? '#FFFFFF' : '#1E40AF' }}>
+                    Upcoming ({searchMeta?.upcomingCount ?? searchResults.filter((b) => b.isUpcoming).length})
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {displayedBuses.length > 0 ? (
+              displayedBuses.map((bus, busIdx) => (
+                <View key={`${bus.id}-${bus.departureTime || busIdx}`} style={styles.busCard}>
+                  {/* Live Now / Upcoming Status Banner */}
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                      borderRadius: 8,
+                      marginBottom: 10,
+                      backgroundColor: bus.isLiveNow ? '#ECFDF5' : '#EFF6FF',
+                      borderWidth: 1,
+                      borderColor: bus.isLiveNow ? '#A7F3D0' : '#BFDBFE',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: '800',
+                        color: bus.isLiveNow ? '#047857' : '#1D4ED8',
+                      }}
+                    >
+                      {bus.isLiveNow ? '● LIVE NOW • ON ROUTE' : '● UPCOMING TODAY'}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: '700',
+                        color: bus.isLiveNow ? '#065F46' : '#1E40AF',
+                      }}
+                    >
+                      {bus.departsInText || (bus.isLiveNow ? 'Running now' : `Departs ${bus.departureTime}`)}
+                    </Text>
+                  </View>
+
                   {/* Card Header: Route Number + Bus Type + Price */}
                   <View style={styles.busCardHeader}>
                     <View style={styles.routeBadgeGroup}>
@@ -720,6 +690,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
         )}
 
+        <RoutePlannerButton from={fromTown} to={toTown}/>
         {/* Promo Marketing Card from Figma */}
         <View style={styles.promoCard}>
           <Text style={styles.promoTitle}>A better way to get there</Text>
@@ -964,7 +935,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   </View>
                   <View style={styles.liveGpsBadge}>
                     <View style={styles.liveGpsDot} />
-                    <Text style={styles.liveGpsText}>LIVE GPS</Text>
+                    <Text style={styles.liveGpsText}>{demoTracking?'DEMO BUS':telemetry.data?.status==='live'?'LIVE GPS':telemetry.data?.status==='stale'?'STALE GPS':'GPS OFFLINE'}</Text>
                   </View>
                 </View>
 
@@ -997,40 +968,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   </View>
                 </View>
 
-                {/* Real-time Map Box */}
+                <RoutePlannerButton from={trackingBus?.fromStop} to={trackingBus?.toStop}/>
+                <TouchableOpacity onPress={()=>setDemoTracking(v=>!v)} style={{padding:12}}><Text style={{color:colors.teal.primary,fontWeight:"700"}}>{demoTracking?"Demo bus running · Switch to real GPS":"Real GPS · Show demo bus instead"}</Text></TouchableOpacity>
+                {/* Road route map */}
                 <View style={styles.trackingMapContainer}>
-                  <iframe
-                    title={`Live GPS Map - Route ${trackingBus?.routeNumber}`}
-                    srcDoc={trackingLeafletHtml}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      border: 'none',
-                      borderRadius: 16,
-                      display: 'block',
-                    }}
-                  />
-                  <View style={styles.mapOverlayPill}>
-                    <Text style={styles.mapOverlayPillText}>
-                      🛰️ Geoapify Satellite GPS Telemetry
-                    </Text>
-                  </View>
+                  <ResolvedJourneyMap origin={trackingBus?.fromStop || ""} destination={trackingBus?.toStop || ""} stops={trackingBus?.routeStops} vehicle={telemetry.data?.position} onEta={setTrackingEta} demo={demoTracking} onDemo={setDemoStats}/>
                 </View>
 
                 {/* KPI Telemetry Stat Grid */}
                 <View style={styles.telemetryGrid}>
                   <View style={styles.telemetryStatCard}>
                     <Text style={styles.telemetryStatIcon}>⚡</Text>
-                    <Text style={styles.telemetryStatValue}>{trackingSpeed} km/h</Text>
-                    <Text style={styles.telemetryStatLabel}>Current Speed</Text>
+                    <Text style={styles.telemetryStatValue}>{trackingSpeed!=null?`${trackingSpeed} km/h`:'—'}</Text>
+                    <Text style={styles.telemetryStatLabel}>{demoTracking?"Demo Speed":"GPS Speed"}</Text>
                   </View>
 
                   <View style={styles.telemetryStatCard}>
                     <Text style={styles.telemetryStatIcon}>⏱️</Text>
                     <Text style={[styles.telemetryStatValue, { color: colors.teal.primary }]}>
-                      ~{trackingEta} mins
+                      {demoTracking?(demoStats?`${demoStats.etaMinutes} mins`:'—'):telemetry.data?.status==='live'&&trackingEta!=null?`~${trackingEta} mins`:'—'}
                     </Text>
-                    <Text style={styles.telemetryStatLabel}>Estimated ETA</Text>
+                    <Text style={styles.telemetryStatLabel}>{demoTracking?"Demo ETA":"Road ETA estimate"}</Text>
                   </View>
 
                   <View style={styles.telemetryStatCard}>
@@ -1038,13 +996,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     <Text style={[styles.telemetryStatValue, { color: '#16A34A' }]}>
                       {trackingBus?.availableSeats} seats
                     </Text>
-                    <Text style={styles.telemetryStatLabel}>Available</Text>
+                    <Text style={styles.telemetryStatLabel}>Listed seats</Text>
                   </View>
                 </View>
 
                 {/* Route Progress Visualizer */}
                 <View style={styles.trackingTimelineCard}>
-                  <Text style={styles.timelineCardTitle}>Journey Schedule & Live Telemetry</Text>
+                  <Text style={styles.timelineCardTitle}>Journey Schedule & GPS</Text>
                   
                   <View style={styles.timelineRow}>
                     <View style={[styles.timelineNode, { backgroundColor: '#10B981' }]}>
@@ -1066,13 +1024,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     </View>
                     <View style={styles.timelineInfo}>
                       <View style={styles.liveLocationBadgeRow}>
-                        <Text style={styles.liveLocationTitle}>Live Vehicle Position</Text>
+                        <Text style={styles.liveLocationTitle}>Bus GPS position</Text>
                         <View style={styles.activePulsingChip}>
-                          <Text style={styles.activePulsingChipText}>EN ROUTE</Text>
+                          <Text style={styles.activePulsingChipText}>{demoTracking?'SIMULATED':telemetry.data?.status==='live'?'RECEIVING':'WAITING'}</Text>
                         </View>
                       </View>
                       <Text style={styles.timelineStopSub}>
-                        Moving at {trackingSpeed} km/h • Next stop approaching in {Math.max(2, Math.round(trackingEta / 2))} mins
+                        Moving at {trackingSpeed ?? 0} km/h • Next stop approaching in {Math.max(2, Math.round(((demoTracking ? demoStats?.etaMinutes : trackingEta) || 10) / 2))} mins
                       </Text>
                     </View>
                   </View>
@@ -1086,7 +1044,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     <View style={styles.timelineInfo}>
                       <Text style={styles.timelineStopTitle}>{trackingBus?.toStop}</Text>
                       <Text style={styles.timelineStopSub}>
-                        Destination • Estimated arrival: {trackingBus?.arrivalTime} ({trackingBus?.duration})
+                        Destination • Scheduled arrival: {trackingBus?.arrivalTime} ({trackingBus?.duration})
                       </Text>
                     </View>
                   </View>
@@ -1096,7 +1054,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 <View style={styles.trackingActionsRow}>
                   <TouchableOpacity
                     style={styles.refreshGpsButton}
-                    onPress={handleRefreshTracking}
+                    onPress={()=>demoTracking?setDemoTracking(false):handleRefreshTracking()}
                     activeOpacity={0.8}
                     disabled={trackingLoading}
                   >
@@ -1105,7 +1063,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     ) : (
                       <>
                         <Text style={styles.refreshGpsIcon}>🔄</Text>
-                        <Text style={styles.refreshGpsText}>Refresh Live GPS</Text>
+                        <Text style={styles.refreshGpsText}>{demoTracking?"Use real bus GPS":"Refresh Bus GPS"}</Text>
                       </>
                     )}
                   </TouchableOpacity>
@@ -1139,7 +1097,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 )}
 
                 <Text style={styles.telemetryFooterNotice}>
-                  ✓ Verified TransitLK GPS Telemetry • Powered by Geoapify
+                  {demoTracking?"Demo bus simulation · Not live vehicle tracking":"Owner phone GPS · Road ETA is an estimate, not live traffic."}
                 </Text>
               </ScrollView>
             </View>
@@ -1162,7 +1120,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   </View>
                   <View style={styles.liveGpsBadge}>
                     <View style={styles.liveGpsDot} />
-                    <Text style={styles.liveGpsText}>LIVE GPS</Text>
+                    <Text style={styles.liveGpsText}>
+                      {demoTracking
+                        ? 'DEMO BUS'
+                        : telemetry.data?.status === 'live'
+                        ? 'LIVE GPS'
+                        : telemetry.data?.status === 'stale'
+                        ? 'STALE GPS'
+                        : 'GPS OFFLINE'}
+                    </Text>
                   </View>
                 </View>
 
@@ -1195,34 +1161,56 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   </View>
                 </View>
 
-                {/* Real-time Map Box */}
+                <RoutePlannerButton from={trackingBus?.fromStop} to={trackingBus?.toStop} />
+                <TouchableOpacity onPress={() => setDemoTracking((v) => !v)} style={{ padding: 12 }}>
+                  <Text style={{ color: colors.teal.primary, fontWeight: '700' }}>
+                    {demoTracking
+                      ? 'Demo bus running · Switch to real GPS'
+                      : 'Real GPS · Show demo bus instead'}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Road route map */}
                 <View style={styles.trackingMapContainer}>
-                  <Image
-                    source={{ uri: trackingStaticMapUrl }}
-                    style={styles.trackingStaticMapImage}
-                    resizeMode="cover"
-                  />
-                  <View style={styles.mapOverlayPill}>
-                    <Text style={styles.mapOverlayPillText}>
-                      🛰️ Geoapify Satellite GPS Telemetry
-                    </Text>
-                  </View>
+                  {trackingBus && (
+                    <ResolvedJourneyMap
+                      origin={trackingBus.fromStop}
+                      destination={trackingBus.toStop}
+                      stops={trackingBus.routeStops}
+                      vehicle={telemetry.data?.position}
+                      onEta={setTrackingEta}
+                      demo={demoTracking}
+                      onDemo={setDemoStats}
+                    />
+                  )}
                 </View>
 
                 {/* KPI Telemetry Stat Grid */}
                 <View style={styles.telemetryGrid}>
                   <View style={styles.telemetryStatCard}>
                     <Text style={styles.telemetryStatIcon}>⚡</Text>
-                    <Text style={styles.telemetryStatValue}>{trackingSpeed} km/h</Text>
-                    <Text style={styles.telemetryStatLabel}>Current Speed</Text>
+                    <Text style={styles.telemetryStatValue}>
+                      {trackingSpeed != null ? `${trackingSpeed} km/h` : '—'}
+                    </Text>
+                    <Text style={styles.telemetryStatLabel}>
+                      {demoTracking ? 'Demo Speed' : 'GPS Speed'}
+                    </Text>
                   </View>
 
                   <View style={styles.telemetryStatCard}>
                     <Text style={styles.telemetryStatIcon}>⏱️</Text>
                     <Text style={[styles.telemetryStatValue, { color: colors.teal.primary }]}>
-                      ~{trackingEta} mins
+                      {demoTracking
+                        ? demoStats
+                          ? `${demoStats.etaMinutes} mins`
+                          : '—'
+                        : telemetry.data?.status === 'live' && trackingEta != null
+                        ? `~${trackingEta} mins`
+                        : '—'}
                     </Text>
-                    <Text style={styles.telemetryStatLabel}>Estimated ETA</Text>
+                    <Text style={styles.telemetryStatLabel}>
+                      {demoTracking ? 'Demo ETA' : 'Road ETA estimate'}
+                    </Text>
                   </View>
 
                   <View style={styles.telemetryStatCard}>
@@ -1230,14 +1218,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     <Text style={[styles.telemetryStatValue, { color: '#16A34A' }]}>
                       {trackingBus?.availableSeats} seats
                     </Text>
-                    <Text style={styles.telemetryStatLabel}>Available</Text>
+                    <Text style={styles.telemetryStatLabel}>Listed seats</Text>
                   </View>
                 </View>
 
                 {/* Route Progress Visualizer */}
                 <View style={styles.trackingTimelineCard}>
-                  <Text style={styles.timelineCardTitle}>Journey Schedule & Live Telemetry</Text>
-                  
+                  <Text style={styles.timelineCardTitle}>Journey Schedule & GPS</Text>
+
                   <View style={styles.timelineRow}>
                     <View style={[styles.timelineNode, { backgroundColor: '#10B981' }]}>
                       <Text style={styles.timelineNodeText}>A</Text>
@@ -1258,13 +1246,20 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     </View>
                     <View style={styles.timelineInfo}>
                       <View style={styles.liveLocationBadgeRow}>
-                        <Text style={styles.liveLocationTitle}>Live Vehicle Position</Text>
+                        <Text style={styles.liveLocationTitle}>Bus GPS position</Text>
                         <View style={styles.activePulsingChip}>
-                          <Text style={styles.activePulsingChipText}>EN ROUTE</Text>
+                          <Text style={styles.activePulsingChipText}>
+                            {demoTracking
+                              ? 'SIMULATED'
+                              : telemetry.data?.status === 'live'
+                              ? 'RECEIVING'
+                              : 'WAITING'}
+                          </Text>
                         </View>
                       </View>
                       <Text style={styles.timelineStopSub}>
-                        Moving at {trackingSpeed} km/h • Next stop approaching in {Math.max(2, Math.round(trackingEta / 2))} mins
+                        Moving at {trackingSpeed ?? 0} km/h • Next stop approaching in{' '}
+                        {Math.max(2, Math.round(((demoTracking ? demoStats?.etaMinutes : trackingEta) || 10) / 2))} mins
                       </Text>
                     </View>
                   </View>
@@ -1278,7 +1273,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     <View style={styles.timelineInfo}>
                       <Text style={styles.timelineStopTitle}>{trackingBus?.toStop}</Text>
                       <Text style={styles.timelineStopSub}>
-                        Destination • Estimated arrival: {trackingBus?.arrivalTime} ({trackingBus?.duration})
+                        Destination • Scheduled arrival: {trackingBus?.arrivalTime} ({trackingBus?.duration})
                       </Text>
                     </View>
                   </View>
@@ -1288,7 +1283,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 <View style={styles.trackingActionsRow}>
                   <TouchableOpacity
                     style={styles.refreshGpsButton}
-                    onPress={handleRefreshTracking}
+                    onPress={() => (demoTracking ? setDemoTracking(false) : handleRefreshTracking())}
                     activeOpacity={0.8}
                     disabled={trackingLoading}
                   >
@@ -1297,7 +1292,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     ) : (
                       <>
                         <Text style={styles.refreshGpsIcon}>🔄</Text>
-                        <Text style={styles.refreshGpsText}>Refresh Live GPS</Text>
+                        <Text style={styles.refreshGpsText}>
+                          {demoTracking ? 'Use real bus GPS' : 'Refresh Bus GPS'}
+                        </Text>
                       </>
                     )}
                   </TouchableOpacity>
@@ -1331,7 +1328,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 )}
 
                 <Text style={styles.telemetryFooterNotice}>
-                  ✓ Verified TransitLK GPS Telemetry • Powered by Geoapify
+                  {demoTracking
+                    ? 'Demo bus simulation · Not live vehicle tracking'
+                    : 'Owner phone GPS · Road ETA is an estimate, not live traffic.'}
                 </Text>
               </ScrollView>
             </View>
