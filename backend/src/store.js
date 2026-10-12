@@ -103,14 +103,9 @@ export async function createMongoStore(db) {
       } else if (typeof id === 'string' && ObjectId.isValid(id)) {
         filter = { $or: [{ _id: new ObjectId(id) }, { _id: id }] };
       }
-<<<<<<< HEAD
-      await users.deleteOne(filter);
-      await sessions.deleteMany({ userId: { $in: [id, String(id)] } });
-=======
       const userRes = await users.deleteOne(filter);
-      await sessions.deleteMany({ userId: String(id) });
+      await sessions.deleteMany({ userId: { $in: [id, String(id)] } });
       return userRes.deletedCount > 0;
->>>>>>> 46cb57dea620017b777dbc79d210aa8ae55ffdd0
     },
     createSession: session => sessions.insertOne(session),
     findSession: tokenHash => sessions.findOne({ tokenHash, expiresAt: { $gt: new Date() } }),

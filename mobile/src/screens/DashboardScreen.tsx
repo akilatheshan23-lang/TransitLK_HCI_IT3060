@@ -1,9 +1,5 @@
-<<<<<<< HEAD
 import {openPortal} from '../portalLinks';
-import React, { useState } from 'react';
-=======
 import React, { useState, useEffect } from 'react';
->>>>>>> 46cb57dea620017b777dbc79d210aa8ae55ffdd0
 import {
   View,
   Text,
